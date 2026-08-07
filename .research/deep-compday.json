@@ -1,0 +1,489 @@
+{
+  "source": "Competition-day & whole-robot tooling research (Aug 2026): WPILib 2026.2.2 + 2027-alpha docs, Elastic docs/releases, CTRE Phoenix 6 26.x, REVLib 2026, AdvantageKit/AdvantageScope 2026, DogLog, 3061-lib, 135 Consul, PathPlannerLib 2026, TBA/Statbotics.",
+  "summary": "The single most important fact for PumpkinLib's design is that WPILib 2027 deletes the ground underneath half this domain: Shuffleboard, SmartDashboard, NetworkTables 3, RobotBuilder, PathWeaver, `robotInit()`, RamseteController, PIDCommand/ProfiledPIDCommand/TrapezoidProfileCommand, and mutable Java units are all removed, the roboRIO is replaced by Systemcore, Java moves to 25, and — critically for a library — every package renames from `edu.wpi.first` to `org.wpilib` (https://docs.wpilib.org/en/2027/docs/yearly-overview/removed-features.html, https://docs.wpilib.org/en/latest/docs/yearly-overview/yearly-changelog.html). Any PumpkinLib API that leaks a WPILib dashboard type or a `SubsystemBase` inheritance requirement will need a rewrite in ~4 months. The 2026-correct target is therefore: Elastic as the driver dashboard, AdvantageScope as the debug/replay tool, Glass for live-only debugging, and raw NetworkTables 4 as the only dashboard-facing contract. Robot status has a genuine WPILib primitive now — `edu.wpi.first.wpilibj.Alert` with `AlertType.{kError,kWarning,kInfo}` and group-based NT publishing under `/SmartDashboard/<Group>` — but WPILib ships zero hardware health *checks*; every check (CAN utilization via `RobotController.getCANStatus()`, motor temp, sticky faults, brownout, encoder sanity) must be written by the team, and the two best existing implementations are 3061-lib's `FaultReporter` and Team 135's Consul `SubsystemChecker`/`systemCheckCommand()`, both of which are team repos rather than consumable libraries. LEDs got a genuinely excellent stateless composable API in 2025 (`LEDPattern` with `mask`/`overlayOn`/`blend`/`breathe`/`scrollAtAbsoluteSpeed`/`progressMaskLayer`) that most small teams never learn, and CTRE moved CANdle into Phoenix 6 for 2026 (`com.ctre.phoenix6.hardware.CANdle`, control-request based, 8 animation slots) with the Phoenix 5 LED API deprecated for removal in 2027. Elastic has a small but real robot-side API (`Elastic.sendNotification`, `Elastic.selectTab`, NT topics `/Elastic/RobotNotifications` and `/Elastic/SelectedTab`) plus remote layout download served by `WebServer.start(5800, Filesystem.getDeployDirectory().getPath())` — a three-line hook PumpkinLib should own end-to-end. Multi-robot config, deploy-time git-hash embedding (gversion → `BuildConstants.GIT_SHA`/`DIRTY`), tunable-value plumbing, and FMS-aware log naming are all solved-but-copy-pasted patterns; DogLog's `DogLog.tunable()` (which correctly ignores tunables when FMS-attached) is the best-designed of these and is the model to follow. Scouting/TBA/Statbotics do not belong in robot code and should be a separate optional desktop module, if built at all.",
+  "landscape": [
+    {
+      "tool": "Elastic (Gold872/elastic_dashboard)",
+      "doesWell": "The de-facto 2026 driver dashboard and WPILib's official recommended Shuffleboard/SmartDashboard replacement for 2027. NT4-native, Flutter, fast. 2026 added struct-field decomposition (display individual fields of a published struct e.g. ChassisSpeeds without republishing), field-widget pan/zoom, web build, and SystemCore IPK install. Robot-side API is tiny and stable: Elastic.sendNotification(Notification), Elastic.selectTab(String|int). Remote layout download lets robot code ship the dashboard layout with the deploy directory. Rich widget set incl. Alerts, SwerveDrive, Field, ComboBox/SplitButton chooser, RobotPreferences, PowerDistribution, Match Time, Radial Gauge.",
+      "gaps": "ElasticLib is not a vendordep — the docs tell you to copy Elastic.java into your project (typically into a util/ package), so every team has a divergent private copy. No robot-side API to *build* a layout: layout .json is authored by hand in the GUI and exported; there is no Java builder that emits it. No programmatic tab/widget creation. Notification has no dedup/rate-limit, so calling sendNotification in periodic() spams. Struct field display is read-only and does not support arrays.",
+      "url": "https://frc-elastic.gitbook.io/docs",
+      "version2026": "2026.0.0-beta-1 → 2026.0.0 (kickoff) → 2026.1.0 → 2026.1.1 → 2026.1.2. A 2027.0.0-alpha line (through alpha8) already exists adding SystemCore support.",
+      "integrationShape": "PumpkinLib vendors ElasticLib rather than making users copy it, and wraps it: `PumpkinDashboard.notify(Notification.error(\"Arm\", \"CANcoder disconnected\").oncePerSecond())`; `PumpkinDashboard.enableRemoteLayout()` → calls `WebServer.start(5800, Filesystem.getDeployDirectory().getPath())`; `PumpkinDashboard.autoSelectTab(Tab.DRIVER, () -> DriverStation.isTeleopEnabled())`."
+    },
+    {
+      "tool": "Elastic remote layout downloading",
+      "doesWell": "Robot code hosts the deploy directory over HTTP on port 5800; the dashboard's File → 'Load Layout From Robot' (Ctrl+D) lists every .json in the deploy root and downloads it with Overwrite / Merge / Full Reload modes. Means the layout is version-controlled next to robot code and a fresh driver-station laptop is one keystroke from correct.",
+      "gaps": "Requires exactly one line in robot code that nobody remembers to add. The .json must be at the *root* of the deploy dir. Elastic's layout JSON schema is not formally documented as a public contract — UNVERIFIED whether it is stable across 2026.x, so generating it programmatically is risky.",
+      "url": "https://frc-elastic.gitbook.io/docs/additional-features-and-references/remote-layout-downloading",
+      "version2026": "Present through the 2026.x line",
+      "integrationShape": "Java: `WebServer.start(5800, Filesystem.getDeployDirectory().getPath())` — PumpkinLib should call this automatically from its root `PumpkinRobot` constructor so it is never forgotten."
+    },
+    {
+      "tool": "ElasticLib (Elastic.java)",
+      "doesWell": "Single-file, no dependencies. NT topics: `/Elastic/RobotNotifications` (JSON-serialized Notification) and `/Elastic/SelectedTab`. Notification is a chainable builder: withLevel, withTitle, withDescription, withDisplaySeconds(double), withDisplayMilliseconds(int), withWidth, withHeight, withAutomaticHeight() (height=-1), withNoAutoDismiss() (displayTime=0). NotificationLevel = INFO, WARNING, ERROR. Docs explicitly recommend chaining on one reused instance to avoid GC churn.",
+      "gaps": "Java and C++ only. Copy-paste distribution. No integration with WPILib's Alert API — a team using both ends up with two parallel notification systems that don't know about each other. No severity-to-rumble or severity-to-LED bridging.",
+      "url": "https://github.com/Gold872/elastic-dashboard/blob/main/elasticlib/Elastic.java",
+      "version2026": "Tracks Elastic releases; file lives at elasticlib/Elastic.java on main",
+      "integrationShape": "Bridge, don't fork: `PumpkinAlerts.bridgeToElastic()` subscribes to every registered `Alert` and emits an Elastic Notification on rising edge only, mapping kError→ERROR, kWarning→WARNING, kInfo→INFO."
+    },
+    {
+      "tool": "WPILib Alert API (edu.wpi.first.wpilibj.Alert)",
+      "doesWell": "The correct 2026 primitive for 'the robot is not OK'. Constructors: `Alert(String text, AlertType type)` and `Alert(String group, String text, AlertType type)`. Methods: `void set(boolean)`, `boolean get()`, `void setText(String)`, `String getText()`, `AlertType getType()`, `void close()`. AlertType = kError, kWarning, kInfo. Built-in change detection means set() is safe to call every loop. setText() allows live data in the message (e.g. current motor temperature). Groups publish to `/SmartDashboard/<Group Name>` so you can have separate 'Auto'/'Teleop'/'Pit' widgets. Displayed in priority order by type then recency. Supported by Elastic's Alerts widget and AdvantageScope.",
+      "gaps": "It is a *display* primitive only — WPILib ships no checks that produce alerts. Alerts are created and owned by whoever news them up, so there is no registry, no way to ask 'is the robot OK right now?', no severity rollup, and no way to gate the match on them. Group name maps to a `/SmartDashboard/` path which is an NT3-era location that will read oddly after 2027's SmartDashboard removal. `SendableAlerts` is not a documented public class in the 2026 Java API — UNVERIFIED, do not reference it in PumpkinLib.",
+      "url": "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/Alert.html",
+      "version2026": "WPILib 2026.2.2",
+      "integrationShape": "Wrap, never replace: PumpkinLib owns an `AlertRegistry` that hands out Alerts and can answer `Severity worst()`, `List<Alert> active()`, `boolean matchReady()`. Every PumpkinLib health check emits through it."
+    },
+    {
+      "tool": "Persistent Alerts docs",
+      "doesWell": "Documents the create-once-store-persistently-update-in-periodic pattern and confirms NT publishing key `/SmartDashboard/<Group Name>` plus third-party dashboard support.",
+      "gaps": "Very thin. No guidance on what to check, no health-check catalogue, no examples of hardware faults driving alerts.",
+      "url": "https://docs.wpilib.org/en/stable/docs/software/telemetry/persistent-alerts.html",
+      "version2026": "stable (2026)",
+      "integrationShape": "n/a — reference doc"
+    },
+    {
+      "tool": "3061-lib FaultReporter (HuskieRobotics, orig. Ranger Robotics)",
+      "doesWell": "The most complete *consumable* self-test + fault-monitoring implementation in public FRC code. Overloaded `registerHardware(String subsystemName, String label, X device)` for TalonFX, PWMMotorController, SparkMax, Pigeon2, CANcoder, CANrange — each wraps the device in a `SelfChecking` implementation. `addFault(String subsystem, String description, boolean isWarning)` / `addFault(String, String)` creates and activates a WPILib `Alert`. `registerSystemCheck(String subsystemName, Command systemCheckCommand, Trigger systemCheckTrigger)` returns a wrapped Command and publishes to NT under `SystemStatus/<subsystemName>/` with keys Status, SystemOK, CheckRan. Lineage: FaultReporter was originally AdvancedSubsystem, alongside SubsystemFault and SelfChecking.",
+      "gaps": "It is a team starter project, not a versioned library — consuming it means forking the whole swerve-drive repo. Hardware coverage is a hardcoded overload list; adding a device means editing FaultReporter. No pneumatics, no PDH, no CAN-utilization check. Tightly coupled to 3061's Constants and subsystem structure.",
+      "url": "https://github.com/HuskieRobotics/3061-lib",
+      "version2026": "3061 Lib v2025.0.0 is the last release discussed publicly; 2026 status UNVERIFIED",
+      "integrationShape": "This is the design PumpkinLib should generalize with an open interface instead of overloads: `interface HealthCheckable { String name(); List<Fault> poll(); }` plus adapters `Phoenix6Health.of(TalonFX)`, `RevHealth.of(SparkMax)`, so vendors can be added without editing core."
+    },
+    {
+      "tool": "Team 135 Consul framework",
+      "doesWell": "The best-articulated *pit workflow*. `SubsystemChecker` replaces `SubsystemBase`; subsystems implement `Command systemCheckCommand()` (returns a Commands.sequence of test movements) and `SelfChecking[] getSelfCheckingHardware()`, and must call `registerSelfCheckHardware()` in the constructor. Paired with a separate pit-display app ('135 Squire') that runs the checks sequentially and shows pre-match checklists, hardware fault reporting, motor temps (via a `getTemps()` override), and CAN utilization. Detects CTRE Talon FX/Kraken, REV Spark Max/Flex, CANcoder/Through-Bore/Thrifty/DutyCycle encoders, gyros, Limelight, pneumatics. Crucially: fault checking costs ~10ms of loop time so it is deliberately gated behind Test mode and off during matches. Sticky faults from previous boots raise alerts immediately.",
+      "gaps": "Inheritance-based (`extends SubsystemChecker`) — hostile to composition and doubly bad given 2027's Commands v3. Requires the separate Squire pit display app. Team-specific; not published as a library.",
+      "url": "https://oa.pennrobotics.org/135-consul-frc-programming-framework/",
+      "version2026": "2026 Open Alliance documentation",
+      "integrationShape": "Take the semantics, drop the inheritance: `PumpkinSelfTest.register(\"Arm\", armSubsystem::selfTestCommand)` and a `Command fullSelfTest()` that sequences all registrations with per-step pass/fail published to NT."
+    },
+    {
+      "tool": "AdvantageKit 2026 (Mechanical-Advantage)",
+      "doesWell": "Deterministic log replay. 2026 additions relevant here: unit metadata on every logging interface for unit-aware AdvantageScope graphing (`Logger.recordOutput(\"MyAngle\", 3.141, \"radians\")`, `Logger.recordOutput(\"MyDistance\", Meters.of(63.28))`); automatic NT client tracking in the SystemStats table (logs connected dashboards/coprocessors with IP, port, protocol version — free 'did the Limelight drop off' evidence); improved crash/exception capture in console logging; `LoggedMechanism2d.generate3dMechanism()` for auto 3D poses; Color logged as hex triplet. `Logger.recordMetadata(k,v)` must be called before `Logger.start()`; nothing can be added after.",
+      "gaps": "Metadata is write-once at boot, so FMS data (match number, event) that only arrives when the DS connects cannot be recorded as metadata — it must be logged as a normal signal. WPILOGWriter default naming produces hash names like akit_6497c321bb716896.wpilog rather than FMS-aware names.",
+      "url": "https://docs.advantagekit.org/whats-new/",
+      "version2026": "2026 line, full WPILib 2026 support, aligned with CTRE Hoot Replay",
+      "integrationShape": "`PumpkinLog.init()` records BuildConstants.GIT_SHA/GIT_BRANCH/DIRTY/BUILD_DATE + RobotType as metadata pre-start, then registers a periodic that logs alliance/event/matchType/matchNumber as signals once `DriverStation.isFMSAttached()` goes true."
+    },
+    {
+      "tool": "gversion Gradle plugin (com.peterabeles.gversion)",
+      "doesWell": "Generates a BuildConstants class at build time with GIT_SHA, GIT_REVISION, GIT_DATE, GIT_BRANCH, BUILD_DATE, BUILD_UNIX_TIME, and DIRTY (0 = clean, 1 = uncommitted changes, -1 = error). The DIRTY flag is the single highest-value field: it tells you at a competition whether the deployed code corresponds to a commit. Documented by both WPILib and AdvantageKit; used by Team 254.",
+      "gaps": "Nothing surfaces it — teams generate BuildConstants and never display it. No automatic alert when DIRTY==1 at a competition.",
+      "url": "https://docs.wpilib.org/en/stable/docs/software/advanced-gradlerio/deploy-git-data.html",
+      "version2026": "Current; configured with srcDir, classPackage='frc.robot', className='BuildConstants'",
+      "integrationShape": "PumpkinLib ships the gradle snippet AND consumes it: a built-in Alert `kWarning` 'Deployed code has uncommitted changes (git dirty)' that self-activates when `BuildConstants.DIRTY == 1 && DriverStation.isFMSAttached()`."
+    },
+    {
+      "tool": "WPILib AddressableLED + LEDPattern",
+      "doesWell": "Genuinely well-designed stateless composable pattern algebra, added 2025. Statics: `solid(Color)`, `gradient(GradientType, Color...)`, `steps(Map<? extends Number, Color>)`, `rainbow(int saturation, int value)`, `progressMaskLayer(DoubleSupplier)`. Instance/default: `reversed()`, `offsetBy(int)`, `mapIndex(IndexMapper)`, `scrollAtRelativeSpeed(Frequency)`, `scrollAtAbsoluteSpeed(LinearVelocity, Distance ledSpacing)`, `blink(Time)`, `blink(Time on, Time off)`, `synchronizedBlink(BooleanSupplier)`, `breathe(Time)`, `overlayOn(LEDPattern)`, `blend(LEDPattern)`, `mask(LEDPattern)`, `atBrightness(Dimensionless)`, `applyTo(LEDReader, LEDWriter)`. `AddressableLEDBufferView` via `buffer.createView(start, end)` with `.reversed()` for serpentine runs, so one physical strip can be logically split per-mechanism.",
+      "gaps": "The roboRIO can control only ONE AddressableLED object at a time — multiple physical strips require daisy-chain or PWM Y-cable. No built-in binding from robot state to pattern: teams write giant if-else ladders in periodic(). No priority/arbitration when two subsystems both want the strip. `progressMaskLayer` and `mask` are powerful but almost nobody discovers them.",
+      "url": "https://docs.wpilib.org/en/stable/docs/software/hardware-apis/misc/addressable-leds.html",
+      "version2026": "WPILib 2026.2.2; 2027.0.0-alpha docs show the same API surface",
+      "integrationShape": "The missing piece is arbitration, and it does not exist anywhere — build it: `LedState.priority(100).when(() -> alerts.worst()==kError).show(LEDPattern.solid(kRed).blink(Seconds.of(0.2)))` on a `PumpkinLeds` subsystem that resolves highest-priority-active each loop and writes once."
+    },
+    {
+      "tool": "CTRE CANdle (Phoenix 6, com.ctre.phoenix6.hardware.CANdle)",
+      "doesWell": "Moved from Phoenix 5's com.ctre.phoenix.led into Phoenix 6 for 2026 as a first-class control-request device. `CANdle(int deviceId, CANBus canbus)`. Driven by `setControl(...)` with request classes: SolidColor, StrobeAnimation, ColorFlowAnimation, FireAnimation, LarsonAnimation, RainbowAnimation, RgbFadeAnimation, SingleFadeAnimation, TwinkleAnimation, TwinkleOffAnimation, ModulateVBatOut, EmptyAnimation. `kAnimSlotCount` animation slots (indices 0–7), one animation per slot, frame rate 1–500 Hz. `clearAllAnimations()`, `getConfigurator()`, `none()` for stubbing removed hardware, `close()`. Exposes real status signals: supply voltage, output current, device temp, 5V-rail/thermal/hardware faults — so the LED controller itself participates in health checks. Offloads animation from the RIO CPU and frees the PWM port.",
+      "gaps": "Completely different programming model from WPILib LEDPattern (control requests + device slots vs. composable buffer patterns), so team code written against one cannot move to the other. Phoenix 5 LED API is deprecated for removal in 2027, so any team still on com.ctre.phoenix.led must migrate. LED strip type / count configuration details not captured here — UNVERIFIED, check CANdleConfiguration in Phoenix 6 26.x before writing adapter code.",
+      "url": "https://api.ctr-electronics.com/phoenix6/latest/java/com/ctre/phoenix6/hardware/CANdle.html",
+      "version2026": "Phoenix 6 26.1.0 (kickoff) → 26.1.3 → 26.2.0; a 26.50.0-alpha line exists",
+      "integrationShape": "This divergence is the single best argument for a PumpkinLib LED abstraction: one `PumpkinLeds` state machine, two backends. `PumpkinLeds.on(new CandleBackend(candle))` vs `PumpkinLeds.on(new AddressableBackend(led, buffer))`. Map the common subset (solid, blink, breathe, scroll, rainbow, progress) and let advanced users drop to the native object."
+    },
+    {
+      "tool": "WPILib PowerDistribution (PDH/PDP)",
+      "doesWell": "`PowerDistribution()` / `PowerDistribution(int module, ModuleType)`. `double getVoltage()`, `double getTemperature()`, `double getCurrent(int channel)`, `double[] getAllCurrents()`, `double getTotalCurrent()`, `double getTotalPower()`, `double getTotalEnergy()`, `void resetTotalEnergy()`, `int getModule()`, `int getNumChannels()`, `ModuleType getType()`, `PowerDistributionVersion getVersion()`, `PowerDistributionFaults getFaults()`, `PowerDistributionStickyFaults getStickyFaults()`, `void clearStickyFaults()`, `boolean getSwitchableChannel()` / `void setSwitchableChannel(boolean)` (PDH only), `initSendable`. `getAllCurrents()` is one call for the whole robot — cheap to log every channel.",
+      "gaps": "Channels are bare integers with no names, so logs are unreadable and nobody notices channel 7 spiking. No breaker-rating awareness, so nothing warns you that a 40A channel has been at 45A for 3 seconds. `getTotalEnergy()` is a perfect battery-consumed-this-match metric and is essentially never used.",
+      "url": "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/PowerDistribution.html",
+      "version2026": "WPILib 2026.2.2",
+      "integrationShape": "`PowerMonitor.channel(7).named(\"Arm Leader\").breaker(40).warnAbove(Amps.of(38), Seconds.of(1.0))` — auto-logs named currents, auto-creates Alerts, and reports joules-per-match from getTotalEnergy()."
+    },
+    {
+      "tool": "WPILib RobotController",
+      "doesWell": "Everything needed for robot-health checks in one static class. `getBatteryVoltage()` / `getMeasureBatteryVoltage()`, `getInputVoltage()`, `isBrownedOut()`, `getBrownoutVoltage()` / `setBrownoutVoltage(double|Voltage)`, per-rail (3.3V/5V/6V) `getVoltageX()`/`getCurrentX()`/`setEnabledX(boolean)`/`getEnabledX()`/`getFaultCountX()` plus `resetRailFaultCounts()`, `getCANStatus()`, `getCPUTemp()`, `getSerialNumber()`, `getComments()`, `getTeamNumber()`, `getRSLState()`, `setRadioLEDState(RadioLEDState)`.",
+      "gaps": "`getFaultCountX()` on the 5V rail is the canonical 'a sensor browned out and your encoder lied to you' signal and virtually no team polls it. `getSerialNumber()` and `getComments()` are the cleanest robot-identity mechanism available and are almost never used. Everything is instantaneous — no sag detection, no trending.",
+      "url": "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/RobotController.html",
+      "version2026": "WPILib 2026.2.2",
+      "integrationShape": "`BatteryMonitor` computes sag = restingVoltage - min(voltage over window) correlated against PDH total current, and raises kWarning 'Battery sagging to 8.9V at 210A — swap battery' pre-match."
+    },
+    {
+      "tool": "WPILib CANStatus (edu.wpi.first.hal.can.CANStatus)",
+      "doesWell": "Public fields: `double percentBusUtilization`, `int busOffCount`, `int txFullCount`, `int receiveErrorCount`, `int transmitErrorCount`. Retrieved via `RobotController.getCANStatus()`. This is the direct measurement of the failure mode that kills matches — a saturated CAN bus causing intermittent device dropouts.",
+      "gaps": "Raw counters with no baseline. Rising receiveErrorCount/busOffCount is diagnostic gold and nothing surfaces it. Note the package is edu.wpi.first.hal.can.CANStatus, not edu.wpi.first.hal.CANStatus.",
+      "url": "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/hal/can/CANStatus.html",
+      "version2026": "WPILib 2026.2.2",
+      "integrationShape": "`CanBusMonitor.warnAbove(0.70).errorAbove(0.90).watchErrorDeltas()` — alerts on utilization AND on any nonzero delta in busOffCount/receiveErrorCount since enable."
+    },
+    {
+      "tool": "WPILib DriverStation",
+      "doesWell": "`Optional<Alliance> getAlliance()`, `OptionalInt getLocation()`, `int getMatchNumber()`, `MatchType getMatchType()`, `String getEventName()`, `int getReplayNumber()`, `double getMatchTime()`, `boolean isFMSAttached()`, `boolean isDSAttached()`, `String getGameSpecificMessage()`. Enough to auto-name logs, flip autos, and change behavior at events.",
+      "gaps": "`getAlliance()` returns Optional and is empty until the DS connects — the #1 cause of 'auto ran backwards at the first match'. Nothing in WPILib caches alliance at the right moment or warns you that you read it too early. `getMatchTime()` is approximate and not for control decisions.",
+      "url": "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/DriverStation.html",
+      "version2026": "WPILib 2026.2.2",
+      "integrationShape": "`MatchContext.alliance()` returns a cached value latched on the DS-connect edge, raises kError 'Alliance unknown' if still empty when the match enables, and exposes `boolean isRed()` for PathPlanner's shouldFlipPath supplier."
+    },
+    {
+      "tool": "WPILib DataLogManager",
+      "doesWell": "`DataLogManager.start()` then `DriverStation.startDataLog(DataLogManager.getLog())` (or `(log, false)` for DS-control-only, no joystick data). Auto-naming is already FMS-aware: files start as FRC_TBD_{random}.wpilog, become FRC_yyyyMMdd_HHmmss.wpilog on DS connect (UTC), and become FRC_yyyyMMdd_HHmmss_{event}_{match}.wpilog once FMS supplies a match number.",
+      "gaps": "The FMS-aware renaming is WPILib-only — AdvantageKit's WPILOGWriter does not inherit it, so AdvantageKit users get hash-named files and lose the match association unless they wire it themselves.",
+      "url": "https://docs.wpilib.org/en/stable/docs/software/telemetry/datalog.html",
+      "version2026": "WPILib 2026.2.2",
+      "integrationShape": "Real gap worth filling: `PumpkinLog.matchAwareWpilogWriter()` — an AdvantageKit WPILOGWriter wrapper that renames the file on the FMS-attach edge to {event}_{matchType}{matchNumber}_{gitSha}.wpilog."
+    },
+    {
+      "tool": "WPILib Preferences",
+      "doesWell": "NT-backed persistent key/value on the roboRIO. init/get/set for String, int, double, float, boolean, long; `containsKey`, `remove`, `removeAll`, `getKeys()`, `getNetworkTable()`, `setNetworkTableInstance(NetworkTableInstance)`. `initX(key, value)` writes only if absent — correct semantics for 'default unless previously tuned'. Elastic has a RobotPreferences widget.",
+      "gaps": "Flat untyped namespace, no units, no grouping, no export. Values persist on the RIO but are NOT in git, so a RIO reimage or a robot swap loses every tuned value silently and nothing tells you. This is the classic competition disaster.",
+      "url": "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/Preferences.html",
+      "version2026": "WPILib 2026.2.2",
+      "integrationShape": "`PumpkinConfig.snapshot()` writes all Preferences + tunables to a timestamped JSON in the deploy dir and `PumpkinConfig.restore(file)` reloads — plus a kWarning when live Preferences differ from the last committed snapshot."
+    },
+    {
+      "tool": "DogLog (doglog.dev)",
+      "doesWell": "The best-designed tunable API in FRC. `DogLog.tunable(String key, T default)` returns an NT Subscriber; overloads take units as a String, a `Unit`, or a `Measure` (`DogLog.tunable(\"Elevator/Height\", 0.0, Inches)`, `DogLog.tunable(\"Shooter/Velocity\", RPM.of(2000))`). Callback form: `DogLog.tunable(\"Intake/Voltage\", 4, v -> motor.setVoltage(v))`. Critically: by default tunables are IGNORED when connected to FMS and return the default value, configurable via DogLogOptions. Tunables are also continuously recorded to DataLog under Robot/Tunable/.",
+      "gaps": "Separate ecosystem from AdvantageKit — using both means two logging stacks. Not a replay framework.",
+      "url": "https://doglog.dev/reference/tunable-values",
+      "version2026": "Current 2026",
+      "integrationShape": "Copy the FMS-safety semantic exactly. PumpkinLib's tunables must hard-refuse to apply dashboard values when `DriverStation.isFMSAttached()`, because that is the failure that loses matches."
+    },
+    {
+      "tool": "6328 LoggedTunableNumber + Constants/RobotType pattern",
+      "doesWell": "Constants.java declares `RobotType {SIMBOT, DEVBOT, COMPBOT}` and `getMode()` maps type→Mode: `case DEVBOT, COMPBOT -> RobotBase.isReal() ? Mode.REAL : Mode.REPLAY; case SIMBOT -> Mode.SIM;`. Guarded by a runtime Alert (kError) if SIMBOT is selected on real hardware, plus two build-time gates: `CheckDeploy` (blocks deploying SIMBOT to a real robot, exit 1) and `CheckPullRequest` (blocks merging unless COMPBOT is default and tuning mode is disabled, exit 1). LoggedTunableNumber returns the compiled default unless a global tuningMode flag is set.",
+      "gaps": "The 2025 Constants.java uses a hand-edited `robotType` field, NOT MAC-address detection — the widely-repeated claim that 6328 auto-detects robot identity by MAC address is UNVERIFIED and appears to be wrong for this file. The safety comes from build-time gates, not autodetection. Copy-paste distribution; the CheckDeploy/CheckPullRequest gradle wiring is the valuable half and is rarely copied.",
+      "url": "https://github.com/Mechanical-Advantage/RobotCode2025Public",
+      "version2026": "2025 public code inspected; 2026 code discussed in their Open Alliance thread at https://www.chiefdelphi.com/t/frc-6328-mechanical-advantage-2026-build-thread/509595",
+      "integrationShape": "Generalize with autodetect + the build gate: `RobotIdentity.detect().bySerial(\"031b7f8e\", COMPBOT).bySerial(\"03064e01\", PRACTICE).orElse(SIMBOT)` using `RobotController.getSerialNumber()` (or `getComments()`, which is user-settable per-RIO and easier for students than serials). Ship the CheckDeploy gradle task as part of the library."
+    },
+    {
+      "tool": "CTRE Phoenix 6 current limiting",
+      "doesWell": "Documents the actual physics: I_supply = I_stator × duty cycle, so an 80A stator limit draws 80A supply at 100% output but only 40A at 50% output. Stator limits cap torque (prevents wheel slip, mechanism damage, heat) and are described as highly effective at preventing brownouts, especially at the start of acceleration. Supply limits protect battery/breakers, with optional `SupplyCurrentLowerLimit` + `SupplyCurrentLowerTime` to step down after sustained draw and avoid breaker thermal trips. Recommended order: set stator limits first from wheel-slip testing, then add supply limits empirically from plotted match-simulation currents. Explicitly says to check battery health (Battery Beak) and PDP/PDH crimps BEFORE clamping limits in software.",
+      "gaps": "Per-motor configuration with no robot-level budget — nothing stops the sum of all limits exceeding what the battery can deliver. Config code is verbose and duplicated per mechanism.",
+      "url": "https://v6.docs.ctr-electronics.com/en/stable/docs/hardware-reference/talonfx/improving-performance-with-current-limits.html",
+      "version2026": "Phoenix 6 26.x",
+      "integrationShape": "`limitConfigs.StatorCurrentLimit = 120; limitConfigs.StatorCurrentLimitEnable = true; talonFX.getConfigurator().apply(limitConfigs);` — PumpkinLib wraps this in a mechanism-level `.currentLimit(Amps.of(80))` and adds a robot-level `PowerBudget.declare(...)` that logs total configured draw and warns if it exceeds a threshold."
+    },
+    {
+      "tool": "WPILib Pneumatics (PneumaticHub / PneumaticsControlModule / Solenoid / DoubleSolenoid / Compressor)",
+      "doesWell": "`Compressor(PneumaticsModuleType)` or `Compressor(int module, PneumaticsModuleType)`; `enableDigital()`, `enableAnalog(double minPressure, double maxPressure)`, `enableHybrid(double minPressure, double maxPressure)`, `disable()`, `isEnabled()`, `getPressure()`, `getCurrent()`, `getPressureSwitchValue()`, `getConfigType()` → CompressorConfigType. `DoubleSolenoid(PneumaticsModuleType, int fwd, int rev)` and `(int module, PneumaticsModuleType, int fwd, int rev)`; `set(Value)`, `get()`, `toggle()`, `getFwdChannel()`, `getRevChannel()`, `isFwdSolenoidDisabled()`, `isRevSolenoidDisabled()` (short detection — a real health signal), `close()`. `DoubleSolenoid.Value` = Off, Forward, Reverse. Analog/hybrid modes give true closed-loop pressure control on the PneumaticHub.",
+      "gaps": "Pneumatics usage has collapsed in FRC and Systemcore's 2027 hardware removals do not list pneumatics but the ecosystem is clearly deprioritizing it. `isFwdSolenoidDisabled()` is a free fault detector nobody polls. Compressor running during a match is a large uncommanded current draw that interacts badly with brownout budgets and is never modeled.",
+      "url": "https://docs.wpilib.org/en/stable/docs/software/hardware-apis/pneumatics/index.html",
+      "version2026": "WPILib 2026.2.2",
+      "integrationShape": "Do NOT unify pneumatics with motors in the mechanism API — see capabilities. Do add `PneumaticsHealth.of(hub, compressor)` for solenoid-short and pressure alerts, and `CompressorPolicy.disableDuring(() -> DriverStation.isAutonomous())`."
+    },
+    {
+      "tool": "WPILib GenericHID rumble",
+      "doesWell": "`void setRumble(GenericHID.RumbleType type, double value)` with value normalized 0–1. `RumbleType` = kLeftRumble, kRightRumble, kBothRumble. Left/right are independent, so two-channel encoding is possible (e.g. left = 'game piece acquired', right = 'aligned to target').",
+      "gaps": "Fire-and-forget with no getter, no duration, no patterns, no queueing. There is no timed rumble anywhere in WPILib — every team writes an ad-hoc `Commands.startEnd(() -> set(0.5), () -> set(0)).withTimeout(0.3)`. If two subsystems both rumble, they stomp each other. Rumble left on when the robot disables is a known annoyance with no built-in guard.",
+      "url": "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/GenericHID.html",
+      "version2026": "WPILib 2026.2.2",
+      "integrationShape": "Genuinely missing, build it: `Rumble.on(driverController).pattern(RumblePattern.doubleTap()).priority(50).run()` with a scheduler that arbitrates, auto-zeros on disable, and supports pulse/ramp/doubleTap/sos patterns per side."
+    },
+    {
+      "tool": "AdvantageScope 2026",
+      "doesWell": "The debug/replay counterpart WPILib now officially recommends alongside Elastic. 2026: rebuilt REBUILT field assets (3D field model, 2D image, 3D KitBot) also usable in AdvantageScope XR for AR viewing; optional 3D-field anti-aliasing; opens REV StatusLogger .revlog files directly; basic CSV import; FTC fields/robot models and FTC coordinate-system options in preparation for full Systemcore support in 2027–2028; Metadata tab for viewing recordMetadata values.",
+      "gaps": "Post-hoc analysis tool — not a competition-day driver surface. No live alerting.",
+      "url": "https://docs.advantagescope.org/whats-new/",
+      "version2026": "2026 line",
+      "integrationShape": "PumpkinLib's job is to make the logs good: consistent key namespaces (`/Pumpkin/Health/...`, `/Pumpkin/Power/...`, `/Pumpkin/SelfTest/...`) and units on every signal so AdvantageScope's unit-aware graphing works out of the box."
+    },
+    {
+      "tool": "Glass",
+      "doesWell": "Survives into 2027 as a recommended dashboard alongside AdvantageScope and Elastic. Live NT/sim visualization, Field2d, mechanism display.",
+      "gaps": "Live-only, no logging, no layout-from-robot, not a driver dashboard. Documentation coverage of 2026-specific Glass changes not retrieved — UNVERIFIED.",
+      "url": "https://docs.wpilib.org/en/stable/docs/software/dashboards/glass/introduction.html",
+      "version2026": "Ships with WPILib 2026",
+      "integrationShape": "No special integration needed; it reads the same NT4 keys."
+    },
+    {
+      "tool": "Shuffleboard / SmartDashboard",
+      "doesWell": "Historically the default; Shuffleboard's tab/layout API is still what Elastic's 'Shuffleboard API Integration' page supports for compatibility.",
+      "gaps": "BOTH REMOVED IN 2027. Shuffleboard for lack of a maintainer and resource utilization; SmartDashboard for lack of maintenance plus its NT3 dependency (NT3 itself is removed). Official replacements: Elastic for driver dashboard, AdvantageScope for debugging.",
+      "url": "https://docs.wpilib.org/en/2027/docs/yearly-overview/removed-features.html",
+      "version2026": "Final year is 2026",
+      "integrationShape": "PumpkinLib must NOT expose any Shuffleboard type in its public API. Publish to raw NT4 and let Elastic/Glass/AdvantageScope consume."
+    },
+    {
+      "tool": "PathPlannerLib 2026 alliance flipping",
+      "doesWell": "`FlippingUtil` flips field-relative poses and ChassisSpeeds for the other side while keeping a global blue-alliance origin. `AutoBuilder.configure(...)` takes a `BooleanSupplier shouldFlipPath` so paths are authored once on blue and mirrored at runtime.",
+      "gaps": "The BooleanSupplier is where teams put a buggy inline lambda that reads `DriverStation.getAlliance()` before the DS has connected. WPILib 2027 is also changing the field coordinate system origin and orientation, which will invalidate flipping assumptions.",
+      "url": "https://pathplanner.dev/api/java/com/pathplanner/lib/util/FlippingUtil.html",
+      "version2026": "PathPlanner 2026.1.2",
+      "integrationShape": "`AutoBuilder.configure(..., MatchContext::isRed, driveSubsystem)` where MatchContext caches the latched alliance — this single substitution eliminates the most common competition-day auto failure."
+    },
+    {
+      "tool": "The Blue Alliance APIv3",
+      "doesWell": "Base URL https://www.thebluealliance.com/api/v3, X-TBA-Auth-Key header. Canonical event/match/team/ranking data.",
+      "gaps": "Requires an internet connection and an API key. Competition venue wifi is unreliable and the robot radio is on an isolated field network — the robot literally cannot reach it during a match. Rate-limited.",
+      "url": "https://www.thebluealliance.com/apidocs/v3",
+      "version2026": "v3",
+      "integrationShape": "Explicitly OUT of robot code. If built at all, a separate desktop/CLI module."
+    },
+    {
+      "tool": "Statbotics",
+      "doesWell": "EPA (Expected Points Added) ratings, historical + realtime, exposed via CSV export, REST API, Python package, and website. Consumed by Arcbotics (Statbotics inside the TBA UI), Lookout for FRC, Pre-ScoutingApp.",
+      "gaps": "Python-first; the Java story is raw HTTP. Analysis data, zero robot-control relevance.",
+      "url": "https://www.statbotics.io/",
+      "version2026": "Current",
+      "integrationShape": "Out of scope for robot code — see recommendation in capabilities."
+    }
+  ],
+  "capabilities": [
+    {
+      "capability": "MatchContext — a single latched, FMS-aware source of truth for alliance/event/match identity",
+      "whyItMatters": "The empty-Optional alliance read is the highest-frequency competition-day failure in FRC and it costs small teams entire matches when auto runs the wrong direction. Elite teams have all independently written a cached-alliance helper; small teams write an inline lambda and lose Qual 12. This is ~80 lines that removes a whole class of bug and feeds log naming, auto flipping, and LED/rumble policy from one place.",
+      "apiSketch": "public final class MatchContext {\n  public static Alliance alliance();            // latched on DS-connect edge, never empty after\n  public static boolean isRed();                // -> AutoBuilder shouldFlipPath supplier\n  public static boolean isFmsAttached();\n  public static Optional<MatchInfo> match();     // event, matchType, matchNumber, replayNumber\n  public static Trigger onFmsAttach();\n  public static Trigger onAllianceKnown();\n  public static String logFileStem();            // \"CURIE_Q12_a1b2c3d\"\n}\n// wiring:\nAutoBuilder.configure(..., MatchContext::isRed, drive);",
+      "buildOrIntegrate": "build",
+      "effort": "small",
+      "prerequisites": "DriverStation, BuildConstants from gversion"
+    },
+    {
+      "capability": "HealthMonitor — an open, vendor-pluggable hardware health registry that emits WPILib Alerts",
+      "whyItMatters": "WPILib ships the Alert display primitive but zero checks. The two good implementations (3061-lib FaultReporter, 135 Consul) are locked inside team repos with hardcoded vendor overloads and inheritance requirements. A small team cannot afford to write CAN-utilization trending, sticky-fault polling, motor-temp thresholds, and 5V-rail fault counting themselves — but those are exactly the checks that turn 'robot randomly died in Q34' into 'CANcoder 22 dropped off, here is the timestamp'. Make it composition-based (no `extends SubsystemChecker`) so it survives 2027's Commands v3 and the org.wpilib rename.",
+      "apiSketch": "public interface HealthSource { String name(); List<Fault> poll(); }\npublic record Fault(String device, String description, Alert.AlertType severity, boolean sticky) {}\n\npublic final class HealthMonitor {\n  public static HealthMonitor forSubsystem(String name);\n  public HealthMonitor watch(HealthSource src);\n  public HealthMonitor watch(TalonFX m, String label);      // adapter sugar\n  public HealthMonitor watch(SparkMax m, String label);\n  public HealthMonitor watch(CANcoder e, String label);\n  public HealthMonitor tempLimit(Temperature warn, Temperature error);\n  public HealthMonitor rateHz(double hz);                    // default 4Hz, NOT every loop\n  public HealthMonitor onlyInTestMode(boolean b);            // 135 measured ~10ms/loop cost\n}\n\npublic final class RobotHealth {\n  public static Alert.AlertType worst();\n  public static List<Fault> active();\n  public static boolean matchReady();     // -> LED green, Elastic notification, rumble gate\n}",
+      "buildOrIntegrate": "build",
+      "effort": "large",
+      "prerequisites": "Alert API; Phoenix 6 getStickyFault_*/isConnected/getDeviceTemp; REVLib getFaults/getStickyFaults/getWarnings/getStickyWarnings/hasActiveFault/getMotorTemperature; RobotController.getCANStatus()"
+    },
+    {
+      "capability": "Built-in robot-level checks that ship on by default",
+      "whyItMatters": "The vendor adapters are the easy half; the checks nobody writes are the ones that catch the real killers. Every one of these is a documented API that small teams have never heard of. Shipping them enabled-by-default is the difference between a library and a framework.",
+      "apiSketch": "// all registered automatically by PumpkinRobot, each -> an Alert\nCanBusMonitor.warnAbove(0.70).errorAbove(0.90).watchDeltas(); // busOffCount/receiveErrorCount deltas since enable\nBatteryMonitor.restingMin(Volts.of(12.3)).sagLimit(Volts.of(9.0));\nRailMonitor.watch5V();          // RobotController.getFaultCount5V() != 0 => sensors browned out\nBrownoutMonitor.latchOnce();    // RobotController.isBrownedOut() latched + timestamped\nDeployMonitor.gitDirty();       // BuildConstants.DIRTY==1 && isFMSAttached() => kWarning\nEncoderSanity.of(motorEncoder, absEncoder).maxDisagreement(Degrees.of(3));\nStallDetector.of(motor).currentAbove(Amps.of(60)).velocityBelow(RPM.of(20)).forTime(Seconds.of(0.5));",
+      "buildOrIntegrate": "build",
+      "effort": "medium",
+      "prerequisites": "HealthMonitor, PowerMonitor, gversion BuildConstants"
+    },
+    {
+      "capability": "SelfTest — a composable pre-match self-test that exercises every mechanism and reports pass/fail",
+      "whyItMatters": "135's Consul + Squire pit display proves this works and proves the workflow (run in Test mode, sequential, per-step pass/fail on a pit screen). But it requires extending SubsystemChecker and running a separate desktop app. A small team needs to press one button in the pit and get a green/red list on Elastic. This is the single highest-leverage 'compete like an elite team' feature in this whole domain: it turns tribal knowledge into a repeatable 90-second procedure.",
+      "apiSketch": "public final class SelfTest {\n  public static void register(String name, Supplier<Command> test);\n  public static Command runAll();       // sequences, catches, publishes\n  public static Command run(String name);\n  // publishes /Pumpkin/SelfTest/<name>/{Status,Passed,Ran,Detail,DurationSec}\n  // and /Pumpkin/SelfTest/Summary  -> Elastic Text Display\n}\n\n// per-mechanism DSL so students can write a test without writing a Command\nSelfTest.register(\"Arm\", () -> MechanismTest.of(arm)\n    .step(\"extend\",  arm.toAngle(Degrees.of(90)))\n        .expect(arm::angle, Degrees.of(90), Degrees.of(2))\n        .withTimeout(Seconds.of(2))\n    .step(\"retract\", arm.toAngle(Degrees.of(0)))\n        .expect(arm::angle, Degrees.of(0),  Degrees.of(2))\n    .expectCurrentBetween(Amps.of(2), Amps.of(35))\n    .expectNoNewFaults()\n    .build());",
+      "buildOrIntegrate": "build",
+      "effort": "large",
+      "prerequisites": "HealthMonitor for expectNoNewFaults; command framework; Elastic Alerts + Text widgets"
+    },
+    {
+      "capability": "RobotIdentity — multi-robot support from one codebase with a build-time deploy gate",
+      "whyItMatters": "Practice bot and comp bot with different gear ratios/offsets is the classic mid-tier team disaster. 6328's real safety comes from build-time gates (CheckDeploy exits 1 if SIMBOT would deploy to hardware; CheckPullRequest exits 1 unless COMPBOT is default and tuning is off) — and note their 2025 Constants.java hand-edits the type rather than autodetecting by MAC (the widely-repeated MAC-address claim is UNVERIFIED and looks wrong). Autodetect via RobotController.getSerialNumber() or getComments() removes the hand-edit entirely. Ship the gradle gate, because that is the half nobody copies.",
+      "apiSketch": "public enum RobotId { COMP, PRACTICE, SIM }\npublic final class RobotIdentity {\n  public static RobotId current();\n  public static <T> T pick(Map<RobotId, T> byRobot);\n}\n// declarative, in one file:\nRobotIdentity.configure()\n    .bySerial(\"031b7f8e\", RobotId.COMP)\n    .byComment(\"practice\", RobotId.PRACTICE)   // RobotController.getComments(), student-editable\n    .byDeployFile(\"robot_id.txt\")              // fallback, in deploy dir\n    .simDefault(RobotId.COMP);\n\nArmConstants k = RobotIdentity.pick(Map.of(\n    RobotId.COMP,     new ArmConstants(0.31, 122.4),\n    RobotId.PRACTICE, new ArmConstants(0.28, 119.7)));\n// + gradle task pumpkinCheckDeploy: fails the build if RobotId.SIM would deploy to hardware",
+      "buildOrIntegrate": "build",
+      "effort": "medium",
+      "prerequisites": "RobotController.getSerialNumber()/getComments(); a GradleRIO task hooked pre-deploy"
+    },
+    {
+      "capability": "Tunables with FMS lockout and git-backed persistence",
+      "whyItMatters": "Two separate failures. (1) A tunable left live at a competition means a stray dashboard edit changes robot behavior mid-event — DogLog already solves this by ignoring tunables when FMS-attached, and that semantic must be copied verbatim. (2) Preferences persist on the roboRIO but not in git, so a RIO reimage or robot swap silently reverts every tuned value. A small team with one programmer cannot recover from that at an event.",
+      "apiSketch": "public final class Tunable {\n  public static DoubleSupplier of(String key, double def);\n  public static <U extends Unit> Supplier<Measure<U>> of(String key, Measure<U> def);\n  public static void of(String key, double def, DoubleConsumer onChange);\n  // hard rule: returns def when DriverStation.isFMSAttached(), always\n}\n\npublic final class PumpkinConfig {\n  public static void snapshot();                 // all Tunables+Preferences -> deploy/config/<ts>.json\n  public static void restore(Path json);\n  public static Command snapshotCommand();       // bind to a pit button\n  // kWarning alert when live values differ from last committed snapshot\n}",
+      "buildOrIntegrate": "thin-wrapper",
+      "effort": "medium",
+      "prerequisites": "Preferences, NetworkTables, DriverStation; mirror DogLog.tunable semantics"
+    },
+    {
+      "capability": "PumpkinLeds — priority-arbitrated robot-state signaling with pluggable AddressableLED / CANdle backends",
+      "whyItMatters": "WPILib's LEDPattern algebra is excellent and almost nobody uses mask()/overlayOn()/progressMaskLayer(). Meanwhile CTRE moved CANdle into Phoenix 6 with a totally incompatible control-request model, so a team that switches hardware rewrites all LED code. And neither provides arbitration — the universal failure is a 200-line if-else ladder in periodic() where two subsystems fight over the strip. A declarative priority table is the right abstraction and does not exist anywhere.",
+      "apiSketch": "public final class PumpkinLeds extends SubsystemBase {\n  public static PumpkinLeds on(LedBackend backend);\n  public PumpkinLeds state(int priority, BooleanSupplier when, LEDPattern show);\n  public PumpkinLeds region(String name, int start, int end, boolean reversed);\n  public PumpkinLeds idle(LEDPattern p);\n}\ninterface LedBackend { void write(LEDReader buf); }   // AddressableBackend | CandleBackend\n\nleds.state(100, () -> RobotHealth.worst()==kError,\n           LEDPattern.solid(Color.kRed).blink(Seconds.of(0.15)))\n    .state(90,  DriverStation::isEStopped, LEDPattern.solid(Color.kRed))\n    .state(50,  intake::hasGamePiece,      LEDPattern.solid(Color.kGreen).breathe(Seconds.of(1)))\n    .state(40,  vision::hasTargetLock,     LEDPattern.solid(Color.kCyan))\n    .state(10,  () -> true, LEDPattern.rainbow(255,128).scrollAtAbsoluteSpeed(MetersPerSecond.of(0.5), Meters.of(1/60.0)))\n    .region(\"climb\", 0, 29).idle(LEDPattern.progressMaskLayer(climber::progress));",
+      "buildOrIntegrate": "thin-wrapper",
+      "effort": "medium",
+      "prerequisites": "WPILib LEDPattern/AddressableLEDBufferView; Phoenix 6 CANdle setControl requests. VERIFY CANdleConfiguration LED-type/count fields before writing CandleBackend — UNVERIFIED here."
+    },
+    {
+      "capability": "Rumble scheduler — patterned, timed, arbitrated haptic feedback",
+      "whyItMatters": "WPILib gives you exactly `setRumble(RumbleType, double)` with no getter, no duration, no arbitration, and no auto-clear on disable. Every team writes the same ad-hoc startEnd+withTimeout and then two subsystems stomp each other. Haptics are the cheapest possible driver-performance upgrade — a driver who feels 'game piece acquired' does not need to look away from the field — and the left/right channels let you encode two independent facts.",
+      "apiSketch": "public final class Rumble {\n  public static RumbleBuilder on(GenericHID hid);\n}\npublic final class RumbleBuilder {\n  public RumbleBuilder side(RumbleType t);       // kLeftRumble | kRightRumble | kBothRumble\n  public RumbleBuilder priority(int p);\n  public Command pattern(RumblePattern p);\n}\npublic final class RumblePattern {\n  public static RumblePattern pulse(double intensity, Time dur);\n  public static RumblePattern doubleTap();\n  public static RumblePattern ramp(double from, double to, Time dur);\n  public static RumblePattern sos();             // for kError health state\n}\n// auto-zeros every HID on disable; highest priority wins per side\nRumble.on(driver).side(kLeftRumble).priority(50).pattern(doubleTap());",
+      "buildOrIntegrate": "build",
+      "effort": "small",
+      "prerequisites": "GenericHID; a disabledInit hook in PumpkinRobot"
+    },
+    {
+      "capability": "PowerMonitor — named PDH/PDP channels with breaker ratings and per-match energy",
+      "whyItMatters": "getAllCurrents() returns a double[] indexed by bare channel number, so PDH logs are unreadable and nobody notices channel 7 sitting at 45A on a 40A breaker until it trips in elims. getTotalEnergy() is a perfect 'how much battery did this match consume' metric that is essentially never used, and it is exactly the data a small team needs to build a battery rotation discipline without buying a Battery Beak for every battery.",
+      "apiSketch": "public final class PowerMonitor {\n  public static PowerMonitor of(PowerDistribution pdh);\n  public PowerMonitor channel(int ch, String name, int breakerAmps);\n  public PowerMonitor warnAbove(int ch, Current i, Time sustained);\n  public double matchEnergyJoules();        // getTotalEnergy(), reset on enable\n  public Command switchableChannel(boolean on);   // PDH only\n}\n// logs /Pumpkin/Power/<name>/Amps for every named channel + auto Alerts at 90% of breaker",
+      "buildOrIntegrate": "thin-wrapper",
+      "effort": "small",
+      "prerequisites": "PowerDistribution.getAllCurrents/getTotalEnergy/getFaults/getStickyFaults"
+    },
+    {
+      "capability": "Current-limit declaration as part of the mechanism API, with a robot-level power budget",
+      "whyItMatters": "CTRE's guidance is correct but per-motor and verbose, and nothing checks the sum. A small team sets 120A stator on six motors and browns out. Making the limit a required, unit-typed argument of mechanism construction — and logging the declared robot-wide total — teaches the concept instead of hiding it, which matches the project's stated teaching goal.",
+      "apiSketch": "Mechanism arm = Mechanism.rotational(\"Arm\")\n    .motor(new TalonFX(21))\n    .statorLimit(Amps.of(80))       // required, not optional\n    .supplyLimit(Amps.of(40), Amps.of(30), Seconds.of(1.0)) // limit, lowerLimit, lowerTime\n    .build();\n\nPowerBudget.declare();  // logs sum of all declared limits; kWarning if > threshold",
+      "buildOrIntegrate": "thin-wrapper",
+      "effort": "small",
+      "prerequisites": "Phoenix 6 CurrentLimitsConfigs (StatorCurrentLimit/StatorCurrentLimitEnable/SupplyCurrentLimit/SupplyCurrentLowerLimit/SupplyCurrentLowerTime); REVLib equivalents"
+    },
+    {
+      "capability": "Dashboard facade over raw NT4 — never expose a WPILib dashboard type",
+      "whyItMatters": "Shuffleboard and SmartDashboard are both deleted in 2027, NT3 is deleted, and packages rename edu.wpi.first -> org.wpilib. Any PumpkinLib signature that mentions ShuffleboardTab or SmartDashboard is a guaranteed rewrite in months. Publishing to raw NT4 under a stable namespace works with Elastic, Glass, and AdvantageScope simultaneously and survives the transition. Bundle ElasticLib properly (vendored, not copy-paste) and auto-start the layout web server so students never have to remember it.",
+      "apiSketch": "public final class PumpkinDashboard {\n  public static void init();                     // starts WebServer.start(5800, deployDir) automatically\n  public static void notify(Notify n);           // rate-limited, rising-edge-only Elastic notification\n  public static void selectTab(String tab);\n  public static void bridgeAlertsToElastic();    // Alert kError->ERROR etc, once per activation\n  public static Trigger driverTabActive();\n}\npublic record Notify(AlertType level, String title, String detail, Time show) {\n  public static Notify error(String t, String d);\n  public Notify oncePerSecond();\n}\n// all telemetry -> /Pumpkin/{Health,Power,SelfTest,Match,Mechanisms}/... with units attached",
+      "buildOrIntegrate": "thin-wrapper",
+      "effort": "medium",
+      "prerequisites": "NT4; vendored ElasticLib; WebServer; Filesystem.getDeployDirectory()"
+    },
+    {
+      "capability": "Match-aware log naming for AdvantageKit",
+      "whyItMatters": "WPILib's DataLogManager already renames logs to FRC_yyyyMMdd_HHmmss_{event}_{match}.wpilog once FMS supplies a match number — but AdvantageKit's WPILOGWriter does not inherit that, so AdvantageKit users get hash-named files (akit_6497c321bb716896.wpilog) and lose the match association. Since the user runs AdvantageKit, this is a concrete gap that costs them the ability to find 'the log from Qual 34' at an event. Also: recordMetadata is write-once before Logger.start(), so FMS data must be a signal, not metadata.",
+      "apiSketch": "PumpkinLog.init()                     // records GIT_SHA, GIT_BRANCH, DIRTY, BUILD_DATE, RobotId as metadata\n    .wpilogTo(\"/U/logs\")\n    .renameOnFmsAttach()              // -> CURIE_Q34_a1b2c3d.wpilog\n    .alsoLogMatchInfoAsSignals()      // alliance/event/matchType/matchNumber as signals, not metadata\n    .start();",
+      "buildOrIntegrate": "thin-wrapper",
+      "effort": "small",
+      "prerequisites": "AdvantageKit Logger/WPILOGWriter; MatchContext; gversion BuildConstants"
+    },
+    {
+      "capability": "Operator input layer: named button-board bindings + a printable control-map export",
+      "whyItMatters": "Button boards are just generic HID devices — WPILib needs nothing new. What is missing is that raw `new JoystickButton(board, 7)` is unreadable, undocumented, and impossible to hand to a new operator. Elite teams maintain a physical control map poster; small teams have one student who remembers. Naming bindings and auto-emitting the map is a tiny feature with outsized competition-day value.",
+      "apiSketch": "ControlMap driver = ControlMap.of(\"Driver\", new CommandXboxController(0));\ndriver.bind(\"Score L4\", c -> c.rightBumper(), superstructure.scoreL4());\ndriver.bind(\"Eject\",    c -> c.b(),          intake.eject());\nControlMap.exportMarkdown(Path.of(\"docs/controls.md\"));   // build task\nControlMap.publishToDashboard();                          // NT string -> Elastic Text Display",
+      "buildOrIntegrate": "build",
+      "effort": "small",
+      "prerequisites": "CommandGenericHID; a gradle task"
+    },
+    {
+      "capability": "Pneumatics: health + policy adapters ONLY — do not unify with the motor mechanism API",
+      "whyItMatters": "Direct answer to the posed question: no, a mechanism library should not abstract pneumatic actuators alongside motors. A DoubleSolenoid has no position, no velocity, no current, no feedback, and no continuum of setpoints — forcing it into a Mechanism interface that has setPosition/getVelocity/currentLimit produces an abstraction where 80% of the methods throw or return NaN. That is worse than no abstraction. Model it as what it is: a two/three-state actuator. Do add the health checks, because isFwdSolenoidDisabled()/isRevSolenoidDisabled() are free short-circuit detection that nobody polls, and the compressor is a large uncommanded current draw that belongs in the power budget.",
+      "apiSketch": "public final class Pneumatic {\n  public static Pneumatic doubleActing(PneumaticsModuleType t, int fwd, int rev);\n  public Command extend();  public Command retract();  public Command toggle();\n  public Trigger isExtended();     // commanded state only; no feedback exists\n}\nPneumaticsHealth.of(hub, compressor);          // solenoid short + pressure + compressor current alerts\nCompressorPolicy.of(compressor)\n    .mode(Mode.HYBRID, PSI.of(90), PSI.of(115))   // -> enableHybrid(90, 115)\n    .disableWhen(() -> DriverStation.isAutonomous() || RobotHealth.batterySagging());",
+      "buildOrIntegrate": "thin-wrapper",
+      "effort": "small",
+      "prerequisites": "Compressor.enableDigital/enableAnalog/enableHybrid; DoubleSolenoid.Value{Off,Forward,Reverse}; isFwd/RevSolenoidDisabled()"
+    },
+    {
+      "capability": "Scouting / TBA / Statbotics — DO NOT put this in the robot-code library",
+      "whyItMatters": "Clear recommendation: exclude it. Three independent reasons. (1) Physics: during a match the robot is on an isolated FMS field network and cannot reach thebluealliance.com — an HTTP client in robot code is dead weight at best. (2) Loop time: any blocking network call in a 20ms periodic is a brownout-adjacent failure mode, and teams WILL put it in periodic(). (3) Scope: it shares zero dependencies, zero types, and zero lifecycle with robot code, so bundling it inflates the jar, drags in an HTTP/JSON stack, and couples PumpkinLib's release cadence to two third-party web APIs. The only defensible robot-adjacent slice is offline: pre-loading a match schedule into the deploy directory so the robot can label its own logs. Build that, and nothing else. If the team wants scouting, ship it as a separate optional desktop/CLI artifact (pumpkinlib-scout) with its own versioning, or just point them at Lookout/Arcbotics/Pre-ScoutingApp which already exist and are better.",
+      "apiSketch": "// IN the robot library — offline only, no network, no HTTP dependency:\nMatchSchedule.fromDeployFile(\"schedule.json\");     // optional, generated pre-event\nMatchContext.scheduledMatch();                      // Optional<MatchInfo> for log labeling\n\n// OUT of the robot library — separate artifact if built at all:\n// pumpkinlib-scout (desktop/CLI): TBA APIv3 (X-TBA-Auth-Key) + Statbotics EPA -> schedule.json",
+      "buildOrIntegrate": "build",
+      "effort": "small",
+      "prerequisites": "None for the offline slice. Deliberately no HTTP dependency in the robot artifact."
+    },
+    {
+      "capability": "2027-proofing: zero WPILib dashboard types, zero required inheritance, an internal compatibility seam",
+      "whyItMatters": "This is a design constraint rather than a feature, but it determines whether PumpkinLib survives past January 2027. Confirmed 2027 changes that break libraries: package rename edu.wpi.first -> org.wpilib (and frc:: -> wpi:: in C++), Java 25, Commands v3 alongside the existing framework, removal of robotInit() in favor of the constructor, removal of PIDCommand/ProfiledPIDCommand/TrapezoidProfileCommand, removal of mutable Java units, MathUtil.clamp() -> Math.clamp(), Pose2d/3d.exp(Twist) -> Pose.plus(Twist.exp()), a changed field coordinate system origin/orientation, and Systemcore replacing the roboRIO (no Relay, Analog Output, SPI, Counter, Servo, Ultrasonic, DMA, interrupts; multiple CAN buses; integrated IMU). Note especially that Systemcore removes the roboRIO, so any RobotIdentity strategy relying on a roboRIO DIO jumper or roboRIO serial number must have a file-based fallback.",
+      "apiSketch": "// Public API rules, enforced by an ArchUnit test in CI:\n//  - no edu.wpi.first.wpilibj.smartdashboard.* or .shuffleboard.* in any public signature\n//  - no `extends` requirement on user subsystems; composition + interfaces only\n//  - all angles/distances/currents as Measure<...>, never raw double, and never mutable units\n//  - field-relative math routed through PumpkinField, not inlined, so the 2027 origin change is one file\n//  - RobotIdentity always has a deploy-file fallback (no jumper/serial dependency)\npublic interface Mechanism { /* no WPILib Subsystem in the signature */ }",
+      "buildOrIntegrate": "build",
+      "effort": "medium",
+      "prerequisites": "Decide now whether v1 targets 2026 only or dual-targets; dual-targeting across the org.wpilib rename realistically needs a source-set split or a shim module"
+    }
+  ],
+  "eliteTeamPractices": [
+    "Build-time gates that make a bad deploy impossible rather than merely visible. 6328 ships a CheckDeploy task that exits 1 if the SIMBOT robot type would be deployed to real hardware, and a CheckPullRequest task that exits 1 unless COMPBOT is the default and tuning mode is disabled. Mid-tier teams rely on remembering to change a constant. https://github.com/Mechanical-Advantage/RobotCode2025Public",
+    "Automated per-subsystem self-test commands run from a pit display, not a checklist on paper. Team 135's Consul requires every subsystem to implement `Command systemCheckCommand()` and `SelfChecking[] getSelfCheckingHardware()`, and their Squire pit app runs them sequentially with per-device fault, temperature and CAN-utilization readout. https://oa.pennrobotics.org/135-consul-frc-programming-framework/",
+    "Deliberately budgeting the cost of diagnostics. 135 measured fault checking at roughly 10ms of loop time and therefore gates it behind Test mode so it cannot violate the 20ms budget during a match — an explicit engineering tradeoff most teams never even measure. https://oa.pennrobotics.org/135-consul-frc-programming-framework/",
+    "A central fault registry rather than scattered alerts. 3061-lib's FaultReporter registers every device once (`registerHardware(subsystem, label, device)`), converts vendor sticky faults into WPILib Alerts, and publishes structured status under `SystemStatus/<subsystem>/{Status,SystemOK,CheckRan}` so a dashboard can answer 'is the robot OK' with one boolean. https://github.com/HuskieRobotics/3061-lib",
+    "Treating sticky faults from previous boots as immediately actionable — surfacing them at startup rather than waiting for a repeat, which is how you catch a fault that occurred in the previous match. https://oa.pennrobotics.org/135-consul-frc-programming-framework/",
+    "Embedding git provenance in every build and recording it in the log. Team 254 and AdvantageKit both use the gversion plugin to generate BuildConstants with GIT_SHA and a DIRTY flag (0 clean / 1 uncommitted / -1 error), then `Logger.recordMetadata(\"GitSHA\", BuildConstants.GIT_SHA)` so any log can be traced to an exact commit. https://docs.advantagekit.org/getting-started/installation/version-control/ , https://github.com/Team254/FRC-2025-Public/blob/main/build.gradle",
+    "Tunable constants that are inert unless explicitly enabled. 6328's LoggedTunableNumber returns the compiled default unless a global tuning-mode flag is set; DogLog goes further and ignores tunables entirely whenever the robot is FMS-attached, so no dashboard edit can change competition behavior. https://www.littletonrobotics.org/software-update-1-setting-the-foundation/ , https://doglog.dev/reference/tunable-values",
+    "Version-controlling the driver dashboard itself. Elastic's remote layout download serves the deploy directory over port 5800 so the layout .json lives in the repo and any laptop can pull the correct layout with Ctrl+D — eliminating the 'the dashboard on the backup laptop is wrong' failure. https://frc-elastic.gitbook.io/docs/additional-features-and-references/remote-layout-downloading",
+    "Stator current limits derived from measured wheel slip rather than guessed, with supply limits added only after plotting real match-simulation currents; and checking battery health and PDH crimps BEFORE clamping limits in software. CTRE documents this ordering explicitly. https://v6.docs.ctr-electronics.com/en/stable/docs/hardware-reference/talonfx/improving-performance-with-current-limits.html",
+    "Not letting batteries drop below roughly 11.5–12V resting, and reading current-limit-induced stuttering as a signal that a battery is weak and should be rotated out. https://www.chiefdelphi.com/t/battery-lifespan-issue-why-do-our-frc-batteries-fail-so-quickly/506783",
+    "Logging connected NetworkTables clients so a coprocessor or dashboard dropout is visible in the log after the fact — AdvantageKit 2026 does this automatically in the SystemStats table with IP, port and protocol version. https://docs.advantagekit.org/whats-new/",
+    "Attaching units to every logged signal so replay tooling can graph and convert correctly; AdvantageKit 2026 supports `Logger.recordOutput(\"MyAngle\", 3.141, \"radians\")` and native `Meters.of(...)` measures. https://docs.advantagekit.org/whats-new/",
+    "Structured driver practice: slalom and obstacle courses, repeated game-piece acquisition and scoring, and full-cycle tests that rehearse the complete acquire-travel-score loop rather than ad-hoc driving. https://docs.wpilib.org/en/stable/docs/software/driverstation/driver-station-best-practices.html , https://community.firstinspires.org/hubfs/web/program/frc/resources/improving-driver-performance.pdf"
+  ],
+  "pitfalls": [
+    "`DriverStation.getAlliance()` returns an empty Optional until the DS connects. Reading it in a constructor, in robotInit, or in an autonomous chooser lambda that evaluates early gives you the wrong alliance and a mirrored auto. Latch it on the DS-connect edge and alert if it is still empty at enable. https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/DriverStation.html",
+    "SHUFFLEBOARD AND SMARTDASHBOARD ARE REMOVED IN 2027, along with NetworkTables 3. Any PumpkinLib public API mentioning ShuffleboardTab or SmartDashboard is dead on arrival. Publish to raw NT4. https://docs.wpilib.org/en/2027/docs/yearly-overview/removed-features.html",
+    "The 2027 package rename from `edu.wpi.first` to `org.wpilib` (and `frc::` to `wpi::`) breaks every import in every library. Plan a compatibility seam or a source-set split now, not in January. https://docs.wpilib.org/en/latest/docs/yearly-overview/yearly-changelog.html",
+    "The roboRIO is replaced by Systemcore in 2027. Any RobotType detection scheme that depends on a roboRIO DIO jumper, roboRIO MAC address, or roboRIO serial number needs a deploy-file fallback. Systemcore also removes Relay, Analog Output, SPI (killing ADIS16448/ADIS16470/ADXL345/ADXRS450 gyros), Counter, Servo, Ultrasonic, DMA, DigitalGlitchFilter, Analog Trigger and interrupts. https://docs.wpilib.org/en/2027/docs/yearly-overview/removed-features.html",
+    "The widely-repeated claim that 6328 detects robot identity by MAC address is UNVERIFIED and appears incorrect for their 2025 Constants.java, which uses a hand-edited `robotType` field guarded by build-time checks. Do not cite MAC detection as prior art without reading the current source. https://github.com/Mechanical-Advantage/RobotCode2025Public",
+    "Hardware fault polling is not free. Team 135 measured roughly 10ms per loop for full fault checking — over half a 20ms budget — and gates it behind Test mode. Poll health at 4Hz, not 50Hz, and never poll everything every loop. https://oa.pennrobotics.org/135-consul-frc-programming-framework/",
+    "The roboRIO can drive only ONE AddressableLED object at a time. Multiple strips require daisy-chaining or a PWM Y-cable, and logical separation must be done with `buffer.createView(start, end)` (with `.reversed()` for serpentine runs), not with a second AddressableLED. https://docs.wpilib.org/en/stable/docs/software/hardware-apis/misc/addressable-leds.html",
+    "CANdle moved from Phoenix 5 (`com.ctre.phoenix.led`) to Phoenix 6 (`com.ctre.phoenix6.hardware.CANdle`) for 2026, with a completely different control-request programming model and only 8 animation slots. The Phoenix 5 LED API is deprecated for removal in 2027. Code written against either is not portable to the other without an abstraction. https://api.ctr-electronics.com/phoenix6/latest/java/com/ctre/phoenix6/hardware/CANdle.html",
+    "AdvantageKit's `Logger.recordMetadata()` must be called before `Logger.start()` and nothing can be added afterward. FMS data (event, match number) arrives only after the DS connects, so it CANNOT be metadata — log it as a normal signal or you will get empty values. https://docs.advantagekit.org/getting-started/installation/version-control/",
+    "WPILib's DataLogManager auto-renames logs to FRC_yyyyMMdd_HHmmss_{event}_{match}.wpilog when FMS supplies a match number, but AdvantageKit's WPILOGWriter does NOT inherit this and produces hash-named files. AdvantageKit users lose match association unless they wire renaming themselves. https://docs.wpilib.org/en/stable/docs/software/telemetry/datalog.html",
+    "`Preferences` persists on the roboRIO filesystem, not in git. A RIO reimage, a robot swap, or a fresh image silently reverts every tuned value with no warning. Always snapshot to a deploy-directory file that is committed.",
+    "Tunable values left live at a competition mean a stray dashboard edit changes robot behavior mid-event. DogLog defaults to ignoring tunables when FMS-attached; copy that semantic rather than trusting discipline. https://doglog.dev/reference/tunable-values",
+    "`Alert` groups publish under `/SmartDashboard/<Group Name>` — an NT3-era path that will read oddly once SmartDashboard is removed in 2027. Do not assume this key location is stable. https://docs.wpilib.org/en/stable/docs/software/telemetry/persistent-alerts.html",
+    "`SendableAlerts` is NOT a documented public class in the WPILib 2026 Java API. The documented surface is `Alert` plus `Alert.AlertType`. Do not reference SendableAlerts in PumpkinLib — UNVERIFIED.",
+    "ElasticLib is distributed as a file to copy into your project (`elasticlib/Elastic.java`), not as a vendordep, so every team runs a divergent private copy and bug fixes never propagate. https://frc-elastic.gitbook.io/docs/additional-features-and-references/robot-notifications-with-elasticlib",
+    "`Elastic.sendNotification()` has no rate limiting or deduplication. Calling it from periodic() floods the dashboard and buries the one notification that mattered. Emit on rising edge only.",
+    "Elastic remote layout download requires `WebServer.start(5800, Filesystem.getDeployDirectory().getPath())` in robot code and the .json at the ROOT of the deploy directory. Miss either and the feature silently does nothing. https://frc-elastic.gitbook.io/docs/additional-features-and-references/remote-layout-downloading",
+    "Elastic's struct-field display is read-only and does not support arrays — you cannot use it as a substitute for publishing the scalars you actually want to edit. https://github.com/Gold872/elastic_dashboard/releases",
+    "Software current limits are the LAST line of defense, not the first. CTRE explicitly says to verify battery health with a Battery Beak and inspect/tighten PDP-PDH crimps and battery lugs before clamping limits, because a high-resistance connection produces brownouts that no software limit can fix. https://v6.docs.ctr-electronics.com/en/stable/docs/hardware-reference/talonfx/improving-performance-with-current-limits.html , https://www.chiefdelphi.com/t/battery-lifespan-issue-why-do-our-frc-batteries-fail-so-quickly/506783",
+    "Stator and supply limits are not interchangeable. Because I_supply = I_stator × duty cycle, a stator limit already bounds supply current and is the more effective brownout guard at the start of acceleration; supply limits matter for sustained high-load cases like flywheel spin-up. Setting only supply limits leaves torque and heat unbounded. https://v6.docs.ctr-electronics.com/en/stable/docs/hardware-reference/talonfx/improving-performance-with-current-limits.html",
+    "Brownout thresholds are hardware-specific (6.3V on roboRIO 1, 6.75V on roboRIO 2) and `RobotController.setBrownoutVoltage()` lets you change them — raising it is almost never what you want. Also poll `getFaultCount5V()`: a 5V rail fault means sensors browned out and your encoder readings during that window are garbage. https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/RobotController.html",
+    "`CANStatus` lives in `edu.wpi.first.hal.can.CANStatus`, not `edu.wpi.first.hal.CANStatus`. Its counters (busOffCount, receiveErrorCount, transmitErrorCount, txFullCount) are cumulative — track deltas since enable, because an absolute value is meaningless. https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/hal/can/CANStatus.html",
+    "`setRumble()` has no getter and no auto-clear. Rumble left on at disable is a known annoyance, and two subsystems calling it will silently stomp each other. Always zero every HID in disabledInit. https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/GenericHID.html",
+    "Do not force pneumatic actuators into a motor-shaped Mechanism interface. A DoubleSolenoid has no position, velocity, current or feedback; most of the interface would throw or return NaN. Model it as a discrete-state actuator instead, and separately poll `isFwdSolenoidDisabled()`/`isRevSolenoidDisabled()` for free short-circuit detection. https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/DoubleSolenoid.html",
+    "Do not put TBA or Statbotics HTTP calls in robot code. The robot is on an isolated FMS field network during a match and cannot reach the internet, and any blocking network call in a 20ms periodic is a loop-overrun waiting to happen. https://www.thebluealliance.com/apidocs/v3",
+    "WPILib is changing the field coordinate system origin and orientation in 2027, which invalidates hardcoded alliance-flipping and field-relative math. Route all of it through one file so the change is a single edit. https://docs.wpilib.org/en/latest/docs/yearly-overview/yearly-changelog.html",
+    "2027 also removes `robotInit()` (use the constructor), `PIDCommand`/`ProfiledPIDCommand`/`TrapezoidProfileCommand` (poor abstractions), mutable Java units, `MathUtil.clamp()` (use `Math.clamp()`), and `Pose2d/3d.exp(Twist)` (use `Pose.plus(Twist.exp())`). Avoid building PumpkinLib on any of them. https://docs.wpilib.org/en/2027/docs/yearly-overview/removed-features.html",
+    "Commands v3 arrives in 2027 alongside the existing framework. An API that requires users to `extends SubsystemBase` or `extends SubsystemChecker` (as 135's Consul does) is far harder to migrate than one built on composition and interfaces. https://docs.wpilib.org/en/latest/docs/yearly-overview/yearly-changelog.html",
+    "Elastic's layout .json schema is not published as a stable public contract. Programmatically generating layouts is a real risk; prefer shipping a hand-exported .json in the deploy directory. UNVERIFIED whether the schema is stable across the 2026.x line.",
+    "Phoenix 6 CANdle LED strip type and LED count configuration fields were not confirmed in this research — UNVERIFIED. Check `CANdleConfiguration` in Phoenix 6 26.x before writing a CANdle backend."
+  ],
+  "citations": [
+    "https://docs.wpilib.org/en/2027/docs/yearly-overview/removed-features.html",
+    "https://docs.wpilib.org/en/latest/docs/yearly-overview/yearly-changelog.html",
+    "https://docs.wpilib.org/en/stable/docs/software/dashboards/elastic.html",
+    "https://frc-elastic.gitbook.io/docs",
+    "https://frc-elastic.gitbook.io/docs/additional-features-and-references/remote-layout-downloading",
+    "https://frc-elastic.gitbook.io/docs/additional-features-and-references/robot-notifications-with-elasticlib",
+    "https://frc-elastic.gitbook.io/docs/additional-features-and-references/widgets-list-and-properties-reference",
+    "https://frc-elastic.gitbook.io/docs/customizing-your-dashboard/adding-and-customizing-widgets",
+    "https://github.com/Gold872/elastic_dashboard",
+    "https://github.com/Gold872/elastic_dashboard/releases",
+    "https://github.com/Gold872/elastic-dashboard/blob/main/elasticlib/Elastic.java",
+    "https://roboblazers7617.github.io/Robot-Template/frc/robot/util/Elastic.html",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/Alert.html",
+    "https://docs.wpilib.org/en/stable/docs/software/telemetry/persistent-alerts.html",
+    "https://github.com/wpilibsuite/frc-docs/blob/main/source/docs/software/telemetry/persistent-alerts.rst",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/RobotController.html",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/hal/can/CANStatus.html",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/DriverStation.html",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/PowerDistribution.html",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/Preferences.html",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/GenericHID.html",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/GenericHID.RumbleType.html",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/Compressor.html",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/DoubleSolenoid.html",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/PneumaticHub.html",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/PneumaticsBase.html",
+    "https://docs.wpilib.org/en/stable/docs/software/can-devices/pneumatic-hub.html",
+    "https://docs.wpilib.org/en/stable/docs/software/hardware-apis/pneumatics/index.html",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/LEDPattern.html",
+    "https://docs.wpilib.org/en/stable/docs/software/hardware-apis/misc/addressable-leds.html",
+    "https://docs.wpilib.org/en/2027/_sources/docs/software/hardware-apis/misc/addressable-leds.rst.txt",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/AddressableLED.html",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/AddressableLEDBuffer.html",
+    "https://docs.wpilib.org/en/stable/docs/software/telemetry/datalog.html",
+    "https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/wpilibj/DataLogManager.html",
+    "https://docs.wpilib.org/en/stable/docs/software/advanced-gradlerio/deploy-git-data.html",
+    "https://docs.wpilib.org/en/stable/docs/software/driverstation/driver-station-best-practices.html",
+    "https://community.firstinspires.org/hubfs/web/program/frc/resources/improving-driver-performance.pdf",
+    "https://github.com/wpilibsuite/allwpilib/releases",
+    "https://api.ctr-electronics.com/phoenix6/latest/java/com/ctre/phoenix6/hardware/CANdle.html",
+    "https://api.ctr-electronics.com/phoenix6/stable/java/com/ctre/phoenix6/hardware/core/CoreCANdle.html",
+    "https://api.ctr-electronics.com/phoenix6/stable/java/com/ctre/phoenix6/controls/StrobeAnimation.html",
+    "https://api.ctr-electronics.com/phoenix6/stable/java/com/ctre/phoenix6/hardware/core/CoreTalonFX.html",
+    "https://api.ctr-electronics.com/changelog.html",
+    "https://v6.docs.ctr-electronics.com/en/latest/docs/yearly-changes/yearly-changelog.html",
+    "https://v6.docs.ctr-electronics.com/en/stable/docs/hardware-reference/talonfx/improving-performance-with-current-limits.html",
+    "https://v6.docs.ctr-electronics.com/en/stable/docs/migration/migration-guide/index.html",
+    "https://codedocs.revrobotics.com/java/com/revrobotics/spark/sparkbase",
+    "https://codedocs.revrobotics.com/java/com/revrobotics/spark/sparkmax",
+    "https://docs.advantagekit.org/whats-new/",
+    "https://docs.advantagekit.org/getting-started/installation/version-control/",
+    "https://docs.advantagescope.org/whats-new/",
+    "https://docs.advantagescope.org/tab-reference/metadata/",
+    "https://docs.advantagescope.org/tab-reference/3d-field/",
+    "https://doglog.dev/reference/tunable-values",
+    "https://github.com/HuskieRobotics/3061-lib",
+    "https://github.com/HuskieRobotics/3061-lib/blob/main/README.md",
+    "https://github.com/HuskieRobotics/3061-lib/discussions/132",
+    "https://oa.pennrobotics.org/135-consul-frc-programming-framework/",
+    "https://github.com/Mechanical-Advantage/RobotCode2025Public",
+    "https://www.littletonrobotics.org/software-update-1-setting-the-foundation/",
+    "https://www.chiefdelphi.com/t/frc-6328-mechanical-advantage-2026-build-thread/509595",
+    "https://github.com/Team254/FRC-2025-Public/blob/main/build.gradle",
+    "https://github.com/lessthanoptimal/gversion-plugin",
+    "https://plugins.gradle.org/plugin/com.peterabeles.gversion",
+    "https://pathplanner.dev/api/java/com/pathplanner/lib/util/FlippingUtil.html",
+    "https://pathplanner.dev/api/java/com/pathplanner/lib/auto/AutoBuilder.html",
+    "https://pathplanner.dev/pplib-build-an-auto.html",
+    "https://www.thebluealliance.com/apidocs/v3",
+    "https://www.statbotics.io/",
+    "https://github.com/avgupta456/statbotics",
+    "https://www.chiefdelphi.com/t/introducing-arcbotics-integrating-statbotics-right-on-tba/512666",
+    "https://www.chiefdelphi.com/t/battery-lifespan-issue-why-do-our-frc-batteries-fail-so-quickly/506783",
+    "https://www.chiefdelphi.com/t/question-how-to-prevent-from-browning-out-in-software-way/514602",
+    "https://www.chiefdelphi.com/t/brownout-protection-on-frc-driver-station/515133",
+    "https://www.chiefdelphi.com/t/how-are-teams-implementing-adjustable-constants/507361",
+    "https://www.chiefdelphi.com/t/2026-frc-inspection-checklist-is-out/515249",
+    "https://www.chiefdelphi.com/t/post-your-driver-operator-control-layouts/396997",
+    "https://www.chiefdelphi.com/t/how-does-a-button-board-work/468860",
+    "https://www.chiefdelphi.com/t/frc-precheck-a-self-inspection-checklist-web-app/485227"
+  ]
+}
