@@ -2,3 +2,6 @@
 .research/
 r10.tmp
 *.tmp
+build/
+.gradle/
+bin/

@@ -1,0 +1,9 @@
+rootProject.name = 'PumpkinLib'
+
+// D28: ONE published core artifact. The package boundaries inside it are enforced by
+// ArchUnit (DESIGN.md section 8), so the artifact split stays available at zero cost
+// without paying eleven POMs and eleven chances for a botched in-season publish.
+//
+// Vendor adapter subprojects (pumpkinlib-phoenix6, -revlib, -photonvision, -pathplanner,
+// -choreo, -maplesim) are added at their milestones; they are NOT part of M1.
+include 'pumpkinlib'

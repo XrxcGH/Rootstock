@@ -1,0 +1,70 @@
+// The single published core artifact: dev.pumpkinlib:pumpkinlib
+//
+// Depends on WPILib + AdvantageKit and NOTHING from a vendor (no com.ctre, no
+// com.revrobotics, no org.photonvision, no com.pathplanner, no choreo). ArchUnit rule 1
+// enforces that; this dependency block is the first line of defence.
+
+description = 'PumpkinLib core — mechanisms, tuning, vision, telemetry, drive and competition-day tooling for FRC'
+
+dependencies {
+    // ---- WPILib 2026 -------------------------------------------------------------------
+    api "edu.wpi.first.wpilibj:wpilibj-java:${wpilibVersion}"
+    api "edu.wpi.first.wpimath:wpimath-java:${wpilibVersion}"
+    api "edu.wpi.first.wpiunits:wpiunits-java:${wpilibVersion}"
+    api "edu.wpi.first.wpiutil:wpiutil-java:${wpilibVersion}"
+    api "edu.wpi.first.ntcore:ntcore-java:${wpilibVersion}"
+    api "edu.wpi.first.hal:hal-java:${wpilibVersion}"
+
+    // WPILib publishes bare POMs with no declared transitive dependencies — GradleRIO
+    // injects these at build time, and a plain java-library build has to do it by hand.
+    // Without them wpimath's Pose2d/Logger fail to compile with "cannot access ProtoMessage".
+    api "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
+    api "com.fasterxml.jackson.core:jackson-core:${jacksonVersion}"
+    api "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+    api "us.hebi.quickbuf:quickbuf-runtime:${quickbufVersion}"
+    api "org.ejml:ejml-simple:${ejmlVersion}"
+    api "org.ejml:ejml-core:${ejmlVersion}"
+
+    // WPILibNewCommands is one of exactly two vendordep `requires` entries. It is not
+    // optional: Mechanism implements Subsystem, and every command factory needs it.
+    api "edu.wpi.first.wpilibNewCommands:wpilibNewCommands-java:${wpilibVersion}"
+
+    // ---- AdvantageKit ------------------------------------------------------------------
+    // Maintainer decision 3 (2026-08-07): REQUIRED, not one backend among four.
+    // PumpkinRobot extends LoggedRobot and deterministic replay is a guarantee.
+    // The cost — the kickoff-morning install property — is argued in ROADMAP.md section 4.2.
+    api "org.littletonrobotics.akit:akit-java:${akitVersion}"
+
+    // org.pumpkinlib.test.PumpkinTest is a SHIPPED JUnit 5 extension — it is part of the
+    // library, not of the library's own tests. compileOnly rather than api: a team using
+    // PumpkinTest already has JUnit on its test classpath, and no robot should carry JUnit
+    // onto the roboRIO at runtime just because it depends on PumpkinLib.
+    compileOnly "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+
+    // ---- Test --------------------------------------------------------------------------
+    testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // ArchUnit enforces the twelve structural rules in DESIGN.md section 8. These are the
+    // seams that make the 2027 org.wpilib.* port an import rewrite instead of a rewrite.
+    testImplementation "com.tngtech.archunit:archunit-junit5:${archunitVersion}"
+}
+
+// Native (JNI) libraries are required only by tests that initialise the HAL. Those tests are
+// tagged "hal" and are excluded from the default `test` task so `./gradlew build` works on a
+// machine with no WPILib natives. `./gradlew halTest` runs them when natives are present.
+tasks.named('test') {
+    useJUnitPlatform {
+        excludeTags 'hal'
+    }
+}
+
+tasks.register('halTest', Test) {
+    description = 'Runs tests that require WPILib JNI natives (HAL init).'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'hal'
+    }
+}
