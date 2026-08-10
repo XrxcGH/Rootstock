@@ -1,0 +1,41 @@
+// dev.pumpkinlib:pumpkinlib-revlib — the REVLib adapter.
+//
+// The ONLY artifact allowed to import com.revrobotics (ArchUnit rule 1). A REV-only team
+// installs this and never sees Phoenix; the design criticises YAGSL's vendordep precisely
+// because it forces Phoenix 5 onto REV-only teams.
+
+description = 'PumpkinLib REVLib adapter — SPARK MAX and SPARK Flex'
+
+repositories {
+    maven { url = 'https://maven.revrobotics.com/' }
+}
+
+dependencies {
+    api project(':pumpkinlib')
+    api "com.revrobotics.frc:REVLib-java:${revlibVersion}"
+
+    testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation "com.tngtech.archunit:archunit-junit5:${archunitVersion}"
+}
+
+// Same split as :pumpkinlib. REVLib is stricter than Phoenix here: SparkMaxConfig's static
+// initialiser loads REVLibDriver, so even building a configuration object needs the natives. Those
+// tests are tagged "hal" and excluded from the default `test` task. Everything expressible on plain
+// doubles — which is the whole gain conversion and the whole MAXMotion unit chain — is asserted in
+// RevGainSinkTest and runs in the default build.
+tasks.named('test') {
+    useJUnitPlatform {
+        excludeTags 'hal'
+    }
+}
+
+tasks.register('halTest', Test) {
+    description = 'Runs tests that require REVLib / WPILib JNI natives.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'hal'
+    }
+}

@@ -10,6 +10,9 @@ ext {
     pumpkinVersion   = '2026.0.0-SNAPSHOT'
     wpilibVersion    = '2026.2.2'
     akitVersion      = '26.0.2'
+    // Vendor adapters. Each lives in its own artifact behind its own vendordep.
+    phoenix6Version  = '26.3.0'
+    revlibVersion    = '2026.0.5'
     // WPILib's transitive deps, which its bare POMs do not declare (GradleRIO injects them).
     jacksonVersion   = '2.18.2'
     quickbufVersion  = '1.4'
