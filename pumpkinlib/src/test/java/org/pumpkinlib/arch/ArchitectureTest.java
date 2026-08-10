@@ -15,6 +15,7 @@ import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.domain.JavaParameterizedType;
 import com.tngtech.archunit.core.domain.JavaType;
 import com.tngtech.archunit.core.domain.JavaTypeVariable;
+import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -96,8 +97,15 @@ public final class ArchitectureTest {
   // =============================================================================================
 
   /**
-   * RULE 1. No vendor SDK import outside its own adapter artifact. M1 publishes no adapter
-   * artifacts, so the correct scope today is "nowhere in {@code org.pumpkinlib}".
+   * RULE 1. No vendor SDK import outside its own adapter artifact.
+   *
+   * <p><b>Scope, restated now that the adapter artifacts exist (M3).</b> This test source set belongs
+   * to {@code :pumpkinlib}, and {@code :pumpkinlib-phoenix6} / {@code :pumpkinlib-revlib} depend on
+   * <em>it</em>, never the other way round. So the classes ArchUnit imports here are the CORE
+   * artifact's and nothing else, and "nowhere in {@code org.pumpkinlib}" is exactly "nowhere in the
+   * core artifact" — which is the sentence rule 1 actually wants. {@link
+   * #rule1a_theAnalysedSetIsTheCoreArtifactAndNamesNoVendor} proves that reading rather than assuming
+   * it, because a rule whose scope silently became empty passes for the wrong reason.
    *
    * <p>{@code org.littletonrobotics} is deliberately <em>absent</em> from this list — decision 3
    * makes AdvantageKit a required core dependency, so an artifact fence around it is meaningless.
@@ -122,6 +130,83 @@ public final class ArchitectureTest {
               "vendor SDKs live in adapter artifacts discovered by ServiceLoader. A vendor import "
                   + "in core makes the jar unusable by a team that does not run that vendor, and "
                   + "Class.forName on a string literal is not a substitute for a real seam.");
+
+  /**
+   * RULE 1a. The set {@link #rule1_noVendorSdkInCore} is measured over really is the core artifact,
+   * it really is non-empty, and no class in it names a vendor type.
+   *
+   * <p><b>Why this exists and why it is written as a method.</b> Until M3 there were no adapter
+   * artifacts, so rule 1 could not fail for a boring reason. Now there are two, and two boring
+   * failure modes appear with them:
+   *
+   * <ol>
+   *   <li><b>Vacuity.</b> If the importer's package filter ever stops matching — a package rename, a
+   *       classpath change, a build refactor — {@code noClasses().that()...} passes over an empty
+   *       set, silently, forever. The three positive assertions below make that impossible: the
+   *       import must contain the seam, the sim backend and the units tier.
+   *   <li><b>Leakage.</b> If a vendor adapter's classes ever land inside the core artifact's jar,
+   *       rule 1 would start failing for the right reason — but only if the adapter is on this
+   *       classpath. Asserting that <em>no</em> {@code hardware.phoenix} or {@code hardware.rev}
+   *       class is visible from here proves the artifact boundary is a real boundary and not a
+   *       naming convention.
+   * </ol>
+   *
+   * <p>The vendor-dependency check is repeated here rather than delegated, so that the failure
+   * message can list the offending class <em>and</em> the vendor type it reached, which is what a
+   * student needs to fix it. {@code Class.forName} is deliberately <em>not</em> used: a vendor jar
+   * being absent from a test runtime is not the property rule 1 asserts. What it asserts is that no
+   * compiled class in the artifact references one, and that is a bytecode question.
+   *
+   * @param classes the imported core artifact, supplied by ArchUnit
+   */
+  @ArchTest
+  static void rule1a_theAnalysedSetIsTheCoreArtifactAndNamesNoVendor(JavaClasses classes) {
+    for (String required :
+        List.of(
+            "org.pumpkinlib.hardware.MotorIO",
+            "org.pumpkinlib.hardware.sim.SimMotorIO",
+            "org.pumpkinlib.units.MechanismUnits")) {
+      if (!classes.contain(required)) {
+        throw new AssertionError(
+            "ArchUnit imported no class named "
+                + required
+                + ", so every noClasses() rule in this file is passing vacuously. Fix the "
+                + "@AnalyzeClasses package filter before trusting anything else here.");
+      }
+    }
+
+    List<String> adapterLeaks = new ArrayList<>();
+    List<String> vendorReferences = new ArrayList<>();
+    for (JavaClass clazz : classes) {
+      if (clazz.getPackageName().startsWith("org.pumpkinlib.hardware.phoenix")
+          || clazz.getPackageName().startsWith("org.pumpkinlib.hardware.rev")) {
+        adapterLeaks.add(clazz.getName());
+      }
+      for (JavaClass dependency : clazz.getDirectDependenciesFromSelf().stream()
+          .map(d -> d.getTargetClass())
+          .toList()) {
+        String name = dependency.getName();
+        if (name.startsWith("com.ctre.") || name.startsWith("com.revrobotics.")) {
+          vendorReferences.add(clazz.getName() + " -> " + name);
+        }
+      }
+    }
+
+    if (!adapterLeaks.isEmpty()) {
+      throw new AssertionError(
+          "the core artifact must not contain any vendor adapter class. A REV-only team installs "
+              + "dev.pumpkinlib:pumpkinlib and must never receive Phoenix code, which is precisely "
+              + "the complaint DESIGN.md makes about YAGSL's vendordep. Found: "
+              + adapterLeaks);
+    }
+    if (!vendorReferences.isEmpty()) {
+      throw new AssertionError(
+          "the core artifact must contain ZERO com.ctre and ZERO com.revrobotics dependencies. "
+              + "Vendor SDKs live in adapter artifacts discovered by ServiceLoader; a reference "
+              + "here makes the core jar unusable by a team that does not run that vendor. Found: "
+              + vendorReferences);
+    }
+  }
 
   /**
    * RULE 1b. No {@code dev.doglog} and no {@code edu.wpi.first.epilogue}, anywhere, ever.
@@ -171,11 +256,19 @@ public final class ArchitectureTest {
 
   /**
    * RULE 1c clause (ii). {@code LogTable} and {@code LoggableInputs} are additionally legal in any
-   * {@code ..io..} package, because every {@code *Inputs} class in the library implements {@code
-   * LoggableInputs} and hand-writes {@code toLog}/{@code fromLog} under D24.
+   * {@code ..io..} package <em>and in any {@code *Inputs} class</em>, because every {@code *Inputs}
+   * class in the library implements {@code LoggableInputs} and hand-writes {@code toLog}/{@code
+   * fromLog} under D24.
    *
    * <p>This clause is not a loophole — without it, decision 3's own {@code MotorInputs implements
    * LoggableInputs} is a rule violation on day one.
+   *
+   * <p>The {@code *Inputs} half of the allowance was written into the rule when {@code
+   * org.pumpkinlib.hardware} landed. The package-only spelling was an accident of M1, where the only
+   * inputs classes that existed were hypothetical: the seam's four inputs types live beside their IO
+   * interfaces in {@code org.pumpkinlib.hardware}, not in a package called {@code io}, and moving
+   * them into one purely to satisfy a regex would be the tail wagging the dog. The name test is the
+   * honest statement of the rule the design always described.
    */
   @ArchTest
   static final ArchRule rule1c_ii_advantageKitSchemaTypesAreConfined =
@@ -187,6 +280,8 @@ public final class ArchitectureTest {
               "org.pumpkinlib.tuning..",
               "org.pumpkinlib.viz..",
               "..io..")
+          .and()
+          .haveSimpleNameNotEndingWith("Inputs")
           .should()
           .onlyDependOnClassesThat()
           .haveNameNotMatching(kAkitSchemaTypes)
@@ -627,12 +722,27 @@ public final class ArchitectureTest {
     };
   }
 
+  /**
+   * Throwable types javac synthesises, which are therefore never an <em>explicit</em> throw.
+   *
+   * <p>An exhaustive {@code switch} expression over an enum compiles to a lookup with a
+   * {@code default} arm that constructs an {@code IncompatibleClassChangeError} — the branch taken
+   * only if the enum gained a constant after this class was compiled. Java 21's pattern switches
+   * synthesise {@code MatchException} the same way. Neither appears in the source, neither is
+   * reachable from a correctly-linked build, and counting them would mean rule 11 forbids the one
+   * construct the rest of this design asks for by name: a total {@code switch} that turns "somebody
+   * added a vendor" into a compile error.
+   */
+  private static final java.util.Set<String> kCompilerSynthesisedThrowables =
+      java.util.Set.of("java.lang.IncompatibleClassChangeError", "java.lang.MatchException");
+
   private static ArchCondition<JavaMethod> constructingAThrowable() {
     return new ArchCondition<>("construct a Throwable") {
       @Override
       public void check(JavaMethod item, ConditionEvents events) {
         for (JavaConstructorCall call : item.getConstructorCallsFromSelf()) {
-          if (call.getTargetOwner().isAssignableTo(Throwable.class)) {
+          if (call.getTargetOwner().isAssignableTo(Throwable.class)
+              && !kCompilerSynthesisedThrowables.contains(call.getTargetOwner().getName())) {
             events.add(SimpleConditionEvent.satisfied(item, call.getDescription()));
           }
         }
