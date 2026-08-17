@@ -619,6 +619,18 @@ public final class PumpkinSim {
     s_busVolts = kNominalBusVolts;
     s_totalAmps = 0.0;
     s_printedBootReport = false;
+
+    // Drop the lazily-built alerts too.
+    //
+    // These are cached in statics, and a test that calls AlertRegistry.resetForTest() alongside
+    // this method leaves them pointing at a registry that no longer exists. The next boot report
+    // then raises a perfectly correct alert into nowhere: AlertRegistry.all() cannot see it, so a
+    // test asserting "the declaration problem is reported" fails while the library is behaving
+    // correctly — and, worse, a test asserting the opposite would PASS. Nulling them here means the
+    // next call to declarationAlert() re-registers against whichever registry is current.
+    s_brownoutAlert = null;
+    s_unattachedAlert = null;
+    s_declarationAlert = null;
   }
 
   // ==================================================================================== builders

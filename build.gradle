@@ -38,12 +38,27 @@ subprojects {
 
     java {
         withSourcesJar()
+
+        // Pin the toolchain to a real JDK rather than whatever JVM launched Gradle.
+        //
+        // This is not tidiness. A JetBrains Runtime (the JVM bundled with Android Studio and the
+        // IntelliJ family, which Gradle will happily select if it is first on PATH) crashes with
+        // EXCEPTION_ACCESS_VIOLATION inside msvcp140.dll the moment System.loadLibrary pulls in
+        // WPILib's HAL JNI. The failure is a hard JVM crash with no Java stack trace — the Gradle
+        // worker just dies with "Connection reset by peer" — so it reads as a broken test rather
+        // than a broken JVM choice. Verified 2026-08-09: identical classpath and java.library.path,
+        // Temurin 17 and Temurin 21 both report HAL.initialize -> true; the JBR crashes.
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(rootProject.ext.javaRelease)
+            vendor = JvmVendorSpec.ADOPTIUM
+        }
     }
 
     tasks.withType(JavaCompile).configureEach {
         options.release = rootProject.ext.javaRelease
         options.encoding = 'UTF-8'
-        options.compilerArgs << '-Xlint:all' << '-Xlint:-serial' << '-Xlint:-this-escape'
+        // -this-escape is a JDK 21 lint and is an invalid flag on the pinned JDK 17 toolchain.
+        options.compilerArgs << '-Xlint:all' << '-Xlint:-serial'
     }
 
     tasks.withType(Test).configureEach {
