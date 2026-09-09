@@ -1,6 +1,6 @@
-# PumpkinLib — Roadmap
+# Rootstock — Roadmap
 
-**Status:** design stage, **revision 4** (post six-lens independent expert review). No code exists. This is a plan, not a report.
+**Status:** **revision 4** (post six-lens independent expert review). M1 through M7 are implemented and unreleased, and no date below has been re-derived since they landed in nine days. This is a plan, not a report, and that gap is the reason to say so.
 **Today:** 2026-08-08. The four binding maintainer decisions are dated 2026-08-07. **License:** BSD-3-Clause ([`LICENSE`](LICENSE)).
 
 > **What revision 4 changed here, in one place.** No scope, staffing or decision changed. **§1.1** replaces the ±7% band with the ≥±25% band this plan's own R22(c) already conceded, states the rounding rule behind the "unrounded" subtotal, and names M3/M8/M24 as the three budgets most likely to be light. **§2** publishes the exact net-rate products (every published rounding favoured the maintainer; the +2-and-students headline moves 2027-11-10 → 2027-12-13 and stays pre-kickoff) and **§2.1** shows the 3.34 pw/wk → "6–8 engineers" conversion. **§3.1** makes the template's vendordep set a function of `--vendor` instead of pinning both motor adapters on every fork. **§4.2** is rewritten from unexecuted-to-do tense into a record of a completed edit, the R18 tiers are renumbered into execution order (contribute → fork → wait) to match every other document, and the AdvantageKit licence `[UNVERIFIED]` is **closed — BSD-3-Clause, verified 2026-08-08.** **§5** fixes M8's unsatisfiable gate (the differential variant is documented-absent until M15) and deletes M12's unsatisfiable completion rule, replacing it with the consequence. **§5.1** re-derives the solo column with M12's preemption actually applied and footnotes the `+1`/`+2` columns. **§7.2** and **§9** fix miscited ArchUnit rule numbers and a critical path that omitted M5 and M6.
@@ -10,7 +10,7 @@
 >
 > **Everything ships in v0.1. No domain is deferred.** Vision (Limelight + PhotonVision + custom coprocessors + object detection + `SimulatedLimelight`), the full drive funnel including differential, the AutoStep DSL on **both** PathPlanner and Choreo, `OdometryReport`, 3D visualization, **all six** wizard recipes, the collision-avoidance router, the replay-safety lint, shoot-on-the-move, maple-sim, and `CycleStats` are all v0.1 scope.
 >
-> **The cost is stated once, plainly, and never softened again in this document: v0.1 lands after the 2027 kickoff. At solo pace it lands after the 2028 kickoff and probably after the 2029 one. The central solo estimate is December 2029 — and with the annual WPILib carrying cost it is mid-2030.** The maintainer's own teams get no *released* PumpkinLib for the 2027 season, and most likely none for 2028 either.
+> **The cost is stated once, plainly, and never softened again in this document: v0.1 lands after the 2027 kickoff. At solo pace it lands after the 2028 kickoff and probably after the 2029 one. The central solo estimate is December 2029 — and with the annual WPILib carrying cost it is mid-2030.** The maintainer's own teams get no *released* Rootstock for the 2027 season, and most likely none for 2028 either.
 >
 > **The old v0.1 / v0.2 / v0.3 / v0.4 release split is deleted.** It survives only as internal build **order**. There is exactly one release: v0.1.
 >
@@ -24,10 +24,10 @@
 |---|---|
 | Raw sum across six domain documents (01 CORE 9–12, 02 Tuning 11–14, 03 Vision 12.2, 04 Telemetry/replay/viz/sim/test 14–19, 05 Drivetrain+Auto 12, 06 Platform 13.0) | **71 – 82** |
 | Integration savings ([`DESIGN.md` §12.1](DESIGN.md#121-honest-effort-totals)): single alert facade −1.0, single tunable stack −1.5, single sim owner −0.5, single field owner −0.75, single telemetry facade −1.0, single vision-sim owner −0.5, no annotation processor on the required path −0.5, single-jar release process (D28) −0.5 | **−6.25** |
-| Work the adversarial review added: `core.spi`, public `PumpkinLifecycle` + 4 adoption fixtures, `pumpkin doctor --bundle`, the runtime kill switch, `docs/graduation.md`, `docs/removing-pumpkinlib.md` + `RipOutTest`, `CycleStats`, `ControlMap` modes, `CharacterizationSafety`, `PredictStep`, the CSA gate | **+3.50** |
+| Work the adversarial review added: `core.spi`, public `RootstockLifecycle` + 4 adoption fixtures, `rootstock doctor --bundle`, the runtime kill switch, `docs/graduation.md`, `docs/removing-rootstock.md` + `RipOutTest`, `CycleStats`, `ControlMap` modes, `CharacterizationSafety`, `PredictStep`, the CSA gate | **+3.50** |
 | **Subtotal (the "68–79 pw" figure quoted in `DESIGN.md` and `README.md`)** | **68.25 – 79.25** |
-| **Decision 3** — AdvantageKit required. Deletes the `LogBackend` SPI, the NT4 / Epilogue / DogLog backend implementations, the `PumpkinInputs` / `LoggableInputs` split, the `mode = REPLAY` refusal path, the `PumpkinRobot` / `PumpkinLoggedRobot` split (D13/D29), and most of the D26 `ServiceLoader` lifecycle plumbing | **−1.25** |
-| **Decision 2** — `PumpkinTemplate` as the primary front door. Template authoring, `.pumpkin/template.lock` manifest + hashing, `pumpkin update --library` / `--template`, `pumpkin doctor --template` drift classification, `docs/UPDATING.md`, and the per-release 3-OS template CI matrix and its fixtures | **+1.50** |
+| **Decision 3** — AdvantageKit required. Deletes the `LogBackend` SPI, the NT4 / Epilogue / DogLog backend implementations, the `RootstockInputs` / `LoggableInputs` split, the `mode = REPLAY` refusal path, the `RootstockRobot` / `RootstockLoggedRobot` split (D13/D29), and most of the D26 `ServiceLoader` lifecycle plumbing | **−1.25** |
+| **Decision 2** — `RootstockTemplate` as the primary front door. Template authoring, `.rootstock/template.lock` manifest + hashing, `rootstock update --library` / `--template`, `rootstock doctor --template` drift classification, `docs/UPDATING.md`, and the per-release 3-OS template CI matrix and its fixtures | **+1.50** |
 | **NET FULL SCOPE** | **68.5 – 79.5 pw** |
 | **Midpoint used for all scheduling below** | **74.0 pw** |
 
@@ -102,8 +102,8 @@ Additional people do **not** add their nominal rate. They add their rate minus a
 Two artefacts ship, and the **template is the advertised front door.**
 
 ```
-PumpkinTemplate  (GitHub template repo — what a team forks/clones)
-   └── pins ──► dev.pumpkinlib:pumpkinlib:<version>  (+ adapters)  ◄── the substance
+RootstockTemplate  (GitHub template repo — what a team forks/clones)
+   └── pins ──► dev.rootstock:rootstock:<version>  (+ adapters)  ◄── the substance
 ```
 
 **Why both.** A template gets a team to a working robot project in one command, which is the onboarding experience the design promises and a vendordep URL does not deliver. A versioned library artifact is how an in-season fix reaches a team — a dependency bump, not a merge. A team on a forked template that had to *merge* an upstream fix during week 4 of build season would not do it; a team that runs one command and gets a new jar will.
@@ -112,48 +112,48 @@ PumpkinTemplate  (GitHub template repo — what a team forks/clones)
 
 | Path | Contents |
 |---|---|
-| `build.gradle`, `settings.gradle`, `gradlew*`, `.wpilib/` | GradleRIO 2026.2.1, Java 17 toolchain, `dev.pumpkinlib.gradle` plugin applied, `pumpkinCheckDeploy` wired into `deploy` |
-| `vendordeps/` | `WPILibNewCommands.json`, `AdvantageKit.json`, `PumpkinLib.json`, and **the adapter JSON(s) for the vendor(s) you selected** — **all pinned to one coherent version set.** The template *source* carries the full adapter set; **`pumpkin init --vendor <phoenix6\|revlib\|both>` deletes the sets you did not pick** (`design/06` §6.2), and `.pumpkin/template.lock`'s manifest is written *after* pruning, so a vendordep `init` removed can never be mis-classified `MISSING` by `pumpkin doctor --template`. Pinning both adapters unconditionally would install REVLib on a Phoenix-only team, which is the failure `DESIGN.md` §8 criticises in YAGSL — on our own advertised path. |
-| `src/main/java/frc/robot/` | `Robot.java` (`extends PumpkinRobot`), `RobotContainer.java`, `Constants.java`, one worked `PositionConfig` elevator, one `SimpleConfig` intake, a `ControlMap` with a `MANUAL` mode, and a `Superstructure` with two interlocks |
-| `src/main/deploy/pumpkin/` | `disabled.txt` (empty — the runtime kill switch, R15), `gains.json` (empty, schema-stamped `pumpkinlib.gains/1`), the generated Elastic layout |
-| `.github/workflows/build.yml` | `./gradlew build`, `./gradlew simulateJava --headless` smoke, `pumpkinCheckDeploy` |
-| `.pumpkin/template.lock` | Template version, library version, vendor version matrix, and a **SHA-256 manifest of every file the template owns**. This file is what makes drift detection possible. |
+| `build.gradle`, `settings.gradle`, `gradlew*`, `.wpilib/` | GradleRIO 2026.2.1, Java 17 toolchain, `dev.rootstock.gradle` plugin applied, `rootstockCheckDeploy` wired into `deploy` |
+| `vendordeps/` | `WPILibNewCommands.json`, `AdvantageKit.json`, `Rootstock.json`, and **the adapter JSON(s) for the vendor(s) you selected** — **all pinned to one coherent version set.** The template *source* carries the full adapter set; **`rootstock init --vendor <phoenix6\|revlib\|both>` deletes the sets you did not pick** (`design/06` §6.2), and `.rootstock/template.lock`'s manifest is written *after* pruning, so a vendordep `init` removed can never be mis-classified `MISSING` by `rootstock doctor --template`. Pinning both adapters unconditionally would install REVLib on a Phoenix-only team, which is the failure `DESIGN.md` §8 criticises in YAGSL — on our own advertised path. |
+| `src/main/java/frc/robot/` | `Robot.java` (`extends RootstockRobot`), `RobotContainer.java`, `Constants.java`, one worked `PositionConfig` elevator, one `SimpleConfig` intake, a `ControlMap` with a `MANUAL` mode, and a `Superstructure` with two interlocks |
+| `src/main/deploy/rootstock/` | `disabled.txt` (empty — the runtime kill switch, R15), `gains.json` (empty, schema-stamped `rootstock.gains/1`), the generated Elastic layout |
+| `.github/workflows/build.yml` | `./gradlew build`, `./gradlew simulateJava --headless` smoke, `rootstockCheckDeploy` |
+| `.rootstock/template.lock` | Template version, library version, vendor version matrix, and a **SHA-256 manifest of every file the template owns**. This file is what makes drift detection possible. |
 | `docs/UPDATING.md` | The two update procedures below, written out, in the fork, offline |
 
-**Three template variants**, selected by `pumpkin init --template`: `swerve` (CTRE swerve + two mechanisms), `differential` (differential drive + two mechanisms), `mechanism-only` (no drivetrain — the incremental-adoption path from `DESIGN.md` §11b, made first-class).
+**Three template variants**, selected by `rootstock init --template`: `swerve` (CTRE swerve + two mechanisms), `differential` (differential drive + two mechanisms), `mechanism-only` (no drivetrain — the incremental-adoption path from `DESIGN.md` §11b, made first-class).
 
-> **The `differential` variant is phased M8 → M15, and the roadmap has to say so because two gates depend on it.** `DifferentialBackend` is M15. From M8 until M15 the variant exists as a **documented-absent** entry: `pumpkin init --template differential` **fails with a named message and the milestone it is waiting on**, rather than generating a project that builds and does not drive (`design/06` §6.3, `design/05`, `DESIGN.md` §8). It becomes a real, buildable variant at M15. **M8's gate tests the failure message; M15's gate tests the clean install.** See §5.
+> **The `differential` variant is phased M8 → M15, and the roadmap has to say so because two gates depend on it.** `DifferentialBackend` is M15. From M8 until M15 the variant exists as a **documented-absent** entry: `rootstock init --template differential` **fails with a named message and the milestone it is waiting on**, rather than generating a project that builds and does not drive (`design/06` §6.3, `design/05`, `DESIGN.md` §8). It becomes a real, buildable variant at M15. **M8's gate tests the failure message; M15's gate tests the clean install.** See §5.
 
 ### 3.2 How a team takes a patch release from inside a fork
 
 ```
-pumpkin update --library 2026.0.3
+rootstock update --library 2026.0.3
 ```
 
-Rewrites the `version` field in **every** `vendordeps/PumpkinLib*.json` as one atomic set (mismatched adapter versions is the single most likely self-inflicted breakage), updates `.pumpkin/template.lock`, re-resolves, runs `pumpkinCheckDeploy`, and prints the changelog delta between the pinned and target versions. **It never touches a file under `src/`.** This is a 60-second operation and it is the only supported in-season upgrade path. It is also exactly what the support policy in R15 tells a stuck team to do first.
+Rewrites the `version` field in **every** `vendordeps/Rootstock*.json` as one atomic set (mismatched adapter versions is the single most likely self-inflicted breakage), updates `.rootstock/template.lock`, re-resolves, runs `rootstockCheckDeploy`, and prints the changelog delta between the pinned and target versions. **It never touches a file under `src/`.** This is a 60-second operation and it is the only supported in-season upgrade path. It is also exactly what the support policy in R15 tells a stuck team to do first.
 
 ### 3.3 How template drift is managed
 
 The fork diverges from the template the moment a team edits `RobotContainer.java` — which is on day one, by design. Drift is therefore normal and is **classified, not prevented**:
 
 ```
-pumpkin doctor --template
+rootstock doctor --template
 ```
 
-compares the fork against the template at the pinned template version using the `.pumpkin/template.lock` manifest and classifies every template-owned file as `UNCHANGED`, `MODIFIED-BY-TEAM`, `MISSING`, or `ADDED`. Output is a table, not a diff dump.
+compares the fork against the template at the pinned template version using the `.rootstock/template.lock` manifest and classifies every template-owned file as `UNCHANGED`, `MODIFIED-BY-TEAM`, `MISSING`, or `ADDED`. Output is a table, not a diff dump.
 
 ```
-pumpkin update --template 2026.0.3
+rootstock update --template 2026.0.3
 ```
 
-three-way merges **only** files classified `UNCHANGED`. For every `MODIFIED-BY-TEAM` file it writes the upstream patch to `docs/template-drift/<file>.patch` and asks the team to apply it by hand, with a one-line explanation of what the change does. **Template updates are opt-in and never automatic**, and `pumpkin doctor --template` is a report, never a gate — a team must be able to ignore it forever and keep working. `pumpkin doctor --bundle` includes the drift table so a bug report says which template-owned files were modified without any back-and-forth.
+three-way merges **only** files classified `UNCHANGED`. For every `MODIFIED-BY-TEAM` file it writes the upstream patch to `docs/template-drift/<file>.patch` and asks the team to apply it by hand, with a one-line explanation of what the change does. **Template updates are opt-in and never automatic**, and `rootstock doctor --template` is a report, never a gate — a team must be able to ignore it forever and keep working. `rootstock doctor --bundle` includes the drift table so a bug report says which template-owned files were modified without any back-and-forth.
 
 ### 3.4 The maintenance cost, stated
 
 The template is not free and the cost recurs:
 
 - **Every library release regenerates the template** and re-pins the version set. This cannot be skipped, because a template pinned to a version that no longer exists is worse than no template.
-- **Every library release runs the template CI matrix before it is tagged**: 3 OS (Windows / macOS / Linux) × 3 variants (swerve / differential / mechanism-only). **Nine jobs, gating the release.** Before M15 the `differential` row asserts that `pumpkin init --template differential` fails with its documented-absent message; from M15 it is a build + headless-sim job like the other two. **The count is nine either way**, which is why the figure quoted in `DESIGN.md` §8, `DECISIONS.md` MD2 and the README does not move at M15. The matrix runs at the default `--vendor phoenix6`; the `revlib` and `both` selections are covered by `pumpkin init` unit tests and by M3's vendor-parity gate, not by the release matrix — a stated gap, not a hidden one.
+- **Every library release runs the template CI matrix before it is tagged**: 3 OS (Windows / macOS / Linux) × 3 variants (swerve / differential / mechanism-only). **Nine jobs, gating the release.** Before M15 the `differential` row asserts that `rootstock init --template differential` fails with its documented-absent message; from M15 it is a build + headless-sim job like the other two. **The count is nine either way**, which is why the figure quoted in `DESIGN.md` §8, `DECISIONS.md` MD2 and the README does not move at M15. The matrix runs at the default `--vendor phoenix6`; the `revlib` and `both` selections are covered by `rootstock init` unit tests and by M3's vendor-parity gate, not by the release matrix — a stated gap, not a hidden one.
 - **Every vendor version bump** (Phoenix 6, REVLib, AdvantageKit, WPILib, GradleRIO) requires a template regeneration and a matrix run whether or not the library changed.
 - Budgeted: **+1.5 pw one-time** (in the §1 arithmetic) plus **~0.1 pw per release** ongoing, forever. At the in-season cadence the support policy implies (a patch every two to three weeks between January and April), that is **~0.5 pw per season of pure template tax**, which is a real fraction of a solo season's capacity and is counted in the carrying cost in §7.
 
@@ -161,19 +161,19 @@ The template is not free and the cost recurs:
 
 ## 4. AdvantageKit is a required dependency (Decision 3)
 
-`PumpkinLib.json` declares `requires: [ WPILibNewCommands.json, AdvantageKit.json ]`. AdvantageKit is not one backend among four; it is the logging and replay substrate.
+`Rootstock.json` declares `requires: [ WPILibNewCommands.json, AdvantageKit.json ]`. AdvantageKit is not one backend among four; it is the logging and replay substrate.
 
 ### 4.1 What collapses
 
 | Was | Becomes |
 |---|---|
-| `PumpkinRobot extends TimedRobot` (core) **+** `PumpkinLoggedRobot extends LoggedRobot` (separate artifact) — D13, revised by D29 | **One class: `PumpkinRobot extends LoggedRobot`.** The split is gone. `PumpkinLifecycle` stays public (D29 survives — manual wiring is still documented first) and `PumpkinRobot` remains a ~20-line delegating shim. |
-| `LogBackend` SPI + `Nt4LogBackend` + `EpilogueLogBackend` + `DogLogLogBackend` + `AdvantageKitLogBackend` | **Deleted.** `PumpkinLog`'s tiered facade writes to `Logger` directly. The `pumpkinlib-advantagekit` and `pumpkinlib-doglog` artifacts do not exist. |
-| `PumpkinInputs` / `PumpkinLogTable` mirroring AdvantageKit's types | **Deleted.** IO layers implement `LoggableInputs` directly. One less indirection between a `MotorInputs` field and the log. |
+| `RootstockRobot extends TimedRobot` (core) **+** `RootstockLoggedRobot extends LoggedRobot` (separate artifact) — D13, revised by D29 | **One class: `RootstockRobot extends LoggedRobot`.** The split is gone. `RootstockLifecycle` stays public (D29 survives — manual wiring is still documented first) and `RootstockRobot` remains a ~20-line delegating shim. |
+| `LogBackend` SPI + `Nt4LogBackend` + `EpilogueLogBackend` + `DogLogLogBackend` + `AdvantageKitLogBackend` | **Deleted.** `RootstockLog`'s tiered facade writes to `Logger` directly. The `rootstock-advantagekit` and `rootstock-doglog` artifacts do not exist. |
+| `RootstockInputs` / `RootstockLogTable` mirroring AdvantageKit's types | **Deleted.** IO layers implement `LoggableInputs` directly. One less indirection between a `MotorInputs` field and the log. |
 | `mode = REPLAY` refused with an actionable message when the backend cannot replay | **Deleted.** Replay always works. |
-| D26 `ServiceLoader.load(LifecycleHook.class)` for every hook | **Drastically simplified.** D28 already put telemetry, tuning, sim and vision in **one jar**, so the compile cycle D26 existed to break is now broken by package structure alone. `PumpkinLifecycle.create()` builds an explicit priority-ordered hook list in code. `ServiceLoader` survives **only** for genuinely out-of-jar adapters (`phoenix6`, `revlib`, `photonvision`, `pathplanner`, `choreo`, `maplesim`), where it is load-bearing. `LifecycleHook`, `VisionSimHook`, `MechanismGeometrySink`, `MechanismGeometry` and `SimMotorHandle` all survive as interfaces; ArchUnit rule 9 is unchanged. |
+| D26 `ServiceLoader.load(LifecycleHook.class)` for every hook | **Drastically simplified.** D28 already put telemetry, tuning, sim and vision in **one jar**, so the compile cycle D26 existed to break is now broken by package structure alone. `RootstockLifecycle.create()` builds an explicit priority-ordered hook list in code. `ServiceLoader` survives **only** for genuinely out-of-jar adapters (`phoenix6`, `revlib`, `photonvision`, `pathplanner`, `choreo`, `maplesim`), where it is load-bearing. `LifecycleHook`, `VisionSimHook`, `MechanismGeometrySink`, `MechanismGeometry` and `SimMotorHandle` all survive as interfaces; ArchUnit rule 9 is unchanged. |
 
-**Deterministic replay is now a guaranteed property of the library, not a backend-dependent one.** This is the real win and it is large: `PumpkinReplayVerify` (M20), the replay-safety lint (M20), and the `Clock.now()`-only / cycle-counted-health discipline (R10) all stop being conditional. A sentence like "PumpkinLib code is replay-safe" becomes true unconditionally instead of true-if-you-chose-the-right-backend.
+**Deterministic replay is now a guaranteed property of the library, not a backend-dependent one.** This is the real win and it is large: `RootstockReplayVerify` (M20), the replay-safety lint (M20), and the `Clock.now()`-only / cycle-counted-health discipline (R10) all stop being conditional. A sentence like "Rootstock code is replay-safe" becomes true unconditionally instead of true-if-you-chose-the-right-backend.
 
 ### 4.2 What it costs — stated, not buried
 
@@ -183,25 +183,25 @@ The template is not free and the cost recurs:
 
 | Location | Old claim | Replacement — **applied 2026-08-07** |
 |---|---|---|
-| `README.md` §Modules | "Zero *vendor* `requires`. …install PumpkinLib on kickoff morning before any vendor has published" | "PumpkinLib requires AdvantageKit. You cannot install PumpkinLib until AdvantageKit has published for the season. We took this trade deliberately, to make deterministic replay a guarantee rather than an option." |
+| `README.md` §Modules | "Zero *vendor* `requires`. …install Rootstock on kickoff morning before any vendor has published" | "Rootstock requires AdvantageKit. You cannot install Rootstock until AdvantageKit has published for the season. We took this trade deliberately, to make deterministic replay a guarantee rather than an option." |
 | `DESIGN.md` §2 defensible-core row 11 | "installs as one vendordep with zero *vendor* `requires`" | Row is **withdrawn from the defensible core.** It is no longer a differentiator; it is now a *disadvantage* relative to a WPILib-only library. |
-| `DESIGN.md` §5 artifact table | `pumpkinlib` depends on "WPILib only" | `pumpkinlib` depends on **WPILib + AdvantageKit**. The `requires[]` install-failure-multiplier argument still applies to the *vendor* adapters and still holds there. |
+| `DESIGN.md` §5 artifact table | `rootstock` depends on "WPILib only" | `rootstock` depends on **WPILib + AdvantageKit**. The `requires[]` install-failure-multiplier argument still applies to the *vendor* adapters and still holds there. |
 | `DESIGN.md` §11 install path | "works on kickoff morning before any vendor has published" | "works as soon as AdvantageKit has published, which in 2026 was kickoff week — but is not guaranteed." |
 | `design/02-tuning.md` §"No AdvantageKit dependency" | listed as an advantage over 6328's `LoggedTunableNumber` | **Withdrawn.** We now have the same dependency they do. The remaining advantages of `TunableDouble` (single poller, FMS default-deny, `/applied` echo, 4-tier persistence) stand on their own and do not need this one. |
 
-**2. Risk R18 is ACCEPTED, not mitigated.** If AdvantageKit does not ship for WPILib 2027, PumpkinLib does not ship. The `LogBackend` escape hatch that used to make this a Medium risk no longer exists. The contingency, decided in advance:
+**2. Risk R18 is ACCEPTED, not mitigated.** If AdvantageKit does not ship for WPILib 2027, Rootstock does not ship. The `LogBackend` escape hatch that used to make this a Medium risk no longer exists. The contingency, decided in advance:
 
 > **Tier numbers mean execution order, and they now mean the same thing in every document.** **Tier 1 = contribute. Tier 2 = fork. Tier 3 = wait.** Revision 3 of this section numbered the fork "tier 1" and contribute "tier 2" while listing the fork first and then saying contribute happens first; `DECISIONS.md` MD3 used a third arrangement; `DESIGN.md` §13.1 used the scheme below and then contradicted itself in its own §5.6. In the January crisis this plan exists for, *"execute tier 1"* would have meant opposite things depending on which file was open. **The scheme below is canonical, matches execution order, and is applied identically in `DESIGN.md` §13.1 and §5.6 item 8, `DECISIONS.md` MD3 and `design/06` §4.8.** A grep for `tier 1` / `tier 2` across the ten documents joins the M24 consistency check.
 
 - **Trigger, armed.** By the WPILib 2027 **beta** (~Dec 2027), if AdvantageKit has no public 2027 branch or has publicly stated it will not port, the contingency fires. Not at the alpha — that is too early to conclude anything — and not at kickoff, which is too late. **The trigger check includes re-reading AdvantageKit's `LICENSE` on the 2027 branch** (see tier 2).
-- **Response, tier 1 — contribute.** Offer the port upstream *first*. A one-maintainer library forking another one-maintainer library over a platform migration is how ecosystems fragment, and the FRC Java ecosystem is small enough that this matters more than PumpkinLib's schedule does. This tier is numbered first because it is executed first.
-- **Response, tier 2 — fork, narrowly, with a stated expiry.** Publish `dev.pumpkinlib:pumpkinlib-akit-compat`, a fork of the minimum AdvantageKit surface PumpkinLib actually uses (`LoggedRobot`, `Logger`, `LogTable`, `LoggableInputs`, the WPILOG reader/writer, the replay driver), ported to `org.wpilib.*`, published under our coordinates, with a **stated public intent to delete it the day upstream ships**, and with upstream credited prominently. Scope: **~2.5 pw**, budgeted as a contingency line and **not included in the 74.0 pw**.
-  **The licence question is CLOSED and the answer is favourable.** *Verified 2026-08-08* against `LICENSE` at <https://github.com/Mechanical-Advantage/AdvantageKit> (raw: <https://raw.githubusercontent.com/Mechanical-Advantage/AdvantageKit/main/LICENSE>): **AdvantageKit is BSD-3-Clause**, `Copyright (c) 2021-2026 Littleton Robotics. All rights reserved.` Redistribution and use in source and binary forms, **with or without modification**, are permitted provided the copyright notice, the condition list and the disclaimer are retained. **So tier 2 exists and is legal, with attribution.** Two obligations follow, both cheap: the fork **reproduces the upstream copyright notice and disclaimer verbatim** in source and in the published jar; and the third clause is a **non-endorsement** clause naming Littleton Robotics and the marks *Mechanical Advantage* and *AdvantageKit*, so the fork may not use those names to endorse or promote itself — hence the artifact id `pumpkinlib-akit-compat`, with upstream credited in prose rather than in the coordinates. **Residual:** this verifies `main` in August 2026, not the 2027 branch in 2027; re-read it at the trigger. *(Revision 3 left this `[UNVERIFIED]` in five documents while building a three-tier contingency around the uncertainty. It was checkable in under a minute. That was a verification failure, and it is recorded as one.)*
-- **Response, tier 3 — wait, and say so first.** If neither works: **PumpkinLib's 2027 line does not ship, and the README says so on its first screen before anyone adopts.** Not discovered in January by a team that already forked the template.
+- **Response, tier 1 — contribute.** Offer the port upstream *first*. A one-maintainer library forking another one-maintainer library over a platform migration is how ecosystems fragment, and the FRC Java ecosystem is small enough that this matters more than Rootstock's schedule does. This tier is numbered first because it is executed first.
+- **Response, tier 2 — fork, narrowly, with a stated expiry.** Publish `dev.rootstock:rootstock-akit-compat`, a fork of the minimum AdvantageKit surface Rootstock actually uses (`LoggedRobot`, `Logger`, `LogTable`, `LoggableInputs`, the WPILOG reader/writer, the replay driver), ported to `org.wpilib.*`, published under our coordinates, with a **stated public intent to delete it the day upstream ships**, and with upstream credited prominently. Scope: **~2.5 pw**, budgeted as a contingency line and **not included in the 74.0 pw**.
+  **The licence question is CLOSED and the answer is favourable.** *Verified 2026-08-08* against `LICENSE` at <https://github.com/Mechanical-Advantage/AdvantageKit> (raw: <https://raw.githubusercontent.com/Mechanical-Advantage/AdvantageKit/main/LICENSE>): **AdvantageKit is BSD-3-Clause**, `Copyright (c) 2021-2026 Littleton Robotics. All rights reserved.` Redistribution and use in source and binary forms, **with or without modification**, are permitted provided the copyright notice, the condition list and the disclaimer are retained. **So tier 2 exists and is legal, with attribution.** Two obligations follow, both cheap: the fork **reproduces the upstream copyright notice and disclaimer verbatim** in source and in the published jar; and the third clause is a **non-endorsement** clause naming Littleton Robotics and the marks *Mechanical Advantage* and *AdvantageKit*, so the fork may not use those names to endorse or promote itself — hence the artifact id `rootstock-akit-compat`, with upstream credited in prose rather than in the coordinates. **Residual:** this verifies `main` in August 2026, not the 2027 branch in 2027; re-read it at the trigger. *(Revision 3 left this `[UNVERIFIED]` in five documents while building a three-tier contingency around the uncertainty. It was checkable in under a minute. That was a verification failure, and it is recorded as one.)*
+- **Response, tier 3 — wait, and say so first.** If neither works: **Rootstock's 2027 line does not ship, and the README says so on its first screen before anyone adopts.** Not discovered in January by a team that already forked the template.
 
-**3. Teams already on DogLog or plain Epilogue cannot adopt PumpkinLib without switching loggers.** This is a hard incompatibility, not a migration path, and it belongs in the adoption matrix as such:
+**3. Teams already on DogLog or plain Epilogue cannot adopt Rootstock without switching loggers.** This is a hard incompatibility, not a migration path, and it belongs in the adoption matrix as such:
 
-| A team currently running | Can adopt PumpkinLib? |
+| A team currently running | Can adopt Rootstock? |
 |---|---|
 | AdvantageKit | Yes. This is the intended case. |
 | Nothing / `SmartDashboard` only | Yes — but they inherit AdvantageKit's IO-layer discipline and its opinions along with it. A rookie team that wanted a tuning wizard now also gets a logging framework. That is a real pedagogical cost and it is not optional. |
@@ -212,9 +212,9 @@ The honest summary: **Decision 3 buys a guarantee and pays for it with reach.** 
 
 ### 4.3 `@AutoLog` / `@AutoLogOutput` — D24 stands
 
-D24 (*PumpkinLib uses neither; all logging is explicit*) was made because **a vendordep cannot add an `annotationProcessor` line to a consumer's `build.gradle`**, and because `@AutoLog` generates `XxxInputsAutoLogged` **in the same package as the annotated type** — so a library-owned annotated inputs class generates into `org.pumpkinlib.*`, where a team cannot usefully extend or substitute it. Making AdvantageKit required changes neither fact. **The package-scope concern is not resolved, and D24 is kept for all library code.**
+D24 (*Rootstock uses neither; all logging is explicit*) was made because **a vendordep cannot add an `annotationProcessor` line to a consumer's `build.gradle`**, and because `@AutoLog` generates `XxxInputsAutoLogged` **in the same package as the annotated type** — so a library-owned annotated inputs class generates into `org.rootstock.*`, where a team cannot usefully extend or substitute it. Making AdvantageKit required changes neither fact. **The package-scope concern is not resolved, and D24 is kept for all library code.**
 
-What Decision 2 *does* change: `PumpkinTemplate`'s `build.gradle` is ours to write, so the template ships the `annotationProcessor` line pre-wired **for team code**. A team that forks the template can annotate their own IO layers on day one. That is a template feature, not a library feature, and the distinction is the whole point of D24.
+What Decision 2 *does* change: `RootstockTemplate`'s `build.gradle` is ours to write, so the template ships the `annotationProcessor` line pre-wired **for team code**. A team that forks the template can annotate their own IO layers on day one. That is a template feature, not a library feature, and the distinction is the whole point of D24.
 
 ---
 
@@ -230,7 +230,7 @@ There are no dated gates. A milestone is complete when its **gate condition is d
 
 ### M1 — Platform spine, lifecycle, competition day · **3.5 pw**
 
-Gradle multi-project + `buildSrc` conventions; the single `pumpkinlib` artifact now depending on **WPILib + AdvantageKit**; **all twelve ArchUnit rules**; `compat.Clock` / `Platform`; **public `PumpkinLifecycle`** + `PumpkinRobot extends LoggedRobot` (one class); the surviving `core.spi` (`LifecycleHook`, `VisionSimHook`, `MechanismGeometrySink`, `MechanismGeometry`, `SimMotorHandle`) with the explicit in-jar hook list and `ServiceLoader` for adapters only; `PumpkinRegistry` with `instanceof` routing + boot summary; `Alerts` / `PumpkinAlert` / `AlertRegistry` / `Severity` / `MatchImpact` + `AlertBudgetTest`; `MatchContext` / `FmsPolicy` (the only `DriverStation` reader); `RobotIdentity` + overlays; `CanIdRegistry`; `SliceScheduler`; **all seven built-in health monitors** (eight slices) + `BuiltinMonitorCountTest`; **`SelfTest` sequencer** + NT publishing; `PumpkinTracer` budgets; `ControlMap` with modes and a mandatory `MANUAL`; `pumpkinlib-testkit`.
+Gradle multi-project + `buildSrc` conventions; the single `rootstock` artifact now depending on **WPILib + AdvantageKit**; **all twelve ArchUnit rules**; `compat.Clock` / `Platform`; **public `RootstockLifecycle`** + `RootstockRobot extends LoggedRobot` (one class); the surviving `core.spi` (`LifecycleHook`, `VisionSimHook`, `MechanismGeometrySink`, `MechanismGeometry`, `SimMotorHandle`) with the explicit in-jar hook list and `ServiceLoader` for adapters only; `RootstockRegistry` with `instanceof` routing + boot summary; `Alerts` / `RootstockAlert` / `AlertRegistry` / `Severity` / `MatchImpact` + `AlertBudgetTest`; `MatchContext` / `FmsPolicy` (the only `DriverStation` reader); `RobotIdentity` + overlays; `CanIdRegistry`; `SliceScheduler`; **all seven built-in health monitors** (eight slices) + `BuiltinMonitorCountTest`; **`SelfTest` sequencer** + NT publishing; `RootstockTracer` budgets; `ControlMap` with modes and a mandatory `MANUAL`; `rootstock-testkit`.
 **Unblocks:** everything. Nothing else can start.
 **Gate:** `SelfTest.runAll()` reports PASS/FAIL for every registered component in `simulateJava`; the twelve ArchUnit rules pass; a WPILOG written by a `simulateJava` run replays byte-identically through `Logger` in replay mode.
 **8793 / 9143 mid-season:** **the largest single win in the whole plan, and it is first.** Both teams bolt alerts, the seven health monitors, `MatchContext`, `RobotIdentity`, `CanIdRegistry` and the one-button `SelfTest` onto their *existing* robot code — no drivetrain, vision or mechanism adoption required. A scripted pit check in the queue line converts unwinnable matches into two-minute fixes. This is `DESIGN.md` §11b's incremental-adoption path, used for real by its author, before anything else exists.
@@ -258,7 +258,7 @@ Gradle multi-project + `buildSrc` conventions; the single `pumpkinlib` artifact 
 
 ### M5 — Telemetry, physics sim, test harness · **2.2 pw**
 
-`PumpkinLog` tiered facade writing to `Logger` directly; `TelemetrySource` + the automatic mechanism schema; `Demotable` + `PumpkinBudget` byte governor + `SchemaGeneration`; `/Pumpkin/Driver` mirror + `Ready` rollup (3-alert cap); `PumpkinSim` (plant construction from `MechanismGeometry`, Phoenix + REV + SimDevice via `simHandle()`, battery sag, **peak stall current printed at boot**, `dumpDevices`); `PumpkinTest`.
+`RootstockLog` tiered facade writing to `Logger` directly; `TelemetrySource` + the automatic mechanism schema; `Demotable` + `RootstockBudget` byte governor + `SchemaGeneration`; `/Rootstock/Driver` mirror + `Ready` rollup (3-alert cap); `RootstockSim` (plant construction from `MechanismGeometry`, Phoenix + REV + SimDevice via `simHandle()`, battery sag, **peak stall current printed at boot**, `dumpDevices`); `RootstockTest`.
 **Unblocks:** M6, M7, M14, M19, M20, M22 — and it is the precondition for the wizard's sim-first promotion gate.
 **Gate:** measured p95 loop time on a **real roboRIO 2** with the §10A robot inside the `DESIGN.md` §12.6 budget — measured, not asserted. Zero bytes allocated in `periodic()` after warmup. A simulated run replays deterministically from its WPILOG.
 **8793 / 9143 mid-season:** students work on mechanism code with no robot present. During build season the robot is in pieces most evenings; this is the milestone that converts those evenings from wasted to productive, and its value is highest exactly when it is scarcest.
@@ -272,41 +272,41 @@ Gradle multi-project + `buildSrc` conventions; the single `pumpkinlib` artifact 
 
 ### M7 — Wizard core, ELEVATOR + FLYWHEEL · **3.0 pw**
 
-`TuningSupervisor` + **all 12 abort conditions** + arm-time preconditions + the required fault-injection test; `SafetyEnvelope`; `TravelLimits`; `SysIdSweep` + `FeedforwardRegression` (streaming OLS); `BreakawayRampStep` (kS); `HoldBisectionStep` (kG, physics-bracketed, 10 iterations, holds at `kGbest`); `LqrSuggestStep` + the ωn/ζ panel; `PredictStep`; `Lessons` + `Coach` + `LessonsNumericClaimTest`; `TunerPublisher` NT schema; `TuningRecipe` + `Mode {TEACHING, EXPRESS}`; the sim-first promotion gate keyed on config hash; the `ELEVATOR` and `FLYWHEEL` recipes; the `gains.json` writer (schema `pumpkinlib.gains/1`).
+`TuningSupervisor` + **all 12 abort conditions** + arm-time preconditions + the required fault-injection test; `SafetyEnvelope`; `TravelLimits`; `SysIdSweep` + `FeedforwardRegression` (streaming OLS); `BreakawayRampStep` (kS); `HoldBisectionStep` (kG, physics-bracketed, 10 iterations, holds at `kGbest`); `LqrSuggestStep` + the ωn/ζ panel; `PredictStep`; `Lessons` + `Coach` + `LessonsNumericClaimTest`; `TunerPublisher` NT schema; `TuningRecipe` + `Mode {TEACHING, EXPRESS}`; the sim-first promotion gate keyed on config hash; the `ELEVATOR` and `FLYWHEEL` recipes; the `gains.json` writer (schema `rootstock.gains/1`).
 **Unblocks:** M13. More importantly, this is the differentiator — the one capability with no ecosystem substitute.
 **Gate:** `ELEVATOR` runs end to end in simulation (predict → kS ramp → kV/kA sweep → kG bisection → LQR suggestion → `gains.json`), every numeric claim in `Lessons` asserted by `LessonsNumericClaimTest`, and the wizard **refuses** to arm outside Test mode, below 11.5 V, above 80 °C, and without a matching sim config hash — each refusal proven by a test. The fault-injection test (stuck mechanism, 10× runaway, frozen encoder) trips the correct `AbortReason` within 3 loops and calls `stop()`.
 **8793 / 9143 mid-season:** a Saturday of elevator and flywheel tuning becomes ten minutes, with the numbers written to a committed file. **At solo pace this lands 2027-04-24 — after the 2027 season ends. At +2 committers it lands 2026-12-15, before kickoff. That gap is the single strongest argument in this document for adding committers, and it should be read as such.**
 
-### M8 — `PumpkinTemplate`, distribution, docs v1 · **2.8 pw**
+### M8 — `RootstockTemplate`, distribution, docs v1 · **2.8 pw**
 
-Vendordep JSONs (`requires: WPILibNewCommands.json, AdvantageKit.json`); `pumpkinlib-gradle` (`pumpkinCheckDeploy` graded gate); GitHub Pages static Maven; **`PumpkinTemplate` with all three variant *entries*** (§3.1) — `swerve` and `mechanism-only` fully materialised, `differential` **documented-absent until M15** with a named failure message from `pumpkin init`; `.pumpkin/template.lock` + the hash manifest; **`pumpkin init`**, **`pumpkin update --library`**, **`pumpkin update --template`**, **`pumpkin doctor --template`**, **`pumpkin doctor --bundle`**; the runtime kill switch (`disabled.txt`); `docs/graduation.md`; `docs/removing-pumpkinlib.md` + `RipOutTest`; the four `IncrementalAdoptionTest` fixtures; the adoption matrix including the DogLog/Epilogue exclusion rows (§4.2); docs-as-tests CI (bodies **and** import blocks); the template CI matrix.
+Vendordep JSONs (`requires: WPILibNewCommands.json, AdvantageKit.json`); `rootstock-gradle` (`rootstockCheckDeploy` graded gate); GitHub Pages static Maven; **`RootstockTemplate` with all three variant *entries*** (§3.1) — `swerve` and `mechanism-only` fully materialised, `differential` **documented-absent until M15** with a named failure message from `rootstock init`; `.rootstock/template.lock` + the hash manifest; **`rootstock init`**, **`rootstock update --library`**, **`rootstock update --template`**, **`rootstock doctor --template`**, **`rootstock doctor --bundle`**; the runtime kill switch (`disabled.txt`); `docs/graduation.md`; `docs/removing-rootstock.md` + `RipOutTest`; the four `IncrementalAdoptionTest` fixtures; the adoption matrix including the DogLog/Epilogue exclusion rows (§4.2); docs-as-tests CI (bodies **and** import blocks); the template CI matrix.
 **Unblocks:** every subsequent milestone can now be delivered to a real robot project by one command instead of a manual wiring session. **This is the first internally distributable snapshot.**
-**Gate:** a fresh clone of the **`swerve` and `mechanism-only`** variants builds and runs headless sim on Windows, macOS and Linux; **the `differential` variant is the documented-absent entry per `design/06` §6.3, and the gate is that `pumpkin init --template differential` fails with its named message and its milestone rather than generating a project that does not drive.** *(Revision 3's gate said "each of the three template variants builds and runs headless sim", which was **unsatisfiable**: `DifferentialBackend` is M15 — cum. 49.1 pw, solo Oct 2028 — while M8 is cum. 18.6 pw, solo Jun 2027. As written, M8 was blocked for roughly sixteen months, or the explicit rule in `design/06` §6.3, `design/05` and `DESIGN.md` §8 was violated. It becomes a build + sim job at M15; see M15's gate.)* `pumpkin update --library` moves a fork across two versions and `pumpkin doctor --template` correctly classifies a hand-modified `RobotContainer.java` as `MODIFIED-BY-TEAM`. `pumpkin init --vendor revlib` prunes `PumpkinLib-Phoenix6.json` and the resulting lock manifest does not list it. All four adoption fixtures compile. `RipOutTest` compiles.
-**8793 / 9143 mid-season:** 9143-B forks the template as the real-world test of §3.3, while 9143-A stays on the pre-template wiring — which is exactly the A/B pair the drift tooling needs. From M8 onward both teams consume PumpkinLib as a **snapshot Maven artifact**, not a source dependency, which means the in-season upgrade path is being exercised for real, two seasons before any stranger relies on it.
+**Gate:** a fresh clone of the **`swerve` and `mechanism-only`** variants builds and runs headless sim on Windows, macOS and Linux; **the `differential` variant is the documented-absent entry per `design/06` §6.3, and the gate is that `rootstock init --template differential` fails with its named message and its milestone rather than generating a project that does not drive.** *(Revision 3's gate said "each of the three template variants builds and runs headless sim", which was **unsatisfiable**: `DifferentialBackend` is M15 — cum. 49.1 pw, solo Oct 2028 — while M8 is cum. 18.6 pw, solo Jun 2027. As written, M8 was blocked for roughly sixteen months, or the explicit rule in `design/06` §6.3, `design/05` and `DESIGN.md` §8 was violated. It becomes a build + sim job at M15; see M15's gate.)* `rootstock update --library` moves a fork across two versions and `rootstock doctor --template` correctly classifies a hand-modified `RobotContainer.java` as `MODIFIED-BY-TEAM`. `rootstock init --vendor revlib` prunes `Rootstock-Phoenix6.json` and the resulting lock manifest does not list it. All four adoption fixtures compile. `RipOutTest` compiles.
+**8793 / 9143 mid-season:** 9143-B forks the template as the real-world test of §3.3, while 9143-A stays on the pre-template wiring — which is exactly the A/B pair the drift tooling needs. From M8 onward both teams consume Rootstock as a **snapshot Maven artifact**, not a source dependency, which means the in-season upgrade path is being exercised for real, two seasons before any stranger relies on it.
 
 ---
 
-> **M1–M8 = 18.6 pw.** This is the *internal* line: not a release, but the point at which PumpkinLib is a coherent, installable, self-supporting product for the two teams that own it. Solo: **2027-06-09**. +1: **2027-02-16**. +2: **2027-01-07**. Student team: **2027-04-01**.
+> **M1–M8 = 18.6 pw.** This is the *internal* line: not a release, but the point at which Rootstock is a coherent, installable, self-supporting product for the two teams that own it. Solo: **2027-06-09**. +1: **2027-02-16**. +2: **2027-01-07**. Student team: **2027-04-01**.
 
 ---
 
 ### M9 — Drive funnel, CTRE backend, field and alliance · **5.0 pw**
 
-`PumpkinDrive` (sanitize → discretize → backend → log); `CtreSwerveBackend` with wheel-force feedforwards and the FPGA↔Phoenix timestamp conversion; `PumpkinDriveConfig.v01Competition()`; `DriveGeometry` / `DriveLimits` / `ModuleOrder` / `DiscretizationPolicy`; `PumpkinField` / `AlliancePerspective` / `AllianceValue` / `FieldMap`; `verifyAlliance()`; `DriveSelfCheck` (cross-checks `settings.json` against `TunerConstants`); `DriveInputStream`; `PumpkinCharacterization` + `CharacterizationSafety`; **`OdometryReport.outAndBack` / `.squareTest`, shipped in the same milestone as the drive layer, never later** (R8).
+`RootstockDrive` (sanitize → discretize → backend → log); `CtreSwerveBackend` with wheel-force feedforwards and the FPGA↔Phoenix timestamp conversion; `RootstockDriveConfig.v01Competition()`; `DriveGeometry` / `DriveLimits` / `ModuleOrder` / `DiscretizationPolicy`; `RootstockField` / `AlliancePerspective` / `AllianceValue` / `FieldMap`; `verifyAlliance()`; `DriveSelfCheck` (cross-checks `settings.json` against `TunerConstants`); `DriveInputStream`; `RootstockCharacterization` + `CharacterizationSafety`; **`OdometryReport.outAndBack` / `.squareTest`, shipped in the same milestone as the drive layer, never later** (R8).
 **Unblocks:** M10, M11, M15, M18, M21.
 **Gate:** `OdometryReport.squareTest` runs on 8793's real robot and produces a closure error; `DriveSelfCheck` catches a deliberately mismatched `TunerConstants` entry; `verifyAlliance()` catches a red-alliance sign error in sim.
 **8793 / 9143 mid-season:** alliance handling and `OdometryReport` are usable *without adopting the drive funnel* — `OdometryReport` in particular is a measurement instrument that works against any drivetrain, and it is the empirical check that makes every later vision claim falsifiable.
 
 ### M10 — Vision core: Limelight · **4.0 pw**
 
-`VisionFrame`, `VisionFrameHeader`, `TargetObservation` (both structs pre-warmed at boot); `VisionCameraIO` + `ReplayCameraIO`; `LimelightCameraIO` (MT1/MT2, verified botpose index map, latency math, mandatory orientation-write ordering, IMU mode 4); the **gyro→field offset contract** with its two named writers; the filter chain + all 19 `RejectReason`s + `standard()`; `StdDevModels` with the forced-infinite sigmaTheta rule; `PumpkinVision` builder + odometry-buffer guard + blue-origin assertion; `FieldLayouts.resolve` / `fingerprint`; `VisionDiagnostics`; **`alignToTag`**.
+`VisionFrame`, `VisionFrameHeader`, `TargetObservation` (both structs pre-warmed at boot); `VisionCameraIO` + `ReplayCameraIO`; `LimelightCameraIO` (MT1/MT2, verified botpose index map, latency math, mandatory orientation-write ordering, IMU mode 4); the **gyro→field offset contract** with its two named writers; the filter chain + all 19 `RejectReason`s + `standard()`; `StdDevModels` with the forced-infinite sigmaTheta rule; `RootstockVision` builder + odometry-buffer guard + blue-origin assertion; `FieldLayouts.resolve` / `fingerprint`; `VisionDiagnostics`; **`alignToTag`**.
 **Unblocks:** M16, M17, M18.
 **Gate:** every one of the 19 reject reasons is reachable from a constructed frame in a test. `VisionDiagnostics` flags a 3D-mode calibration/streaming resolution mismatch. `alignToTag` holds 2 cm on a real tag with 8793's hardware.
 **8793 / 9143 mid-season:** both teams run Limelights. This is the milestone that changes what they can do on a field — `alignToTag` plus the filter chain plus `VisionDiagnostics` is a scoring-accuracy change, not a code-quality change.
 
 ### M11 — Auto DSL: PathPlanner **and** Choreo · **3.5 pw**
 
-`PumpkinAuto.withPathPlanner()` and `.withChoreo()`; `PumpkinTrajectory` + PumpkinLib's own trigger engine over the `TrajectoryHandle` SPI (R12: we own the correctness of `atTime` / `atPose` / `atEvent`, and it needs its own unit tests); `PumpkinAutoRoutine` / `AutoStep` (`.goal()` / `.before()` / `.successWhen()` / `.orElse()` / `.deadline()` / `.budget()` / `.skipToAfter()` in seconds-remaining); `PumpkinAutoSelector` + `AutoQuestion`; `NamedCommandRegistry`; `PumpkinDriveToPose` with the corrected `driverNudge` signature.
+`RootstockAuto.withPathPlanner()` and `.withChoreo()`; `RootstockTrajectory` + Rootstock's own trigger engine over the `TrajectoryHandle` SPI (R12: we own the correctness of `atTime` / `atPose` / `atEvent`, and it needs its own unit tests); `RootstockAutoRoutine` / `AutoStep` (`.goal()` / `.before()` / `.successWhen()` / `.orElse()` / `.deadline()` / `.budget()` / `.skipToAfter()` in seconds-remaining); `RootstockAutoSelector` + `AutoQuestion`; `NamedCommandRegistry`; `RootstockDriveToPose` with the corrected `driverNudge` signature.
 **Unblocks:** M21, M23.
 **Gate:** the same `AutoStep` routine runs unmodified on a PathPlanner path and a Choreo trajectory. The trigger engine's `atTime` / `atPose` / `atEvent` have unit tests independent of both vendors. The **`[UNVERIFIED]`** ChoreoLib `Trajectory.getEvents(String)` / `getTotalTime()` accessors are confirmed against the real library or the source-mapping table is corrected.
 **8793 / 9143 mid-season:** `.budget()` and `.skipToAfter()` are the two features that turn a fragile 15-second auto into one that degrades gracefully. Both teams have lost matches to an auto that hung on a missed pickup.
@@ -353,8 +353,8 @@ Reviewed `wpi-rename-2027.properties`; the generated-source variant + dual-compi
 
 ### M15 — Drive backends 2–5, traction, navigation · **4.5 pw**
 
-`AdvantageKitSwerveBackend`, `HandRolledSwerveBackend`, `YagslBackend`, **`DifferentialBackend`**; `TractionLayer` (PathPlanner's `SwerveSetpointGenerator` inside the funnel, so **teleop** gets slip limiting); `SkidDetector` + `SkidReport`; `PumpkinNav` pathfinding façade + `LocalADStarAK` + warmup.
-**Gate:** the same `PumpkinDriveConfig` drives all five backends in sim to the same tolerance; `DifferentialBackend` drives a real differential robot; `SkidDetector` fires on a simulated 0.4 g lateral step. **And the half of the M8 gate that was deferred here:** `pumpkin init --template differential` now **succeeds**, and a fresh clone of the differential variant builds and runs headless sim on Windows, macOS and Linux — the documented-absent message from M8 is deleted in the same commit that makes the variant real, and the release matrix's third row converts from a failure assertion to a build + sim job.
+`AdvantageKitSwerveBackend`, `HandRolledSwerveBackend`, `YagslBackend`, **`DifferentialBackend`**; `TractionLayer` (PathPlanner's `SwerveSetpointGenerator` inside the funnel, so **teleop** gets slip limiting); `SkidDetector` + `SkidReport`; `RootstockNav` pathfinding façade + `LocalADStarAK` + warmup.
+**Gate:** the same `RootstockDriveConfig` drives all five backends in sim to the same tolerance; `DifferentialBackend` drives a real differential robot; `SkidDetector` fires on a simulated 0.4 g lateral step. **And the half of the M8 gate that was deferred here:** `rootstock init --template differential` now **succeeds**, and a fresh clone of the differential variant builds and runs headless sim on Windows, macOS and Linux — the documented-absent message from M8 is deleted in the same commit that makes the variant real, and the release matrix's third row converts from a failure assertion to a build + sim job.
 **8793 / 9143 mid-season:** `DifferentialBackend` is what makes the template's `differential` variant real, and it is the variant a rookie team is most likely to need.
 
 ### M16 — Vision, advanced sources · **4.5 pw**
@@ -364,7 +364,7 @@ Reviewed `wpi-rename-2027.properties`; the generated-source variant + dual-compi
 
 ### M17 — `SimulatedLimelight` + custom coprocessors · **3.5 pw**
 
-`SimulatedLimelight` (Limelight wire-format simulation via `PhotonCameraSim`, living in `pumpkinlib-photonvision`); the `pumpkinV1` wire schema + the `pumpkin_vision` Python package for team-built coprocessors.
+`SimulatedLimelight` (Limelight wire-format simulation via `PhotonCameraSim`, living in `rootstock-photonvision`); the `rootstockV1` wire schema + the `rootstock_vision` Python package for team-built coprocessors.
 **Gate (R7, non-negotiable):** a round-trip test through the **production decode path**, plus validation against a **real LL4 on a practice field**, plus a prominent "do not tune ambiguity thresholds in sim" warning. The claim is worded *"we are not aware of another Limelight wire-format simulator"*, never *"the first in FRC."*
 
 ### M18 — Shoot-on-the-move · **1.5 pw**
@@ -374,18 +374,18 @@ Reviewed `wpi-rename-2027.properties`; the generated-source variant + dual-compi
 
 ### M19 — 3D visualization · **2.0 pw**
 
-`ArticulationSpec` + `JointAxis` + `MechanismVisualizer` + `FieldGhosts`; `AssetExporter` + the `pumpkinAssets` Gradle task + the drift-detection build check; generated `LoggedMechanism2d`.
+`ArticulationSpec` + `JointAxis` + `MechanismVisualizer` + `FieldGhosts`; `AssetExporter` + the `rootstockAssets` Gradle task + the drift-detection build check; generated `LoggedMechanism2d`.
 **Gate:** a mechanism's articulation renders in AdvantageScope from the log alone, and the drift check fails a build when a CAD asset and its `ArticulationSpec` disagree.
 
 ### M20 — Replay safety, enforced · **2.5 pw**
 
-`pumpkinlib-lint` javac annotation processor (the build-time check on **team** code); `PumpkinReplayVerify`; the runtime tripwire.
-**Note:** a vendordep cannot add an `annotationProcessor` line — but **`PumpkinTemplate` can**, which is why this is now deliverable at all (§4.3). A team not using the template gets the runtime tripwire only, and the docs must say so.
+`rootstock-lint` javac annotation processor (the build-time check on **team** code); `RootstockReplayVerify`; the runtime tripwire.
+**Note:** a vendordep cannot add an `annotationProcessor` line — but **`RootstockTemplate` can**, which is why this is now deliverable at all (§4.3). A team not using the template gets the runtime tripwire only, and the docs must say so.
 **Gate:** the processor runs clean on 8793's and 9143's real repos with a **measured, published false-positive rate**. A processor with an unknown false-positive rate is not shippable.
 
 ### M21 — Headless auto validation + maple-sim · **2.5 pw**
 
-`PumpkinAutoTest` + `AutoTestResult` + `pumpkinAutoReport` (faster than real time, headless); the maple-sim `ServiceLoader` adapter.
+`RootstockAutoTest` + `AutoTestResult` + `rootstockAutoReport` (faster than real time, headless); the maple-sim `ServiceLoader` adapter.
 **Gate:** a full auto routine validates in under 5 seconds of wall time in CI; a degraded kinematic world (no maple-sim) is a **first-class, documented option**, not a failure path (R13).
 
 ### M22 — Power, pneumatics, LED, haptics · **1.5 pw**
@@ -394,14 +394,14 @@ Reviewed `wpi-rename-2027.properties`; the generated-source variant + dual-compi
 
 ### M23 — Match analytics + code generation · **1.8 pw**
 
-`CycleStats.fromLog(Path)` — desktop-side, in `pumpkinlib-cli`, **zero robot cost**: `cycleCount()`, `medianCycleSeconds()`, `p90CycleSeconds()`, `medianAlignSeconds()`, `alignTimeoutRate()`, `autoStepSuccessRate()`, `slowestTransition()`, `writeMarkdown(Path)`, plus `pumpkin stats logs/ --event <code>`; `pumpkin gen mechanism` (emits PumpkinLib config records, never raw WPILib source).
+`CycleStats.fromLog(Path)` — desktop-side, in `rootstock-cli`, **zero robot cost**: `cycleCount()`, `medianCycleSeconds()`, `p90CycleSeconds()`, `medianAlignSeconds()`, `alignTimeoutRate()`, `autoStepSuccessRate()`, `slowestTransition()`, `writeMarkdown(Path)`, plus `rootstock stats logs/ --event <code>`; `rootstock gen mechanism` (emits Rootstock config records, never raw WPILib source).
 **Note:** `CycleStats` reads topics the library already publishes and needs no new robot-side schema. It is the only feedback loop in the entire design that converts a small team's scarce practice time into a measured number, and it is cheap. It is this late only because everything above it must exist for the topics to exist.
 
 ### M24 — v0.1 release hardening · **5.1 pw**
 
 Full docs-as-tests coverage (every fenced snippet **and its import block** extracted from a compiled, executed test); every adoption-matrix row compiled in CI; the zero-allocation gate, vendor-parity gate, filename-literal consistency check; 3-OS install smoke test from the published vendordep URL; the 9-job template CI matrix wired as a release gate; Maven Central mirroring (the concrete technical form of the succession plan, D31); the WPILib vendor-picker PR; the support policy in the README above the install instructions; **the API freeze**; **the CSA test**; the tag.
 **Gate (all must hold):**
-- A mentor who has never used PumpkinLib diagnoses three seeded faults — wrong reduction, swapped soft limits, disconnected CANcoder — from the driver station and the log alone, in under 10 minutes.
+- A mentor who has never used Rootstock diagnoses three seeded faults — wrong reduction, swapped soft limits, disconnected CANcoder — from the driver station and the log alone, in under 10 minutes.
 - **A second person has push access and has cut one release.**
 - Every FATAL-tier validation check has been reviewed by that second person.
 - Validated on 8793's real robot: one full tuning session, one auto, one vision alignment, `gains.json` committed.
@@ -464,18 +464,18 @@ Domains can no longer be cut. What remains is **depth inside each domain**. Thes
 
 | # | Lever | Saves | Capability lost |
 |---|---|---|---|
-| **L1** | Drop `PumpkinNav`; document PathPlanner's own AD* pathfinding directly | −0.9 | A thin façade. Teams call PathPlanner's API instead of ours. **Almost nothing is lost — fire this first.** |
-| **L2** | Drop `pumpkin gen mechanism` | −1.0 | Code generation. `pumpkin init` plus the docs cover the same ground more slowly. |
+| **L1** | Drop `RootstockNav`; document PathPlanner's own AD* pathfinding directly | −0.9 | A thin façade. Teams call PathPlanner's API instead of ours. **Almost nothing is lost — fire this first.** |
+| **L2** | Drop `rootstock gen mechanism` | −1.0 | Code generation. `rootstock init` plus the docs cover the same ground more slowly. |
 | **L3** | One template variant (`swerve`) instead of three | −0.5 | Differential and mechanism-only teams hand-assemble from docs. Hurts exactly the rookie teams the template exists for. |
 | **L4** | Power/pneumatics/LED/haptics → `PowerMonitor` + `Rumble` only | −0.9 | `PowerBudget`, `EnergyTracker`, `CompressorPolicy`, `LedController`. All four have easy WPILib alternatives. |
-| **L5** | Drop the maple-sim adapter; `PumpkinAutoTest` ships kinematic-only | −0.9 | Game-piece physics in auto validation. R13 already calls the kinematic world first-class. |
+| **L5** | Drop the maple-sim adapter; `RootstockAutoTest` ships kinematic-only | −0.9 | Game-piece physics in auto validation. R13 already calls the kinematic world first-class. |
 | **L6** | `CameraArbiter` → first-valid-wins instead of weighted arbitration | −0.6 | 4-camera teams lose cross-camera disagreement detection — a real diagnostic, but only for teams with 4 cameras. |
 | **L7** | `SafetyModel` keeps bounding-box + `forbidUnless` + `escapeCommand()`; drop `corridor` and `characterizeTransitions()` | −0.6 | "Carry it tucked" must be expressed as an interlock instead. No transition characterization report. |
 | **L8** | Object detection ships `DetectedObject` + `ObjectProjection`; drop `ObjectTracker` | −0.8 | No persistent object IDs, no game-piece velocity. Intake-on-the-move degrades to point-and-drive. |
 | **L9** | `HomingStrategy`: ship `currentSpike` + `manualSeed`, drop `limitSwitch` + `absoluteSeed` | −0.4 | Two of four homing paths. Limit-switch homing is common; this hurts more than its price suggests. |
-| **L10** | 3D viz ships `ArticulationSpec` + `MechanismVisualizer`; drop `AssetExporter`, `FieldGhosts`, the `pumpkinAssets` task | −1.1 | Teams hand-place CAD in AdvantageScope; no asset drift detection. |
+| **L10** | 3D viz ships `ArticulationSpec` + `MechanismVisualizer`; drop `AssetExporter`, `FieldGhosts`, the `rootstockAssets` task | −1.1 | Teams hand-place CAD in AdvantageScope; no asset drift detection. |
 | **L11** | Drive backends: ship CTRE + AdvantageKit-template + differential; drop hand-rolled + YAGSL | −1.2 | YAGSL teams have no adoption path. Hand-rolled teams write their own backend against a documented SPI, which still exists. |
-| **L12** | Drop the custom-coprocessor path (`pumpkinV1` wire schema + `pumpkin_vision`) | −1.8 | Teams running homemade OpenCV/Pi pipelines get no first-class integration. |
+| **L12** | Drop the custom-coprocessor path (`rootstockV1` wire schema + `rootstock_vision`) | −1.8 | Teams running homemade OpenCV/Pi pipelines get no first-class integration. |
 | **L13** | `TractionLayer` / `SkidDetector` ship as detect-and-report only, no teleop slip limiting | −1.0 | The "teleop gets slip limiting" claim dies. Teams get a log topic instead of a behavior. **This claim must then be deleted everywhere it appears.** |
 | **L14** | AutoStep DSL is PathPlanner-first; Choreo degrades to load-and-run without the trigger engine | −1.2 | `.atEvent()` on Choreo trajectories. Dodges the unverified ChoreoLib accessor risk (R12) rather than solving it. |
 | **L15** | Wizard ships four recipes (ELEVATOR, FLYWHEEL, ARM, DRIVE_VELOCITY); drop TURRET + STEER | −1.1 | Two archetypes. The recipe *framework* survives and a team can author one. |
@@ -506,7 +506,7 @@ It probably will. Plan for it explicitly.
 
 ### 7.2 The rules for developing against a moving target
 
-1. **Develop on 2026.2.2 / Java 17 through M11. Do not chase alphas.** The `compat` package (6 classes) + `org.pumpkinlib.field` + **ArchUnit rules 2 and 12** confine every volatile WPILib API — rule 2 is the no-year-volatile-API-outside-`compat`/`field` rule and rule 12 is the no-preview-features rule (`DESIGN.md` §8). *(Revision 3 cited "rules 11 and 12" here and `DESIGN.md` §12.4 repeated it; rule 11 is the no-explicit-`throw` rule and has nothing to do with the 2027 seam. Rule-number literals join the M24 filename-literal consistency check so the next miscitation fails CI instead of surviving a revision.)* **No Java preview features, ever** — a preview feature makes "the port is an import rewrite" false.
+1. **Develop on 2026.2.2 / Java 17 through M11. Do not chase alphas.** The `compat` package (6 classes) + `org.rootstock.field` + **ArchUnit rules 2 and 12** confine every volatile WPILib API — rule 2 is the no-year-volatile-API-outside-`compat`/`field` rule and rule 12 is the no-preview-features rule (`DESIGN.md` §8). *(Revision 3 cited "rules 11 and 12" here and `DESIGN.md` §12.4 repeated it; rule 11 is the no-explicit-`throw` rule and has nothing to do with the 2027 seam. Rule-number literals join the M24 filename-literal consistency check so the next miscitation fails CI instead of surviving a revision.)* **No Java preview features, ever** — a preview feature makes "the port is an import rewrite" false.
 2. **M12 is date-triggered, not order-triggered.** It **arms** at the first 2027 alpha (~Oct 2027) and **must not start** later than the beta (~Dec 2027). It **is not required to complete inside the beta window, because below ~1.0 pw/wk it cannot** — 8.0 pw at the solo central 0.425 pw/wk is 18.8 weeks against a 5–8 week window. See §5's M12 entry for the arithmetic, the preemption rule, and the honest consequence (solo: the port completes ~mid-February 2028).
 3. **After M12 the project is single-line, not dual-line.** The `generate2027Sources` generator and the dual-compile CI exist **only** for the M12 transition window and are **deleted at the end of M12**. This reverses the old plan's assumption that a 2026 line must be maintained — and the reason it reverses is a genuine (if grim) benefit of shipping late: **there are no external users on the 2026 line to protect.** 8793 and 9143 move with the port. Maintaining two source lines for two more years would be a permanent 20–30% tax on every milestone after M12, paid to protect nobody.
 4. **Annual maintenance is a carrying cost and it is not in the 74.0 pw.** Each ordinary WPILib line costs: dependency bumps across the vendor matrix, deprecation removals, a new `FieldLayouts` entry and AprilTag layout (~0.1 pw, easy to forget, gated by a CI check), a template regeneration, a 9-job template CI matrix run, CI image bumps, and one or two API fixes. Plus the in-season support and template tax from §3.4. **Budget 2–4 pw per calendar year from M8 onward.**
@@ -545,7 +545,7 @@ This is the mechanism that makes Decision 1 survivable. **Internal milestones ar
 
 ### 8.1 How consumption works before M8
 
-8793 and 9143 consume PumpkinLib as a **Gradle composite build** (`includeBuild`) or, from M8 onward, as a **snapshot artifact** from the GitHub Pages Maven at `2026.0.0-SNAPSHOT-M<n>`. **No public vendordep URL exists and no artifact is announced.** The install path a stranger would use does not work yet, on purpose. This is deliberate:
+8793 and 9143 consume Rootstock as a **Gradle composite build** (`includeBuild`) or, from M8 onward, as a **snapshot artifact** from the GitHub Pages Maven at `2026.0.0-SNAPSHOT-M<n>`. **No public vendordep URL exists and no artifact is announced.** The install path a stranger would use does not work yet, on purpose. This is deliberate:
 
 - **No API stability obligation.** Breaking changes are free. This is worth several person-weeks over three years and it is the one real advantage of not shipping.
 - **No support obligation to strangers.** The R15 in-season support policy does not apply, because there are no strangers.
@@ -560,7 +560,7 @@ This is the mechanism that makes Decision 1 survivable. **Internal milestones ar
 | **M1** | Alerts, seven health monitors, `MatchContext`, `RobotIdentity`, `CanIdRegistry`, one-button `SelfTest` — **bolted onto existing robot code**, no adoption of anything else | **2027 season.** Available Oct 2026, before kickoff. The highest match-record item in the library is also the first one built. |
 | **M2** | `describe()` at boot, `vendorConfigDump` in every log | 2027 season |
 | **M4** | Mechanism conversion; 9143-A/B as the sibling-robot fixture; ~1,600 lines deleted from 8793 | 2027 build season (Jan 2027) |
-| **M5** | Physics sim + `PumpkinTest` — students work with the robot in pieces | 2027 build season (Feb 2027) |
+| **M5** | Physics sim + `RootstockTest` — students work with the robot in pieces | 2027 build season (Feb 2027) |
 | **M6** | Live tuning with persistence and paste-ready export | 2027 build season (Mar 2027) |
 | **M7** | The wizard on elevators and flywheels | **End of the 2027 season (Apr 2027) — too late to help 2027 competition.** At +2 committers: Dec 2026, before kickoff. |
 | **M8** | Snapshot artifact consumption; 9143-B forks the template while 9143-A stays hand-wired, exercising drift tooling for real | 2027 offseason |
@@ -626,7 +626,7 @@ Full register in [`DESIGN.md` §13](DESIGN.md#13-risks--mitigations). These chan
 | **R1 Scope** (Critical) | Mitigated: v0.1 capped at 13.25 pw with a pre-committed cut list and five dated gates | **Accepted, not mitigated.** Full scope, 74.0 pw, no domain cut. The cut list is replaced by §6's depth levers, which recover only 18.9 pw. The mitigation is now §2 (capacity) and the honesty of §5.1's dates. |
 | **R2 The 2027 break** (Critical) | Dual-compile CI from the first 2027 alpha; a 2026 line maintained alongside | **Improved by shipping late.** No external users on the 2026 line means M12 is a one-way port, and the generator and dual-compile CI are deleted at the end of M12 instead of maintained for two years. The rename map is still a guess (only two rows confirmed) and that has not changed. |
 | **R6 Vendor parity** (High) | G1 on a date; cut C1 (Phoenix-only) if it failed | **No longer cuttable.** Vendor parity is M3's gate condition and there is no Phoenix-only fallback, because there is no dated release to protect. The milestone simply does not complete until both vendors pass. |
-| **R18 AdvantageKit and 2027** (was Medium) | Mitigated by the `LogBackend` SPI: AdvantageKit was one implementation, not the architecture | **Now High, and ACCEPTED.** The SPI is deleted. If AdvantageKit does not ship for 2027, PumpkinLib does not ship. Concrete three-tier contingency in §4.2, numbered in execution order: **tier 1 contribute → tier 2 fork `pumpkinlib-akit-compat` (~2.5 pw; legally clear — AdvantageKit is BSD-3-Clause, verified 2026-08-08, permitted with attribution and a non-endorsement constraint on naming) → tier 3 state publicly that we wait.** |
+| **R18 AdvantageKit and 2027** (was Medium) | Mitigated by the `LogBackend` SPI: AdvantageKit was one implementation, not the architecture | **Now High, and ACCEPTED.** The SPI is deleted. If AdvantageKit does not ship for 2027, Rootstock does not ship. Concrete three-tier contingency in §4.2, numbered in execution order: **tier 1 contribute → tier 2 fork `rootstock-akit-compat` (~2.5 pw; legally clear — AdvantageKit is BSD-3-Clause, verified 2026-08-08, permitted with attribution and a non-endorsement constraint on naming) → tier 3 state publicly that we wait.** |
 | **R4 Community rejection** (High) | Managed by shipping a small, coherent v0.1 and announcing at v0.2 | **Deferred, not reduced.** Nothing is announced before M24, so the risk cannot fire early — but v0.1 arrives as a very large first release from an unknown author, which is the *worst* shape for a hostile first read. §7.3's annual review is the only real counterweight. |
 | **R16 WPILib first-party `Tunable`** (Low) | "On the v0.2 gate" | **Becomes a §7.3 annual review question.** Over a three-year window it is likely, not speculative. |
 | **R20 Relevance decay** | — | **New, High.** §7.3. |
@@ -636,7 +636,7 @@ Full register in [`DESIGN.md` §13](DESIGN.md#13-risks--mitigations). These chan
 
 ## 11. License
 
-**BSD-3-Clause**, matching WPILib, so a team can vendor a single file with no legal question and a fork can be published by anyone if the project stalls (R21). Text in [`LICENSE`](LICENSE); copyright line `Copyright (c) 2026 PumpkinLib contributors`. Every "License: TBD" reference in the docs is superseded by this section.
+**BSD-3-Clause**, matching WPILib, so a team can vendor a single file with no legal question and a fork can be published by anyone if the project stalls (R21). Text in [`LICENSE`](LICENSE); copyright line `Copyright (c) 2026 Rootstock contributors`. Every "License: TBD" reference in the docs is superseded by this section.
 
 ---
 
@@ -644,6 +644,6 @@ Full register in [`DESIGN.md` §13](DESIGN.md#13-risks--mitigations). These chan
 
 One sentence, so it cannot be negotiated:
 
-> **A team clones `PumpkinTemplate`, and within two hours has a physically simulated robot — swerve or differential — with correct gearing, homing, gravity compensation, motion profiling, soft limits, superstructure interlocks with collision avoidance, AprilTag vision with a 19-reason filter chain, an auto routine written in the AutoStep DSL against PathPlanner or Choreo, a documented telemetry schema that replays deterministically, seven health monitors, a one-button self-test, and a tuning wizard that measured its own gains and explained each one — having written about forty lines of code, on a laptop, with no robot present, on either Phoenix 6 or REVLib.**
+> **A team clones `RootstockTemplate`, and within two hours has a physically simulated robot — swerve or differential — with correct gearing, homing, gravity compensation, motion profiling, soft limits, superstructure interlocks with collision avoidance, AprilTag vision with a 19-reason filter chain, an auto routine written in the AutoStep DSL against PathPlanner or Choreo, a documented telemetry schema that replays deterministically, seven health monitors, a one-button self-test, and a tuning wizard that measured its own gains and explained each one — having written about forty lines of code, on a laptop, with no robot present, on either Phoenix 6 or REVLib.**
 
 Everything in this roadmap is an elaboration of that sentence being true. **The date it becomes true is a function of how many people are working on it, and the honest solo answer is 2030.**

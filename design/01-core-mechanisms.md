@@ -1,4 +1,4 @@
-# PumpkinLib Design 01 — Core: Hardware Abstraction, Mechanisms, Config, Superstructure
+# Rootstock Design 01 — Core: Hardware Abstraction, Mechanisms, Config, Superstructure
 
 **Domain:** CORE
 **Status:** Design complete (revision 4 — revision 3 plus the 2026-08-07 independent expert review), ready to implement
@@ -30,14 +30,14 @@ Every vendor API name in this document was either read out of the vendor javadoc
 | 8 | `applyVerified` (blocking, ×5) called from `periodic()` at 10 Hz | `applyFast` (0 s timeout) for gains; `applyVerified` for construction / disabled / self-test only | §3.9 |
 | 9 | Setpoint sent once, forever; a device reset silently dropped the mechanism | `hasResetOccurred()` re-arm + 10 Hz setpoint heartbeat + `deviceResetCount` | §3.5 |
 | 10 | `.foc(true)` swapped the whole request set and reinterpreted gains as amps | `.foc()` sets only `withEnableFOC`; `outputMode(TORQUE_CURRENT)` is a separate, `ConfigError`-guarded field that is **outside v0.1** (see revision-3 note at open question 13) | §3.5 |
-| 11 | `MotorInputs implements LoggableInputs` inside `pumpkinlib-mechanism` (ArchUnit violation) | `implements PumpkinInputs`; AdvantageKit adapter owns `LoggableInputs` — **SUPERSEDED by revision 3 row 21: it is back to `LoggableInputs`, and rule 1 changed instead** | §1.1, §3.4 |
-| 12 | Tier-1 validation threw from a record constructor → `ExceptionInInitializerError`, dead robot | errors are **collected**, not thrown; `PumpkinRegistry` prints them all and enters **SAFE_MODE** | §5.6 |
+| 11 | `MotorInputs implements LoggableInputs` inside `rootstock-mechanism` (ArchUnit violation) | `implements RootstockInputs`; AdvantageKit adapter owns `LoggableInputs` — **SUPERSEDED by revision 3 row 21: it is back to `LoggableInputs`, and rule 1 changed instead** | §1.1, §3.4 |
+| 12 | Tier-1 validation threw from a record constructor → `ExceptionInInitializerError`, dead robot | errors are **collected**, not thrown; `RootstockRegistry` prints them all and enters **SAFE_MODE** | §5.6 |
 | 13 | `AxisGoal.named("L4")` typos failed at button-press time, mid-match | names validated at construction with a "did you mean"; runtime path cannot fail silently; typed `Setpoint` handles are the documented default | §8.9 |
 | 14 | Router tested the straight line between two configurations | Router tests the **axis-aligned bounding box** (the true reachable set of two unsynchronized profiles) + `synchronizedAxes` | §8.4 |
 | 15 | No transition cost model, no reachability analysis, no honesty about the ceiling | `SuperstructureReport` + `characterizeTransitions()` + an explicit "we are less capable than 254's A*" statement | §8.8, §13 |
 | 16 | "Every numeric field auto-registered by field name" (reflection) | explicit allowlist, no reflection; geometry/CAN IDs/sim params deliberately NOT tunable | §1.2 |
 | 17 | Six string concatenations per mechanism per loop in `periodic()` | log keys precomputed in the constructor | §6.1, §6.2 |
-| 18 | `throw new IllegalStateException("...This is a PumpkinLib bug.")` from `periodic()` | degrade, name itself, latch a no-op flag | §3.5 |
+| 18 | `throw new IllegalStateException("...This is a Rootstock bug.")` from `periodic()` | degrade, name itself, latch a no-op flag | §3.5 |
 | 19 | `ControlLocation` was a required builder call (an expert question at line 5) | defaulted from the leader's `MotorSpec`, printed with provenance in `describe()` | §5.3 |
 | 20 | `setPositionGoal(pos, arbFf)` — no velocity, so field-locked turret was unimplementable | `setPositionGoal(pos, rps, arbFf[, constraintOverride])` | §3.3, §6.4 |
 
@@ -45,13 +45,13 @@ Every vendor API name in this document was either read out of the vendor javadoc
 
 | # | Was (revision 2) | Now (revision 3) | § |
 |---|---|---|---|
-| 21 | `MotorInputs implements PumpkinInputs` + `LogSink`/`LogSource` + an `AkInputs` wrapper in `pumpkinlib-advantagekit` | `MotorInputs implements LoggableInputs` and writes `LogTable` **directly**. `PumpkinInputs`, `LogSink`, `LogSource`, `AkInputs`, `AkBackend` and the `LogBackend` SPI **do not exist**. | §1.1, §3.4, §3.10–§3.12 |
-| 22 | ArchUnit rule 1 banned `org.littletonrobotics` outside `pumpkinlib-advantagekit` | Rule 1 no longer names `org.littletonrobotics` or `dev.doglog`. It still bans `com.ctre`, `com.revrobotics`, `org.photonvision`, `com.pathplanner`, `choreo` and `swervelib` outside their adapters. **What replaces it is `DESIGN.md` §8 rule 1c**, a two-clause package allowlist: the *driver* types (`Logger`, `LoggedRobot`, `LoggedNetworkNumber`, `LoggedMechanism2d`) are confined to `org.pumpkinlib.telemetry`/`.core`/`.tuning`/`.viz`, while the two *schema* types (`LogTable`, `LoggableInputs`) are additionally legal in any `..io..` package — which is what makes `MotorInputs implements LoggableInputs` in `org.pumpkinlib.hardware` legal. `org.pumpkinlib.mechanism` still may not touch `Logger`; it publishes through `PumpkinLog`. | §1.1, §1.7.1 |
-| 23 | `PumpkinRobot extends TimedRobot` in core; `PumpkinLoggedRobot` in a separate artifact (D13, softened by D29) | **One class: `PumpkinRobot extends LoggedRobot`.** `PumpkinLifecycle` stays **public** — D29's partial-adoption requirement is untouched and is what makes the collapse clean. | §1.1a, §9.4 |
-| 24 | "Zero hard vendordep dependencies in the core artifact… a team can install PumpkinLib on kickoff day before CTRE and REV have published" | **Withdrawn.** `pumpkinlib` requires `AdvantageKit.json`, a third-party vendordep. The kickoff-morning install property is **lost**, and it was real. | §1.7.6 |
-| 25 | Deterministic replay was a property of whichever backend the team installed | Deterministic replay is a **library guarantee**. `Clock`/`PumpkinLog.timestamp()` are replay-safe by construction, and `RobotMode.REPLAY` always exists. | §1.1, §7.1 |
-| 26 | `@AutoLog` banned because a vendordep cannot install an annotation processor | **D24 stands**, for the *same* reason plus an unresolved package-scope concern. The AdvantageKit dependency does not change it: `PumpkinTemplate` can wire the processor for **team** code, but the library still hand-writes `toLog`/`fromLog`. | §1.7.1 |
-| 27 | Doc 04 shipped adapters for AdvantageKit, DogLog, Epilogue and a no-op | One path. **A team already committed to DogLog or plain Epilogue cannot adopt PumpkinLib without switching loggers.** Stated, not buried. | §12 |
+| 21 | `MotorInputs implements RootstockInputs` + `LogSink`/`LogSource` + an `AkInputs` wrapper in `rootstock-advantagekit` | `MotorInputs implements LoggableInputs` and writes `LogTable` **directly**. `RootstockInputs`, `LogSink`, `LogSource`, `AkInputs`, `AkBackend` and the `LogBackend` SPI **do not exist**. | §1.1, §3.4, §3.10–§3.12 |
+| 22 | ArchUnit rule 1 banned `org.littletonrobotics` outside `rootstock-advantagekit` | Rule 1 no longer names `org.littletonrobotics` or `dev.doglog`. It still bans `com.ctre`, `com.revrobotics`, `org.photonvision`, `com.pathplanner`, `choreo` and `swervelib` outside their adapters. **What replaces it is `DESIGN.md` §8 rule 1c**, a two-clause package allowlist: the *driver* types (`Logger`, `LoggedRobot`, `LoggedNetworkNumber`, `LoggedMechanism2d`) are confined to `org.rootstock.telemetry`/`.core`/`.tuning`/`.viz`, while the two *schema* types (`LogTable`, `LoggableInputs`) are additionally legal in any `..io..` package — which is what makes `MotorInputs implements LoggableInputs` in `org.rootstock.hardware` legal. `org.rootstock.mechanism` still may not touch `Logger`; it publishes through `RootstockLog`. | §1.1, §1.7.1 |
+| 23 | `RootstockRobot extends TimedRobot` in core; `RootstockLoggedRobot` in a separate artifact (D13, softened by D29) | **One class: `RootstockRobot extends LoggedRobot`.** `RootstockLifecycle` stays **public** — D29's partial-adoption requirement is untouched and is what makes the collapse clean. | §1.1a, §9.4 |
+| 24 | "Zero hard vendordep dependencies in the core artifact… a team can install Rootstock on kickoff day before CTRE and REV have published" | **Withdrawn.** `rootstock` requires `AdvantageKit.json`, a third-party vendordep. The kickoff-morning install property is **lost**, and it was real. | §1.7.6 |
+| 25 | Deterministic replay was a property of whichever backend the team installed | Deterministic replay is a **library guarantee**. `Clock`/`RootstockLog.timestamp()` are replay-safe by construction, and `RobotMode.REPLAY` always exists. | §1.1, §7.1 |
+| 26 | `@AutoLog` banned because a vendordep cannot install an annotation processor | **D24 stands**, for the *same* reason plus an unresolved package-scope concern. The AdvantageKit dependency does not change it: `RootstockTemplate` can wire the processor for **team** code, but the library still hand-writes `toLog`/`fromLog`. | §1.7.1 |
+| 27 | Doc 04 shipped adapters for AdvantageKit, DogLog, Epilogue and a no-op | One path. **A team already committed to DogLog or plain Epilogue cannot adopt Rootstock without switching loggers.** Stated, not buried. | §12 |
 
 **Revision 4 changelog** (2026-08-07 independent expert review — six lenses, synthesized in `REVIEW.md`). Nothing architectural changed. What changed is API truth, arithmetic, and three sections that still described superseded architectures as current.
 
@@ -66,23 +66,23 @@ Every vendor API name in this document was either read out of the vendor javadoc
 | 34 | Sprocket travel from the **pitch-circle circumference** (0.280293 m, printed to six figures) | Chain advance is exactly `teeth × pitch` (**0.279400 m**). `LinearAxis.sprocket` uses `N × p`; `LinearAxis.pulley` already did. Every derived elevator number recomputed. | §4.3, §4.4, §5.4 |
 | 35 | "800 frames/s of 8-byte payload ≈ 0.6 % of a 1 Mbps bus" | Off by ~19× (**11.2 %**, not 0.6 %). Recomputed at **~140 bits on the wire per 8-byte extended frame → ≈ 11 %**, with a real aggregate bus budget printed by `describe()` and the 100 Hz default explicitly *provisional* pending the measurement of open question 14. | §3.5.1, §3.5.7 |
 | 36 | Homing suspended device soft limits with no specified config path | Homing start/finish is added to `applyVerified`'s exhaustive legal-caller list, with a mandatory read-back-or-abort rule and a sticky alert. | §3.9, §6.3 |
-| 37 | `PumpkinLifecycle.hooks()` javadoc: "discovered by `ServiceLoader` … Unchanged by decision 3" | **Wrong since decision 3.** In-jar hooks are an explicit priority-ordered list built in `create()`; `ServiceLoader` survives only for out-of-jar vendor adapters and `VisionSimHook` (D26 as amended). | §1.1a |
-| 38 | `Mechanism.simulationPeriodic()` + `m_io.simulatedMotorVoltage()` / `updateSimulatedSensors()` call sites | **Deleted by D18.** The sim path is `MotorIO.simHandle() → Optional<SimMotorHandle>`, consumed by `PumpkinSim` through `MechanismGeometrySink`. Those two methods never existed on the `MotorIO` interface, so the revision-3 snippet could not have compiled. | §1.4, §6.1, §6.7, §7.1 |
+| 37 | `RootstockLifecycle.hooks()` javadoc: "discovered by `ServiceLoader` … Unchanged by decision 3" | **Wrong since decision 3.** In-jar hooks are an explicit priority-ordered list built in `create()`; `ServiceLoader` survives only for out-of-jar vendor adapters and `VisionSimHook` (D26 as amended). | §1.1a |
+| 38 | `Mechanism.simulationPeriodic()` + `m_io.simulatedMotorVoltage()` / `updateSimulatedSensors()` call sites | **Deleted by D18.** The sim path is `MotorIO.simHandle() → Optional<SimMotorHandle>`, consumed by `RootstockSim` through `MechanismGeometrySink`. Those two methods never existed on the `MotorIO` interface, so the revision-3 snippet could not have compiled. | §1.4, §6.1, §6.7, §7.1 |
 | 39 | §10 item 1: "Two release lines from day one" | The M12-only dual-compile model: one 2026 line through M11, dual-compile scaffolding created **inside M12 and deleted at its end**, one 2027 line after. `ROADMAP.md` §7.2 is authoritative, as docs 02 and 04 already say. | §10 |
-| 40 | `Pumpkin.alerts()` / `Pumpkin.registry()` / `Pumpkin.TUNING_MODE` (10 call sites) | **D12 deleted the `Pumpkin` god-object.** `Alerts.error/warning(group, text, MatchImpact)` (D10 — the impact argument is mandatory), `org.pumpkinlib.core.PumpkinRegistry`, `TuningRegistry.isTuningEnabled()`, `org.pumpkinlib.core.compat.Clock`. Package declarations throughout now match `DESIGN.md` §7. | throughout |
+| 40 | `Rootstock.alerts()` / `Rootstock.registry()` / `Rootstock.TUNING_MODE` (10 call sites) | **D12 deleted the `Rootstock` god-object.** `Alerts.error/warning(group, text, MatchImpact)` (D10 — the impact argument is mandatory), `org.rootstock.core.RootstockRegistry`, `TuningRegistry.isTuningEnabled()`, `org.rootstock.core.compat.Clock`. Package declarations throughout now match `DESIGN.md` §7. | throughout |
 | 41 | `Reduction.ofTeeth(int driving, int driven)` | `Reduction.ofTeeth(int drivenTeeth, int drivingTeeth)`. Every documented call (`ofTeeth(58, 10)` meaning 5.8:1) requires driven-first; the revision-3 parameter names would have inverted every ratio in the library. | §4.2 |
-| 42 | `PumpkinLog.put(kError, m_goal - m_measured)` *(historical spelling — `put(...)` was deleted in revision 5, see row 42a)* | `kError = setpoint − measured` and a new `kGoalError = goal − measured`, matching `design/04` §3.1's published schema. | §6.2 |
-| 42a | *(revision 5, contract reconciliation, review finding B10)* Every `PumpkinLog.put(...)` call site in this document | **`PumpkinLog.put(...) does not exist`** and never did in `design/04` §2.3, the owning surface. All fifteen CORE call sites now call `critical(...)` (CRITICAL) or `log(...)` (STANDARD) with the tier read off `design/04` §3.1; `timestampSeconds()` is renamed `timestamp()`; the `/Pumpkin/Config/Errors` publish becomes a `String[]`. | §1.1, §5.6, §6.2, §8.2 |
+| 42 | `RootstockLog.put(kError, m_goal - m_measured)` *(historical spelling — `put(...)` was deleted in revision 5, see row 42a)* | `kError = setpoint − measured` and a new `kGoalError = goal − measured`, matching `design/04` §3.1's published schema. | §6.2 |
+| 42a | *(revision 5, contract reconciliation, review finding B10)* Every `RootstockLog.put(...)` call site in this document | **`RootstockLog.put(...) does not exist`** and never did in `design/04` §2.3, the owning surface. All fifteen CORE call sites now call `critical(...)` (CRITICAL) or `log(...)` (STANDARD) with the tier read off `design/04` §3.1; `timestampSeconds()` is renamed `timestamp()`; the `/Rootstock/Config/Errors` publish becomes a `String[]`. | §1.1, §5.6, §6.2, §8.2 |
 | 43 | `RotaryAxis` written out in full without overriding `isContinuous()`; `SiDomain {LINEAR, ANGULAR}` | `isContinuous()` overridden explicitly; `SiDomain {LINEAR_METERS, ROTATIONAL_RADIANS}` per D3. | §4.3 |
 | 44 | `hasResetOccurred()` first read from `periodic()` | Consumed once per device at the end of the `MotorIO` constructor, so the power-on flag does not raise a spurious reset alert and start `deviceResetCount` at 1 on every boot. | §3.5.5 |
 | 45 | R18's fork tier "license-gated and **[UNVERIFIED]**" | **Verified: AdvantageKit is BSD-3-Clause.** Redistribution and modification are permitted with attribution; only the non-endorsement clause constrains the fork's *naming*. | §1.7.6 |
 | 46 | §9: "Every snippet in this section **is** extracted from a compiled, executed test" | Restated in the tense that is true: these are **docs-as-tests targets**; the four named extraction tests are built at **M24** and are release-blocking. See the rewritten §9 preamble. | §9, §11 |
-| 47 | *(revision 6, 2026-08-08 — `DESIGN.md` §16 item 5(e), a pre-M1 blocker)* `PumpkinRobot(Consumer<LogConfig.Builder>)`, a public no-arg constructor, `@Override public void robotInit()` on `PumpkinRobot`, and `PumpkinLifecycle.robotInit()` | **D13a/D29 propagated.** `protected PumpkinRobot()` / `protected PumpkinRobot(LogConfig config)` over an **immutable** `LogConfig` value (no `Consumer`, no `Builder`); `PumpkinRobot` overrides `robotPeriodic()`, `disabledInit()` and `close()` **only**; the lifecycle method is `init()`, idempotent, called at the constructor tail or lazily by the first `beforeUserPeriodic()`. `create(LogConfig)`'s "detects an already-started Logger" javadoc is replaced by D29's explicit `defaults()` / `adoptExistingLogger()` choice. Both adoption paths — `extends PumpkinRobot` and a team's own `LoggedRobot` — are shown side by side and now differ by exactly one thing. | §1.1a, §5.6, §9.4, §10, §13 OQ15 |
-| 48 | *(revision 6)* `LogConfig` was named but never declared in this document | A **reference restatement** of `design/04` §2.2's field set behind D13a's `with*()` copies, plus D29's two factories. ~~The divergence — `design/04` §2.2 is still mutable public fields reached through `PumpkinLog.configure(Consumer<LogConfig>)` — is stated inline and filed as **§13 OQ17**, not papered over.~~ **Divergence CLOSED 2026-08-08: `design/04` §2.2b re-declared `LogConfig` as an immutable value with `with*()` copies and D29's two factories, citing D13a. CORE's restatement did not change — it was already written against D13a/D29 — and OQ17 is closed.** The struck-through text is kept because it is the record of a real disagreement that lasted three revisions. | §1.1a, §13 OQ17 |
-| 49 | *(revision 6 — `DESIGN.md` §16 item 5(b))* `Mechanism` carried an inline **OPEN CONTRACT ITEM** marker: the `TelemetrySource` **declaration** half was unspecified, so five published keys had no declaration site | **§1.1b writes the declaration half.** `Mechanism implements Subsystem, TelemetrySource` and `Superstructure implements TelemetrySource`; `telemetryName()`, `describe(TelemetryDescriptor)`, the `describeExtras` hook, and all five extras (`DeviceResetCount`, `FeedbackVolts`, `FeedforwardVolts`, `Blocked`, `Plan`) declared with tiers. The descriptor is built **by telemetry** and handed in at `PumpkinRegistry.addAll` (D27); CORE never holds one. ~~Two divergences from `design/04` (Degrees-not-Radians; no unit-free `extra(...)`) and the five tiers are filed as **§13 OQ16** rather than assumed.~~ **OQ16 CLOSED 2026-08-08 by `design/04`: Degrees confirmed (its parenthetical was the 57.3× error, corrected there, no conversion added); `extra(String, Tier)` added and CORE's three unit-free extras moved onto it; four tiers confirmed and `DeviceResetCount` overruled to **CRITICAL**, applied here as a matched pair — `d.extra("DeviceResetCount", Tier.CRITICAL)` in §1.1b and `PumpkinLog.critical(kDeviceResets, …)` in §6.2.** | §1.1b, §6.1, §8.1, §13 OQ16 |
-| 50 | *(revision 6, found while writing row 47 — a **new** finding, not a propagation)* Nothing anywhere noticed that `PumpkinLifecycle.create(LogConfig)` puts a `org.pumpkinlib.telemetry` type in a public `org.pumpkinlib.core` signature | **ArchUnit rule 9 exposure, named at the site.** *"Every dependency arrow points into core"* — and a type in a public core signature is the same violation as the direct call §1.1 already discusses, hidden by D28's one-jar packaging rather than fixed by it. Three candidate resolutions are written out; the recommended one is moving `LogConfig` into `org.pumpkinlib.core.spi` (D26's package for downward-crossing value types). ~~**CORE owns neither the type nor the rule and has moved nothing** — filed as **§13 OQ18**, contract request on `design/04` and `DESIGN.md` §8.~~ **RESOLVED AND APPLIED 2026-08-08: `design/04` §2.2b declares `LogConfig` under `package org.pumpkinlib.core.spi;` — option 1, the recommended one. CORE's half is the two `import` lines in §1.1a, both now `org.pumpkinlib.core.spi.LogConfig`; `grep -n "^ *import org\.pumpkinlib\.telemetry\.LogConfig" design/01-core-mechanisms.md` returns **zero**. OQ18 is CLOSED for this document.** Live imports of the old package survive in files this document does not own; **§13 OQ18 states them with an import-shaped gate**, because the bare-string grep counts the prose reporting the fix and so rises as the design gets more correct. | §1.1a, §13 OQ18 |
+| 47 | *(revision 6, 2026-08-08 — `DESIGN.md` §16 item 5(e), a pre-M1 blocker)* `RootstockRobot(Consumer<LogConfig.Builder>)`, a public no-arg constructor, `@Override public void robotInit()` on `RootstockRobot`, and `RootstockLifecycle.robotInit()` | **D13a/D29 propagated.** `protected RootstockRobot()` / `protected RootstockRobot(LogConfig config)` over an **immutable** `LogConfig` value (no `Consumer`, no `Builder`); `RootstockRobot` overrides `robotPeriodic()`, `disabledInit()` and `close()` **only**; the lifecycle method is `init()`, idempotent, called at the constructor tail or lazily by the first `beforeUserPeriodic()`. `create(LogConfig)`'s "detects an already-started Logger" javadoc is replaced by D29's explicit `defaults()` / `adoptExistingLogger()` choice. Both adoption paths — `extends RootstockRobot` and a team's own `LoggedRobot` — are shown side by side and now differ by exactly one thing. | §1.1a, §5.6, §9.4, §10, §13 OQ15 |
+| 48 | *(revision 6)* `LogConfig` was named but never declared in this document | A **reference restatement** of `design/04` §2.2's field set behind D13a's `with*()` copies, plus D29's two factories. ~~The divergence — `design/04` §2.2 is still mutable public fields reached through `RootstockLog.configure(Consumer<LogConfig>)` — is stated inline and filed as **§13 OQ17**, not papered over.~~ **Divergence CLOSED 2026-08-08: `design/04` §2.2b re-declared `LogConfig` as an immutable value with `with*()` copies and D29's two factories, citing D13a. CORE's restatement did not change — it was already written against D13a/D29 — and OQ17 is closed.** The struck-through text is kept because it is the record of a real disagreement that lasted three revisions. | §1.1a, §13 OQ17 |
+| 49 | *(revision 6 — `DESIGN.md` §16 item 5(b))* `Mechanism` carried an inline **OPEN CONTRACT ITEM** marker: the `TelemetrySource` **declaration** half was unspecified, so five published keys had no declaration site | **§1.1b writes the declaration half.** `Mechanism implements Subsystem, TelemetrySource` and `Superstructure implements TelemetrySource`; `telemetryName()`, `describe(TelemetryDescriptor)`, the `describeExtras` hook, and all five extras (`DeviceResetCount`, `FeedbackVolts`, `FeedforwardVolts`, `Blocked`, `Plan`) declared with tiers. The descriptor is built **by telemetry** and handed in at `RootstockRegistry.addAll` (D27); CORE never holds one. ~~Two divergences from `design/04` (Degrees-not-Radians; no unit-free `extra(...)`) and the five tiers are filed as **§13 OQ16** rather than assumed.~~ **OQ16 CLOSED 2026-08-08 by `design/04`: Degrees confirmed (its parenthetical was the 57.3× error, corrected there, no conversion added); `extra(String, Tier)` added and CORE's three unit-free extras moved onto it; four tiers confirmed and `DeviceResetCount` overruled to **CRITICAL**, applied here as a matched pair — `d.extra("DeviceResetCount", Tier.CRITICAL)` in §1.1b and `RootstockLog.critical(kDeviceResets, …)` in §6.2.** | §1.1b, §6.1, §8.1, §13 OQ16 |
+| 50 | *(revision 6, found while writing row 47 — a **new** finding, not a propagation)* Nothing anywhere noticed that `RootstockLifecycle.create(LogConfig)` puts a `org.rootstock.telemetry` type in a public `org.rootstock.core` signature | **ArchUnit rule 9 exposure, named at the site.** *"Every dependency arrow points into core"* — and a type in a public core signature is the same violation as the direct call §1.1 already discusses, hidden by D28's one-jar packaging rather than fixed by it. Three candidate resolutions are written out; the recommended one is moving `LogConfig` into `org.rootstock.core.spi` (D26's package for downward-crossing value types). ~~**CORE owns neither the type nor the rule and has moved nothing** — filed as **§13 OQ18**, contract request on `design/04` and `DESIGN.md` §8.~~ **RESOLVED AND APPLIED 2026-08-08: `design/04` §2.2b declares `LogConfig` under `package org.rootstock.core.spi;` — option 1, the recommended one. CORE's half is the two `import` lines in §1.1a, both now `org.rootstock.core.spi.LogConfig`; `grep -n "^ *import org\.rootstock\.telemetry\.LogConfig" design/01-core-mechanisms.md` returns **zero**. OQ18 is CLOSED for this document.** Live imports of the old package survive in files this document does not own; **§13 OQ18 states them with an import-shaped gate**, because the bare-string grep counts the prose reporting the fix and so rises as the design gets more correct. | §1.1a, §13 OQ18 |
 
-**Effort delta.** This document has never carried a domain-level person-week total; the authoritative numbers are `ROADMAP.md`'s milestones M1–M6. Decision 3 is **−1.25 pw** across the whole library, of which **about −0.15 pw lands in CORE** — the four `*Inputs` classes now target `LogTable` directly instead of a bespoke sink/source pair, and the cross-backend telemetry-parity test disappears. The larger deletions (`LogBackend`, the four backend implementations, the `PumpkinRobot`/`PumpkinLoggedRobot` split) belong to the Telemetry and Platform docs. §8.8's 0.3 pw and 0.5 pw sub-item estimates are unaffected.
+**Effort delta.** This document has never carried a domain-level person-week total; the authoritative numbers are `ROADMAP.md`'s milestones M1–M6. Decision 3 is **−1.25 pw** across the whole library, of which **about −0.15 pw lands in CORE** — the four `*Inputs` classes now target `LogTable` directly instead of a bespoke sink/source pair, and the cross-backend telemetry-parity test disappears. The larger deletions (`LogBackend`, the four backend implementations, the `RootstockRobot`/`RootstockLoggedRobot` split) belong to the Telemetry and Platform docs. §8.8's 0.3 pw and 0.5 pw sub-item estimates are unaffected.
 
 ---
 
@@ -92,35 +92,35 @@ Every vendor API name in this document was either read out of the vendor javadoc
 
 | # | Responsibility | Deliverable |
 |---|---|---|
-| 1 | **Hardware seam.** One narrow interface between mechanism logic and motor controllers, encoders, gyros, and digital/ranging sensors. Phoenix 6, REVLib, WPILib-generic, and sim backends. | `org.pumpkinlib.hardware` |
-| 2 | **Units, gearing, geometry.** One place where "rotor rotations → meters/degrees → SI" is declared, used by control, soft limits, sim, telemetry, and tuning. | `org.pumpkinlib.units` |
-| 3 | **Config system.** Immutable records + fluent builders + collected validation + `describe()` + config snapshot logging + SAFE_MODE. The "change a gear ratio in exactly one place" requirement. | `org.pumpkinlib.config` |
-| 4 | **Mechanism templates.** `PositionMechanism`, `VelocityMechanism`, `SimpleMechanism`. Gravity comp, profiling, soft/hard limits, homing, goal/setpoint/measured reporting, `atGoal` semantics. | `org.pumpkinlib.mechanism` |
-| 5 | **Subsystem & command idiom.** How a mechanism participates in WPILib command-based *without* forcing it, plus the command-factory vocabulary. | `org.pumpkinlib.mechanism` (`Subsystem` facade) |
-| 6 | **Superstructure.** Enum goal/request state machine, interlocks, arm-vs-elevator collision avoidance, default-output inversion, static analysis, measured transition costs. | `org.pumpkinlib.superstructure` |
+| 1 | **Hardware seam.** One narrow interface between mechanism logic and motor controllers, encoders, gyros, and digital/ranging sensors. Phoenix 6, REVLib, WPILib-generic, and sim backends. | `org.rootstock.hardware` |
+| 2 | **Units, gearing, geometry.** One place where "rotor rotations → meters/degrees → SI" is declared, used by control, soft limits, sim, telemetry, and tuning. | `org.rootstock.units` |
+| 3 | **Config system.** Immutable records + fluent builders + collected validation + `describe()` + config snapshot logging + SAFE_MODE. The "change a gear ratio in exactly one place" requirement. | `org.rootstock.config` |
+| 4 | **Mechanism templates.** `PositionMechanism`, `VelocityMechanism`, `SimpleMechanism`. Gravity comp, profiling, soft/hard limits, homing, goal/setpoint/measured reporting, `atGoal` semantics. | `org.rootstock.mechanism` |
+| 5 | **Subsystem & command idiom.** How a mechanism participates in WPILib command-based *without* forcing it, plus the command-factory vocabulary. | `org.rootstock.mechanism` (`Subsystem` facade) |
+| 6 | **Superstructure.** Enum goal/request state machine, interlocks, arm-vs-elevator collision avoidance, default-output inversion, static analysis, measured transition costs. | `org.rootstock.superstructure` |
 
 ### 0.2 What CORE explicitly does NOT own
 
 **Domains are named by filename, not by number.** Revision 3 used a nine-domain numbering scheme (`doc 05`, `doc 07`, `doc 08`, `doc 09`) that no longer maps to anything: there are **six** design documents, and `doc 05` in the old scheme meant `design/02-tuning.md`. Every cross-reference below and throughout this revision names the file.
 
-* Swerve drivetrain, odometry, path following — **Drivetrain/Auto**, `design/05-drivetrain-auto.md`. It also owns `org.pumpkinlib.control` (D8), which is where `Gains`, `GravityMode`, `ControlLocation`, `Controllers` and `TuningTarget` live — see §1.5.
+* Swerve drivetrain, odometry, path following — **Drivetrain/Auto**, `design/05-drivetrain-auto.md`. It also owns `org.rootstock.control` (D8), which is where `Gains`, `GravityMode`, `ControlLocation`, `Controllers` and `TuningTarget` live — see §1.5.
 * Vision, pose estimation — **Vision**, `design/03-vision.md`.
 * The logging facade, replay, dashboards, 3D replay — **Telemetry**, `design/04-telemetry-replay-viz.md`. There is exactly one logging path (AdvantageKit); CORE does not own it and no longer chooses between backends. `design/04` also owns mechanism 3D visualization: CORE *publishes* an articulation angle and a `MechanismGeometry`, and does not own the `Pose3d` math or the AdvantageScope asset contract.
 * Tunable numbers, PID tuning UI, the tuning wizard, `FeedbackDesigner` — **Tuning**, `design/02-tuning.md`.
 * Autonomous composition, `NamedCommands` — **Auto**, `design/05-drivetrain-auto.md` (same document as Drivetrain).
 * Alerts/health monitoring/system check, and the CLI/template — **Platform & Comp Day**, `design/06-platform-compday.md`. CORE *emits* alerts through `Alerts` (D10); it does not define the alert framework.
-* Simulation — there is **no separate simulation document**. `PumpkinSim` is specified in `design/04` and `design/06`; CORE's side of the seam is `MechanismGeometry` + `MotorIO.simHandle()` (D18, §1.4 and §6.7).
+* Simulation — there is **no separate simulation document**. `RootstockSim` is specified in `design/04` and `design/06`; CORE's side of the seam is `MechanismGeometry` + `MotorIO.simHandle()` (D18, §1.4 and §6.7).
 
 ### 0.3 Design stance (non-negotiable, applies to every decision below)
 
-1. **The seam is at goals, never at voltage.** A wrapper that reads a sensor on the RIO, runs a PID on the RIO, and writes a voltage to a Kraken throws away Motion Magic, FOC, 1 kHz on-motor loops, and StatusSignal batching. PumpkinLib's `MotorIO` sends *positions and velocities in output-shaft rotations* and lets the vendor's controller do the loop. Resolved in full in §1.
+1. **The seam is at goals, never at voltage.** A wrapper that reads a sensor on the RIO, runs a PID on the RIO, and writes a voltage to a Kraken throws away Motion Magic, FOC, 1 kHz on-motor loops, and StatusSignal batching. Rootstock's `MotorIO` sends *positions and velocities in output-shaft rotations* and lets the vendor's controller do the loop. Resolved in full in §1.
 2. **Where the loop runs is visible in code, config, diffs, and logs.** `ControlLocation` is an explicit, defaulted-with-provenance, logged, alert-checked field. A team never accidentally moves a loop from a Kraken to the roboRIO.
 3. **Every abstraction has a typed escape hatch on page 1.** `elevator.io().as(TalonFXMotorIO.class)` returns the real `TalonFX`. Documented in the first example, not buried.
 4. **Zero-mystery debugging.** Every failure names the mechanism, the field, the value, the expected range, and the fix. See §3.6 and §5.6.
 5. **Degrade, never crash.** A misconfigured robot **boots**, connects, publishes telemetry, raises alerts, and refuses to move — it does not show red "Robot Code" with a `<clinit>` stack trace. See SAFE_MODE, §5.6.
 6. **Sim-first.** Declaring mass/MOI in the config is the *only* thing a team does to get simulation. No second code path.
 7. **Config is data; behavior is plain Java.** No JSON, no reflection, no annotation processor of our own.
-8. **Nothing is silently frozen.** A value PumpkinLib did not actually measure is `NaN`, never `0.0`.
+8. **Nothing is silently frozen.** A value Rootstock did not actually measure is `NaN`, never `0.0`.
 
 ### 0.4 What this replaces in the user's repos
 
@@ -148,17 +148,17 @@ CORE compiles against these interfaces. Where a domain is genuinely optional, CO
 ### 1.1 From Telemetry (`design/04-telemetry-replay-viz.md`) — **required, and AdvantageKit-backed**
 
 > **Revision 3 reversal.** Revision 2 routed every input class through a backend-neutral seam
-> (`PumpkinInputs` / `LogSink` / `LogSource`) so that AdvantageKit, DogLog, Epilogue and a no-op
+> (`RootstockInputs` / `LogSink` / `LogSource`) so that AdvantageKit, DogLog, Epilogue and a no-op
 > were interchangeable. **Maintainer decision 3 makes AdvantageKit a required dependency**, so
 > that indirection now buys nothing and costs an allocation-sensitive wrapper, two parallel
 > interfaces, a `Map<String, AkInputs>` cache, and a cross-backend parity test. All of it is
-> deleted. `PumpkinInputs`, `LogSink`, `LogSource`, `AkInputs`, `AkBackend` and the `LogBackend`
+> deleted. `RootstockInputs`, `LogSink`, `LogSource`, `AkInputs`, `AkBackend` and the `LogBackend`
 > SPI **do not exist in revision 3.**
 
-CORE lives in the packages `org.pumpkinlib` / `org.pumpkinlib.hardware` / `org.pumpkinlib.mechanism`, published inside the single **`pumpkinlib`** jar whose declared dependencies are **WPILib + AdvantageKit 26.0.2** (D28). Package and source-set boundaries are unchanged and still ArchUnit-enforced — the multi-artifact split stays available at zero cost — but **ArchUnit rule 1 no longer names `org.littletonrobotics`**, so CORE may name `LoggableInputs` and `LogTable` directly. The vendor bans (`com.ctre`, `com.revrobotics`, `org.photonvision`, `com.pathplanner`, `choreo`, `swervelib`) are untouched: those adapters really are separate artifacts and really are optional.
+CORE lives in the packages `org.rootstock` / `org.rootstock.hardware` / `org.rootstock.mechanism`, published inside the single **`rootstock`** jar whose declared dependencies are **WPILib + AdvantageKit 26.0.2** (D28). Package and source-set boundaries are unchanged and still ArchUnit-enforced — the multi-artifact split stays available at zero cost — but **ArchUnit rule 1 no longer names `org.littletonrobotics`**, so CORE may name `LoggableInputs` and `LogTable` directly. The vendor bans (`com.ctre`, `com.revrobotics`, `org.photonvision`, `com.pathplanner`, `choreo`, `swervelib`) are untouched: those adapters really are separate artifacts and really are optional.
 
 ```java
-package org.pumpkinlib.telemetry;
+package org.rootstock.telemetry;
 
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.Logger;
@@ -172,10 +172,10 @@ import org.littletonrobotics.junction.inputs.LoggableInputs;
  * Why the facade survives at all, now that there is only one backend behind it:
  *   1. TIERING. The tier IS THE METHOD NAME -- critical(...) / log(...) / debug(...) -- so a
  *      COMPETITION robot does not pay for DEBUG topics. Logger has no tier concept.
- *   2. NAMESPACE. Every CORE key is forced under /Pumpkin/, which the demotion governor
+ *   2. NAMESPACE. Every CORE key is forced under /Rootstock/, which the demotion governor
  *      (`design/04`) and the byte budget both depend on.
  *   3. ONE CHOKE POINT for the 2027 port. Logger's package moves with AdvantageKit's own
- *      2027 release; PumpkinLog is the single file that names it.
+ *      2027 release; RootstockLog is the single file that names it.
  *
  * REFERENCE RESTATEMENT ONLY. `design/04` §2.3 is the SOLE DEFINITION SITE of this static
  * surface (DESIGN.md §5.2 D9 revision 5, and §6's seam table, TelemetrySource row, which says
@@ -185,12 +185,12 @@ import org.littletonrobotics.junction.inputs.LoggableInputs;
  * the full surface is fifteen value shapes x {critical, log}, each with a trailing-Demotable
  * twin, plus nine supplier-shaped debug forms.
  *
- * THERE IS NO PumpkinLog.put(...). It never existed in the owning document. Revisions 1-4 of
+ * THERE IS NO RootstockLog.put(...). It never existed in the owning document. Revisions 1-4 of
  * THIS document declared and called a put(...) family; every one of those call sites was
  * rewritten in revision 5 (contract-reconciliation pass, review finding B10) onto the
- * critical/log surface below. A reappearance of `PumpkinLog.put` anywhere is a regression.
+ * critical/log surface below. A reappearance of `RootstockLog.put` anywhere is a regression.
  */
-public final class PumpkinLog {
+public final class RootstockLog {
   /** Delegates to Logger.processInputs. AdvantageKit requires a STABLE LoggableInputs
    *  instance per key across loops; MotorInputs is a long-lived field, so that holds. */
   public static void processInputs(String table, LoggableInputs inputs);
@@ -224,49 +224,49 @@ public final class PumpkinLog {
 }
 ```
 
-**Unit metadata is not a `PumpkinLog` argument at CORE's call sites.** `design/04` §2.3 does carry
+**Unit metadata is not a `RootstockLog` argument at CORE's call sites.** `design/04` §2.3 does carry
 `(String, double, Unit)` overloads, but `MechanismUnits` (§4.4) exposes no WPILib `Unit` object —
 its user units are a `(Reduction, Axis)` pair, not a `Unit`. CORE therefore calls the plain scalar
 shapes and declares each key's unit **once, at registration**, through `TelemetryDescriptor`
 (`design/04` §1.1). One declaration per key beats one `Unit` reference pushed 50 times a second.
 
 CORE requires from Telemetry:
-* `PumpkinLog.timestamp()` to be replay-safe. The `0000-XXXX` template pins this in `Superstructure.java:85-87` and `Vision.java:73-75`; it is now a **library guarantee**, not a per-backend property.
-* A **tiered volume** control (`OFF / COMPETITION / FULL / DEBUG`) reusing the already-owned `org.pumpkinlib.core.spi.Tier {CRITICAL, STANDARD, DEBUG}` — CORE does **not** invent a `TelemetryLevel`. *(Package updated 2026-08-08 by the rule-9 resolution: `Tier` moved from `org.pumpkinlib.telemetry` to `org.pumpkinlib.core.spi`. **Telemetry still owns the enum's semantics** — `design/04` §2.2 remains the sole place the three tiers are defined — only the package moved. See §1.1a's resolved blockquote.)*
-* `PumpkinLog.debugEnabled()` as a plain boolean gate. Doc 04 §2.3 keeps it (and keeps the supplier-shaped `debug(...)` forms); the `debug(String, Supplier<T>, Struct<T>)` shape is **withdrawn for CORE's use**: any supplier that reads instance state (`() -> m_pose`) is a capturing lambda and allocates on every call *even when the tier is off*, which defeats the mechanism's purpose. The gate is checked by the caller.
+* `RootstockLog.timestamp()` to be replay-safe. The `0000-XXXX` template pins this in `Superstructure.java:85-87` and `Vision.java:73-75`; it is now a **library guarantee**, not a per-backend property.
+* A **tiered volume** control (`OFF / COMPETITION / FULL / DEBUG`) reusing the already-owned `org.rootstock.core.spi.Tier {CRITICAL, STANDARD, DEBUG}` — CORE does **not** invent a `TelemetryLevel`. *(Package updated 2026-08-08 by the rule-9 resolution: `Tier` moved from `org.rootstock.telemetry` to `org.rootstock.core.spi`. **Telemetry still owns the enum's semantics** — `design/04` §2.2 remains the sole place the three tiers are defined — only the package moved. See §1.1a's resolved blockquote.)*
+* `RootstockLog.debugEnabled()` as a plain boolean gate. Doc 04 §2.3 keeps it (and keeps the supplier-shaped `debug(...)` forms); the `debug(String, Supplier<T>, Struct<T>)` shape is **withdrawn for CORE's use**: any supplier that reads instance state (`() -> m_pose`) is a capturing lambda and allocates on every call *even when the tier is off*, which defeats the mechanism's purpose. The gate is checked by the caller.
 
 CORE provides to Telemetry: `MotorInputs implements LoggableInputs` with hand-written `toLog(LogTable)` / `fromLog(LogTable)` (**D24 still stands** — no `@AutoLog`, no `@AutoLogOutput`; see §1.7.1 for why the AdvantageKit dependency does *not* resolve that) — **and the `TelemetrySource` declaration half, specified in §1.1b below.**
 
 **What CORE gains, stated plainly.** Deterministic replay stops being a thing a team can accidentally opt out of. `RobotMode.REPLAY` always exists, `MotorIOFactory` (§7.1) can always return `NoOpMotorIO` for it, and the "mode = REPLAY refusal path" that revision 2 needed — a runtime check that the installed backend could actually replay — is deleted along with the reason for it.
 
-**What CORE loses, stated equally plainly.** A team that has standardised on DogLog or on plain Epilogue cannot adopt PumpkinLib without switching loggers. That is not a migration guide away; it is a different logging model, a different dashboard workflow, and in Epilogue's case a first-party WPILib feature they were told to prefer. Doc 04 owns the adoption-matrix row that says so; CORE's job is not to imply otherwise anywhere in this document.
+**What CORE loses, stated equally plainly.** A team that has standardised on DogLog or on plain Epilogue cannot adopt Rootstock without switching loggers. That is not a migration guide away; it is a different logging model, a different dashboard workflow, and in Epilogue's case a first-party WPILib feature they were told to prefer. Doc 04 owns the adoption-matrix row that says so; CORE's job is not to imply otherwise anywhere in this document.
 
-**On the `core.spi` hop (D26) — verified before removing, and NOT removed.** Revision 2 introduced `org.pumpkinlib.core.spi.LifecycleHook` + `ServiceLoader` because core calling `PumpkinLog.beforeUserPeriodic()` and `TuningRegistry.periodic()` directly, while telemetry and tuning depended on core, **did not compile** across the then-eleven-artifact split. Under D28 those packages now ship in one jar, so the *compile* cycle is gone — the code would build either way. But **ArchUnit rule 9 ("every dependency arrow points into core") is retained**, precisely so the artifact split remains a zero-cost option, and a direct call from core into telemetry violates it. So:
+**On the `core.spi` hop (D26) — verified before removing, and NOT removed.** Revision 2 introduced `org.rootstock.core.spi.LifecycleHook` + `ServiceLoader` because core calling `RootstockLog.beforeUserPeriodic()` and `TuningRegistry.periodic()` directly, while telemetry and tuning depended on core, **did not compile** across the then-eleven-artifact split. Under D28 those packages now ship in one jar, so the *compile* cycle is gone — the code would build either way. But **ArchUnit rule 9 ("every dependency arrow points into core") is retained**, precisely so the artifact split remains a zero-cost option, and a direct call from core into telemetry violates it. So:
 
 * `core.spi.LifecycleHook`, `VisionSimHook`, `MechanismGeometrySink`, `MechanismGeometry` and `SimMotorHandle` **survive unchanged**. None of them existed for logging-backend optionality.
 * What is deleted is the **`LogBackend` ServiceLoader** — backend *discovery* — which existed for optionality and nothing else.
 * The number of `META-INF/services` entries CORE cares about drops by one, and the hook that telemetry registers is now a single known implementation rather than "whichever backend was installed". That is the whole of CORE's share of decision 3's savings.
 
-### 1.1a `PumpkinRobot` extends `LoggedRobot`, and `PumpkinLifecycle` stays **public**
+### 1.1a `RootstockRobot` extends `LoggedRobot`, and `RootstockLifecycle` stays **public**
 
 These two facts look like they are in tension. They are not, and the reconciliation is the point.
 
-**Fact 1 (decision 3).** The core artifact depends on AdvantageKit, so there is no longer any reason for two base classes. Revision 1's **D13** — `PumpkinRobot extends TimedRobot` in core, `PumpkinLoggedRobot extends LoggedRobot` in a separate artifact, with the shared body in a *package-private* `PumpkinLifecycle` — collapses to one class. `PumpkinLoggedRobot` does not exist.
+**Fact 1 (decision 3).** The core artifact depends on AdvantageKit, so there is no longer any reason for two base classes. Revision 1's **D13** — `RootstockRobot extends TimedRobot` in core, `RootstockLoggedRobot extends LoggedRobot` in a separate artifact, with the shared body in a *package-private* `RootstockLifecycle` — collapses to one class. `RootstockLoggedRobot` does not exist.
 
-**Fact 2 (adversarial review, **still binding**).** The review's largest single finding was that "a team can delete PumpkinLib from one subsystem mid-season without touching the others" was asserted in two places and demonstrated nowhere, because the only object that made partial adoption possible was hidden. **D29** made `PumpkinLifecycle` public and required four CI fixture projects. Decision 3 does not touch that finding, does not weaken it, and does not get to use "there is only one base class now" as a reason to re-hide the lifecycle. **`PumpkinLifecycle` remains public.**
+**Fact 2 (adversarial review, **still binding**).** The review's largest single finding was that "a team can delete Rootstock from one subsystem mid-season without touching the others" was asserted in two places and demonstrated nowhere, because the only object that made partial adoption possible was hidden. **D29** made `RootstockLifecycle` public and required four CI fixture projects. Decision 3 does not touch that finding, does not weaken it, and does not get to use "there is only one base class now" as a reason to re-hide the lifecycle. **`RootstockLifecycle` remains public.**
 
-The resolution is that they were never the same object. `PumpkinLifecycle` is *what PumpkinLib does each loop*; `PumpkinRobot` is *one convenient way to get it called*. Decision 3 deletes a second convenience wrapper. It does not delete the seam.
+The resolution is that they were never the same object. `RootstockLifecycle` is *what Rootstock does each loop*; `RootstockRobot` is *one convenient way to get it called*. Decision 3 deletes a second convenience wrapper. It does not delete the seam.
 
 ```java
-package org.pumpkinlib.core;          // D13 / DESIGN.md §7. NOT org.pumpkinlib.
+package org.rootstock.core;          // D13 / DESIGN.md §7. NOT org.rootstock.
 
 import java.util.List;
-import org.pumpkinlib.core.spi.LifecycleHook;   // D26
-import org.pumpkinlib.core.spi.LogConfig;       // core.spi, NOT telemetry -- rule 9. See the
+import org.rootstock.core.spi.LifecycleHook;   // D26
+import org.rootstock.core.spi.LogConfig;       // core.spi, NOT telemetry -- rule 9. See the
                                                 // resolved note under this block, and design/04 §2.2b.
 
 /**
- * PUBLIC. Everything PumpkinLib needs done per loop, as an object a team can drive by hand
+ * PUBLIC. Everything Rootstock needs done per loop, as an object a team can drive by hand
  * from any base class, in any order, from an existing robot they are not willing to rewrite.
  *
  * This is the incremental-adoption seam. 8793 has an existing CommandSwerveDrivetrain and a
@@ -275,9 +275,9 @@ import org.pumpkinlib.core.spi.LogConfig;       // core.spi, NOT telemetry -- ru
  * health monitors, and M1's whole value proposition is that they do not have to.
  *
  * Nothing here is package-private, and there is a CI fixture (health-only) that uses ONLY
- * this class and never mentions PumpkinRobot.
+ * this class and never mentions RootstockRobot.
  */
-public final class PumpkinLifecycle implements AutoCloseable {
+public final class RootstockLifecycle implements AutoCloseable {
 
   /** THE ONLY FACTORY (D29). There is no no-argument create(); a team that wants the
    *  defaults writes create(LogConfig.defaults()).
@@ -289,16 +289,16 @@ public final class PumpkinLifecycle implements AutoCloseable {
    *  "a double Logger.start() is a crash, and the two LogConfig factories are how the
    *  design makes 'who starts the Logger' an answered question rather than an assumption."
    *  So the caller states it:
-   *      LogConfig.defaults()            -> PumpkinLifecycle configures AND starts Logger.
+   *      LogConfig.defaults()            -> RootstockLifecycle configures AND starts Logger.
    *      LogConfig.adoptExistingLogger() -> your code already called Logger.start();
    *                                         attach to it and never start it again.
    *  Either way this configures the receivers, the replay source, the write-once pre-start
-   *  metadata window and the /Pumpkin namespace. */
-  public static PumpkinLifecycle create(LogConfig config);
+   *  metadata window and the /Rootstock namespace. */
+  public static RootstockLifecycle create(LogConfig config);
 
   /** D29's init() -- NOT robotInit(). See the supersession note below this block for why
    *  the rename happened and what it cost. Idempotent. Call it at the END of your
-   *  constructor, after PumpkinRegistry.addAll(...), so the boot dump reflects what you
+   *  constructor, after RootstockRegistry.addAll(...), so the boot dump reflects what you
    *  actually registered; if you never call it, the first beforeUserPeriodic() calls it
    *  for you. Registry validation, config snapshots, describe() dump. */
   public void init();
@@ -346,69 +346,69 @@ public final class PumpkinLifecycle implements AutoCloseable {
 }
 ```
 
-> **✅ ArchUnit rule 9 exposure — RESOLVED and APPLIED, 2026-08-08. `LogConfig`, `Tier` and `RobotMode` are all in `org.pumpkinlib.core.spi`.** The import above is legal, and this note is kept because the analysis is the reason the package is where it is; a reader who finds `LogConfig` under `core.spi` and thinks "that is a telemetry type, why is it here" needs the paragraph below, not a clean file.
+> **✅ ArchUnit rule 9 exposure — RESOLVED and APPLIED, 2026-08-08. `LogConfig`, `Tier` and `RobotMode` are all in `org.rootstock.core.spi`.** The import above is legal, and this note is kept because the analysis is the reason the package is where it is; a reader who finds `LogConfig` under `core.spi` and thinks "that is a telemetry type, why is it here" needs the paragraph below, not a clean file.
 >
-> **AMENDMENT, 2026-08-08 (second half of the same fix — the arrow one level down).** Moving `LogConfig` alone left rule 9 red, and the finding is worth stating in its own words rather than folded into the paragraph below: `LogConfig` lives in `core.spi`, but **its own public signatures named telemetry types** — `Tier mode()`/`minimumTier()` and `RobotMode`-valued members, i.e. `mode()`, `withMode()`, `minimumTier()`, `withMinimumTier()`. A public member of a `core.spi` type whose return type is `org.pumpkinlib.telemetry.Tier` is **the identical arrow out of core, one level down**, and rule 9 counts it identically. **Resolution: `enum Tier` and `enum RobotMode` move to `org.pumpkinlib.core.spi` too** — the same shape, the same argument, the same package D26 created for downward-crossing behaviourless value types, which now holds `MechanismGeometry`, `SimMotorHandle`, `LogConfig`, `Tier` and `RobotMode`. **`Demotable` does NOT move**: it is never named in a core signature, so it has no arrow to fix and moving it would be package churn for nothing. **The narrow named-allowlist alternative was rejected**, and on a stated ground rather than a taste one: an allowlist that grows once grows again, and rule 9's entire value is that it is mechanically checkable with **no judgement calls**. **Telemetry retains OWNERSHIP of both enums' semantics** — `design/04` is still the sole place the three tiers and the three robot modes are *defined*; only the package moved.
+> **AMENDMENT, 2026-08-08 (second half of the same fix — the arrow one level down).** Moving `LogConfig` alone left rule 9 red, and the finding is worth stating in its own words rather than folded into the paragraph below: `LogConfig` lives in `core.spi`, but **its own public signatures named telemetry types** — `Tier mode()`/`minimumTier()` and `RobotMode`-valued members, i.e. `mode()`, `withMode()`, `minimumTier()`, `withMinimumTier()`. A public member of a `core.spi` type whose return type is `org.rootstock.telemetry.Tier` is **the identical arrow out of core, one level down**, and rule 9 counts it identically. **Resolution: `enum Tier` and `enum RobotMode` move to `org.rootstock.core.spi` too** — the same shape, the same argument, the same package D26 created for downward-crossing behaviourless value types, which now holds `MechanismGeometry`, `SimMotorHandle`, `LogConfig`, `Tier` and `RobotMode`. **`Demotable` does NOT move**: it is never named in a core signature, so it has no arrow to fix and moving it would be package churn for nothing. **The narrow named-allowlist alternative was rejected**, and on a stated ground rather than a taste one: an allowlist that grows once grows again, and rule 9's entire value is that it is mechanically checkable with **no judgement calls**. **Telemetry retains OWNERSHIP of both enums' semantics** — `design/04` is still the sole place the three tiers and the three robot modes are *defined*; only the package moved.
 >
-> **The finding, as it stood.** `PumpkinLifecycle` is in **`org.pumpkinlib.core`** (D13a fixes the package) and its only factory takes a **`LogConfig`**, which used to live in **`org.pumpkinlib.telemetry`** (`design/04` §2.2; `DESIGN.md` §10A.4's own import line spelled it `org.pumpkinlib.telemetry.LogConfig`). That is a compile-time arrow **out of core into telemetry**, and rule 9 says *"every dependency arrow points into core"*. §1.1's `core.spi` discussion already states the principle in the call direction — *"a direct call from core into telemetry violates it"* — and a **type in a public core signature is the same violation in a quieter form**: it survives the D28 one-jar packaging exactly as a direct call would, and it is what would break first if the artifact split were ever re-published.
+> **The finding, as it stood.** `RootstockLifecycle` is in **`org.rootstock.core`** (D13a fixes the package) and its only factory takes a **`LogConfig`**, which used to live in **`org.rootstock.telemetry`** (`design/04` §2.2; `DESIGN.md` §10A.4's own import line spelled it `org.rootstock.telemetry.LogConfig`). That is a compile-time arrow **out of core into telemetry**, and rule 9 says *"every dependency arrow points into core"*. §1.1's `core.spi` discussion already states the principle in the call direction — *"a direct call from core into telemetry violates it"* — and a **type in a public core signature is the same violation in a quieter form**: it survives the D28 one-jar packaging exactly as a direct call would, and it is what would break first if the artifact split were ever re-published.
 >
 > **The three candidate resolutions, kept as the record of why option 1 won.**
-> 1. **Move `LogConfig` into `org.pumpkinlib.core.spi`** — the package D26 created for precisely this, *"the types that cross a layer boundary downward"*. `LogConfig` is a pure immutable value with no behaviour, which is the same shape as `MechanismGeometry` and `SimMotorHandle`, which already live there. **← CHOSEN.**
+> 1. **Move `LogConfig` into `org.rootstock.core.spi`** — the package D26 created for precisely this, *"the types that cross a layer boundary downward"*. `LogConfig` is a pure immutable value with no behaviour, which is the same shape as `MechanismGeometry` and `SimMotorHandle`, which already live there. **← CHOSEN.**
 > 2. **Name `LogConfig` in rule 9's allowlist**, the way `DESIGN.md` §8 rule 1c already allowlists `LogTable`/`LoggableInputs` into `..io..` packages. Cheapest to write, and it puts a second named exception into a rule whose value is that it has few. **Rejected on exactly that ground.**
-> 3. **Leave it and accept that rule 9 is red on `PumpkinLifecycle` from day one.** Rejected on the same ground `design/06` §8.1 rejects it for `volatileApiIsConfined`: *"a rule that is red on day one gets `@Disabled` in week two and the seam becomes decorative."*
+> 3. **Leave it and accept that rule 9 is red on `RootstockLifecycle` from day one.** Rejected on the same ground `design/06` §8.1 rejects it for `volatileApiIsConfined`: *"a rule that is red on day one gets `@Disabled` in week two and the seam becomes decorative."*
 >
-> **What actually landed, and who landed it.** `design/04` §2.2b now declares `LogConfig` under `package org.pumpkinlib.core.spi;` and states the rule-9 reasoning at the declaration site. **Telemetry still OWNS the field set and every field's semantics** — only the package moved, and `design/04` §2.2b remains the sole definition site of which this document's block below is a reference restatement. **`design/01`'s half is the two `import` lines above**, both now `org.pumpkinlib.core.spi.LogConfig` — plus, after the amendment, **§1.1b's `Tier` import and §7.1's `MotorIOFactory` `RobotMode` import**, four sites in total. That is the whole of it: **no signature changed anywhere in this document**, because `create(LogConfig)`, `PumpkinRobot(LogConfig)`, `d.extra(…, Tier.…)` and `create(…, RobotMode mode)` never spelled a package inline. **§13 OQ18 is CLOSED by this.**
+> **What actually landed, and who landed it.** `design/04` §2.2b now declares `LogConfig` under `package org.rootstock.core.spi;` and states the rule-9 reasoning at the declaration site. **Telemetry still OWNS the field set and every field's semantics** — only the package moved, and `design/04` §2.2b remains the sole definition site of which this document's block below is a reference restatement. **`design/01`'s half is the two `import` lines above**, both now `org.rootstock.core.spi.LogConfig` — plus, after the amendment, **§1.1b's `Tier` import and §7.1's `MotorIOFactory` `RobotMode` import**, four sites in total. That is the whole of it: **no signature changed anywhere in this document**, because `create(LogConfig)`, `RootstockRobot(LogConfig)`, `d.extra(…, Tier.…)` and `create(…, RobotMode mode)` never spelled a package inline. **§13 OQ18 is CLOSED by this.**
 >
-> **Verification, run rather than asserted (2026-08-08), and written as a grep whose answer does not depend on this paragraph.** `grep -rn "^ *import org\.pumpkinlib\.telemetry\.\(LogConfig\|Tier\|RobotMode\)" design/01-core-mechanisms.md` returns **zero** — no import and no declaration in this document names the old package for any of the three. The only occurrences of those strings here are **prose**, in this blockquote and in §13 OQ18, quoting the dead package in order to say it is dead. In the other direction, both §1.1a import lines, §1.1b's `Tier` import, §7.1's `MotorIOFactory` `RobotMode` import and the restatement block's `package` line all read `org.pumpkinlib.core.spi`.
+> **Verification, run rather than asserted (2026-08-08), and written as a grep whose answer does not depend on this paragraph.** `grep -rn "^ *import org\.rootstock\.telemetry\.\(LogConfig\|Tier\|RobotMode\)" design/01-core-mechanisms.md` returns **zero** — no import and no declaration in this document names the old package for any of the three. The only occurrences of those strings here are **prose**, in this blockquote and in §13 OQ18, quoting the dead package in order to say it is dead. In the other direction, both §1.1a import lines, §1.1b's `Tier` import, §7.1's `MotorIOFactory` `RobotMode` import and the restatement block's `package` line all read `org.rootstock.core.spi`.
 >
-> **Residues, named because "resolved" must not mean "resolved where I could see it."** The import-shaped gate is `grep -rn "^ *import org\.pumpkinlib\.telemetry\.\(LogConfig\|Tier\|RobotMode\)" design/ DESIGN.md`, and **§13 OQ18 carries the current count and the list of any file still failing it**, because that count is driven by parallel passes and a number frozen here would be stale within the hour. The count is *not* recorded in this blockquote for exactly that reason.
+> **Residues, named because "resolved" must not mean "resolved where I could see it."** The import-shaped gate is `grep -rn "^ *import org\.rootstock\.telemetry\.\(LogConfig\|Tier\|RobotMode\)" design/ DESIGN.md`, and **§13 OQ18 carries the current count and the list of any file still failing it**, because that count is driven by parallel passes and a number frozen here would be stale within the hour. The count is *not* recorded in this blockquote for exactly that reason.
 
 ```java
-package org.pumpkinlib.core;          // D13 / DESIGN.md §7. NOT org.pumpkinlib.
+package org.rootstock.core;          // D13 / DESIGN.md §7. NOT org.rootstock.
 
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import org.littletonrobotics.junction.LoggedRobot;
-import org.pumpkinlib.core.spi.LogConfig;    // same package as above, and for the same reason
+import org.rootstock.core.spi.LogConfig;    // same package as above, and for the same reason
 
 /**
  * The convenience base class, and the ONLY one. ~20 lines, and every line of it is a
- * delegation to the public PumpkinLifecycle above.
+ * delegation to the public RootstockLifecycle above.
  *
- * Revision 2 (D13, softened by D29) had TWO of these: PumpkinRobot extends TimedRobot in
- * core, PumpkinLoggedRobot extends LoggedRobot in pumpkinlib-advantagekit, kept in sync by
+ * Revision 2 (D13, softened by D29) had TWO of these: RootstockRobot extends TimedRobot in
+ * core, RootstockLoggedRobot extends LoggedRobot in rootstock-advantagekit, kept in sync by
  * hand and by a test. Decision 3 makes AdvantageKit required, so the TimedRobot variant has
  * no consumer and the split has no purpose.
  *
  * A team that does not want this class does not need it. That is the point of D29, and it
  * survives decision 3 completely intact.
  */
-public class PumpkinRobot extends LoggedRobot {
-  private final PumpkinLifecycle m_lifecycle;
+public class RootstockRobot extends LoggedRobot {
+  private final RootstockLifecycle m_lifecycle;
 
-  /** Defaults. Exactly equivalent to PumpkinRobot(LogConfig.defaults()) -- D13a spells the
+  /** Defaults. Exactly equivalent to RootstockRobot(LogConfig.defaults()) -- D13a spells the
    *  delegation out, so this constructor is `this(LogConfig.defaults())` and nothing else. */
-  protected PumpkinRobot() { this(LogConfig.defaults()); }
+  protected RootstockRobot() { this(LogConfig.defaults()); }
 
   /** The configurable form. THE ARGUMENT IS AN IMMUTABLE VALUE, NOT A CONSUMER.
    *
-   *  SUPERSEDED SPELLING (revision 5 and earlier of this document): `PumpkinRobot(
+   *  SUPERSEDED SPELLING (revision 5 and earlier of this document): `RootstockRobot(
    *  Consumer<LogConfig.Builder> configure)` with a LogConfig.Builder mutated in place.
    *  DESIGN.md D13a rejects it in as many words -- "a consumer implies a mutable config
    *  object, which principle 6 and D1a forbid everywhere else in the library" -- and
    *  `LogConfig.defaults().withWpilogFolder(..).withCtreSignalLogger(true)` reads the same
-   *  and is a value. Both constructors are `protected`: PumpkinRobot is a base class, and
+   *  and is a value. Both constructors are `protected`: RootstockRobot is a base class, and
    *  the only legal caller of either is a subclass `super(...)` call.
    *
-   *  create(LogConfig) is the ONLY PumpkinLifecycle factory -- there is no no-arg
-   *  PumpkinLifecycle.create(). */
-  protected PumpkinRobot(LogConfig config) {
-    m_lifecycle = PumpkinLifecycle.create(config);
+   *  create(LogConfig) is the ONLY RootstockLifecycle factory -- there is no no-arg
+   *  RootstockLifecycle.create(). */
+  protected RootstockRobot(LogConfig config) {
+    m_lifecycle = RootstockLifecycle.create(config);
   }
 
   // THERE IS NO robotInit() OVERRIDE HERE, and D13a is explicit that there must not be:
-  // "robotInit() appears nowhere. PumpkinRobot overrides robotPeriodic(), disabledInit() and
+  // "robotInit() appears nowhere. RootstockRobot overrides robotPeriodic(), disabledInit() and
   // close() only; all initialization is constructor work." The mechanism that replaces it is
-  // PumpkinLifecycle.init()'s idempotence: a subclass calls lifecycle().init() at the end of
+  // RootstockLifecycle.init()'s idempotence: a subclass calls lifecycle().init() at the end of
   // its own constructor (the recommended form, DESIGN.md §10A.4), and if it does not, the
   // first beforeUserPeriodic() below runs it -- which is AFTER the subclass field
   // initialisers have run, so the registry it validates is populated. See the supersession
@@ -426,7 +426,7 @@ public class PumpkinRobot extends LoggedRobot {
 
   /** Exposed so a subclass can reorder the loop, or call init() explicitly at the end of its
    *  constructor, without giving up the base class. */
-  protected final PumpkinLifecycle lifecycle() { return m_lifecycle; }
+  protected final RootstockLifecycle lifecycle() { return m_lifecycle; }
 }
 ```
 
@@ -437,7 +437,7 @@ semantics** and **`DESIGN.md` D13a/D29 win on the construction style**. Those ar
 questions and it is still worth saying which document answers which — but as of **2026-08-08 the
 two documents agree on both**, which is a change from every earlier revision of this section.
 `design/04` §2.2b now declares `LogConfig` as an immutable value with `with*()` copies and exactly
-the two D29 factories, in `org.pumpkinlib.core.spi`. **§13 OQ17 is CLOSED outright by that edit. §13 OQ18 is
+the two D29 factories, in `org.rootstock.core.spi`. **§13 OQ17 is CLOSED outright by that edit. §13 OQ18 is
 now CLOSED OUTRIGHT as well** — the `import` lines above were this document's obligation, and the
 `design/02` and `design/06` residues OQ18 used to name **were swept in the same pass that moved
 `Tier` and `RobotMode`** (2026-08-08). OQ18 keeps the **gate** rather than the count, because a gate
@@ -445,8 +445,8 @@ survives the next document that quotes the dead package in prose and a count doe
 restatement below is what CORE consumes and it did not have to change to match.
 
 ```java
-package org.pumpkinlib.core.spi;           // `design/04` §2.2b's package as of 2026-08-08.
-                                           // NOT org.pumpkinlib.telemetry -- ArchUnit rule 9,
+package org.rootstock.core.spi;           // `design/04` §2.2b's package as of 2026-08-08.
+                                           // NOT org.rootstock.telemetry -- ArchUnit rule 9,
                                            // see the resolved note above. Telemetry still OWNS
                                            // the field set and semantics; only the package moved.
 
@@ -461,7 +461,7 @@ package org.pumpkinlib.core.spi;           // `design/04` §2.2b's package as of
  *
  *  THE DIVERGENCE THIS COMMENT USED TO CARRY IS RESOLVED, and the resolution went the way this
  *  document assumed. Revisions 6 and earlier recorded that `design/04` §2.2 declared LogConfig
- *  as a class of PUBLIC MUTABLE FIELDS reached through `PumpkinLog.configure(Consumer<LogConfig>)`,
+ *  as a class of PUBLIC MUTABLE FIELDS reached through `RootstockLog.configure(Consumer<LogConfig>)`,
  *  and that CORE was written against D13a/D29 instead -- filed as §13 OQ17, deliberately not
  *  papered over. `design/04` §2.2b has since re-declared the type in exactly the shape below,
  *  citing D13a ("principle 6 and D1a forbid mutable config everywhere else in the library") and
@@ -470,11 +470,11 @@ package org.pumpkinlib.core.spi;           // `design/04` §2.2b's package as of
  *  configure() in an old branch needs to know it lost, and why. */
 public final class LogConfig {
 
-  /** PumpkinLifecycle configures AND starts AdvantageKit's Logger. The from-scratch case. */
+  /** RootstockLifecycle configures AND starts AdvantageKit's Logger. The from-scratch case. */
   public static LogConfig defaults();
 
   /** Logger.start() has ALREADY run in the team's own code. Attach; never start it again.
-   *  This is the one a team adding PumpkinLifecycle to an existing LoggedRobot wants, and
+   *  This is the one a team adding RootstockLifecycle to an existing LoggedRobot wants, and
    *  D29 names this document, §11b and the README as the three places that must say so. */
   public static LogConfig adoptExistingLogger();
 
@@ -483,7 +483,7 @@ public final class LogConfig {
 
   // THE FOUR MEMBERS THAT MADE RULE 9 RED A SECOND TIME, spelled out because "LogConfig moved"
   // was not enough on its own. These name Tier and RobotMode in PUBLIC signatures on a core.spi
-  // type; while those two enums lived in org.pumpkinlib.telemetry, this block was an arrow out
+  // type; while those two enums lived in org.rootstock.telemetry, this block was an arrow out
   // of core one level down from the one that moved LogConfig. Both enums are now core.spi.
   public Tier      minimumTier();                        // `design/04` §2.2b minimumTier
   public LogConfig withMinimumTier(Tier t);
@@ -497,8 +497,8 @@ public final class LogConfig {
 
 > **SUPERSEDED, 2026-08-08, by `DESIGN.md` D13a and D29 — recorded, not deleted, because the
 > argument it lost to is the one a reader will re-invent.** Revision 4 of this section argued
-> that `PumpkinRobot` should **keep** an `@Override robotInit()`, on the ground that
-> `PumpkinLifecycle.robotInit()` must run *after* the subclass's fields exist — a base-class
+> that `RootstockRobot` should **keep** an `@Override robotInit()`, on the ground that
+> `RootstockLifecycle.robotInit()` must run *after* the subclass's fields exist — a base-class
 > constructor runs **before** subclass field initialisers, so a constructor-only design would
 > validate an empty registry on every robot. **That premise is correct and it is not what was
 > wrong with the design.** What was wrong is that it left `robotInit` as a live method name in
@@ -506,7 +506,7 @@ public final class LogConfig {
 > incompatible spellings of the same class (`DESIGN.md` §16 item 5(e)).
 >
 > **The resolution, which is now the code above.** D29 renames the lifecycle method to
-> **`init()`** and makes it **idempotent**; D13a deletes `PumpkinRobot.robotInit()` outright.
+> **`init()`** and makes it **idempotent**; D13a deletes `RootstockRobot.robotInit()` outright.
 > Java initialisation order is respected without the hook, by a different mechanism: the
 > recommended call site is `lifecycle().init()` at the **end of the subclass constructor**
 > (`DESIGN.md` §10A.4), where the subclass's fields provably exist; and if a team forgets, the
@@ -514,7 +514,7 @@ public final class LogConfig {
 > run. Idempotence is what makes both paths safe, and it is why the rename is not cosmetic.
 >
 > **Consequences of the resolution, so nothing is left dangling:**
-> * **The word `robotInit` now appears nowhere in PumpkinLib's public surface**, so ArchUnit
+> * **The word `robotInit` now appears nowhere in Rootstock's public surface**, so ArchUnit
 >   rule 5 needs no exception, and revision 4's request for a *"single documented exception"*
 >   in `DESIGN.md` §8 is **withdrawn**. Rule 5 applies to the library without carve-out — which
 >   is strictly better than a rule with one blessed violator in the front-door class.
@@ -522,68 +522,68 @@ public final class LogConfig {
 >   The partial-adoption snippet below deliberately does **not**, so the two shapes read alike.
 > * The 2027 replacement for WPILib's `robotInit` hook is still **[UNVERIFIED]** (whether
 >   `LoggedRobot`'s 2027 line exposes an equivalent start callback is not knowable yet), but
->   PumpkinLib no longer depends on the answer: nothing in the library overrides it. Tracked in
+>   Rootstock no longer depends on the answer: nothing in the library overrides it. Tracked in
 >   §10 item 4 and open question 15, downgraded from a blocker to a compatibility note.
 
-And the partial-adoption path, which is what an existing 8793 or 9143 repo actually does at M1 — no PumpkinLib base class anywhere:
+And the partial-adoption path, which is what an existing 8793 or 9143 repo actually does at M1 — no Rootstock base class anywhere:
 
 ```java
 // frc/robot/Robot.java in an EXISTING repo. This is the health-only CI fixture.
 // NOTE THE BASE CLASS: the team's own LoggedRobot (or TimedRobot -- see the honest cost
-// below). No PumpkinLib type is extended anywhere in this file.
+// below). No Rootstock type is extended anywhere in this file.
 public class Robot extends LoggedRobot {
-  private final PumpkinLifecycle m_pumpkin;
+  private final RootstockLifecycle m_rootstock;
   private final RobotContainer m_container;
 
   public Robot() {
     // adoptExistingLogger(), NOT defaults(): this repo's own code already called
     // Logger.start(). defaults() would start it a SECOND time, which is a crash at boot,
     // not a warning (D29). The choice is not defaulted and is not detected -- see
-    // PumpkinLifecycle.create()'s javadoc above.
-    m_pumpkin   = PumpkinLifecycle.create(LogConfig.adoptExistingLogger());
+    // RootstockLifecycle.create()'s javadoc above.
+    m_rootstock   = RootstockLifecycle.create(LogConfig.adoptExistingLogger());
     m_container = new RobotContainer();       // ...your existing construction, unchanged...
 
     // LAST, after everything is registered, so the boot dump reflects what you registered.
     // Idempotent, so forgetting it costs you dump ordering and nothing else: the first
     // beforeUserPeriodic() below runs it (D29).
-    m_pumpkin.init();
+    m_rootstock.init();
   }
 
   @Override public void robotPeriodic() {
-    m_pumpkin.beforeUserPeriodic();
+    m_rootstock.beforeUserPeriodic();
     CommandScheduler.getInstance().run();
-    m_pumpkin.afterUserPeriodic();
+    m_rootstock.afterUserPeriodic();
   }
-  @Override public void disabledInit()  { m_pumpkin.disabledInit(); }
-  // There is no robotInit() override in EITHER shape. D13a deleted it from PumpkinRobot and
+  @Override public void disabledInit()  { m_rootstock.disabledInit(); }
+  // There is no robotInit() override in EITHER shape. D13a deleted it from RootstockRobot and
   // D29 renamed the lifecycle method to init(), so the two adoption paths differ by exactly
   // one thing -- which class you extend -- and by nothing else.
 }
 ```
 
-Four CI fixture projects (`tunables-only`, `one-mechanism-only`, `health-only`, `full`) compile on every PR, and **only `full` is permitted to mention `PumpkinRobot`**. That rule is what stops the one remaining base class from quietly becoming mandatory again.
+Four CI fixture projects (`tunables-only`, `one-mechanism-only`, `health-only`, `full`) compile on every PR, and **only `full` is permitted to mention `RootstockRobot`**. That rule is what stops the one remaining base class from quietly becoming mandatory again.
 
-**The honest cost of the collapse.** Every fixture above still `extends LoggedRobot`, so partial adoption now presupposes AdvantageKit. A team on plain `TimedRobot` with no logger at all — which revision 2's `PumpkinRobot extends TimedRobot` served directly — must adopt AdvantageKit before it can adopt *anything*, including the health monitors that are supposed to be the zero-commitment entry point. `PumpkinLifecycle` keeps the seam narrow; it cannot make the dependency optional. This is the sharpest version of decision 3's cost inside CORE, and it is not softened anywhere else in this document.
+**The honest cost of the collapse.** Every fixture above still `extends LoggedRobot`, so partial adoption now presupposes AdvantageKit. A team on plain `TimedRobot` with no logger at all — which revision 2's `RootstockRobot extends TimedRobot` served directly — must adopt AdvantageKit before it can adopt *anything*, including the health monitors that are supposed to be the zero-commitment entry point. `RootstockLifecycle` keeps the seam narrow; it cannot make the dependency optional. This is the sharpest version of decision 3's cost inside CORE, and it is not softened anywhere else in this document.
 
-**One clarification, so this document and `DESIGN.md` D29 do not read as contradicting each other.** D29 says a team may keep `extends TimedRobot` and wire `PumpkinLifecycle` by hand; this section says every fixture extends `LoggedRobot`. **Both are true and they mean different things.** A plain `TimedRobot` that calls `Logger.start()` itself *can* drive `PumpkinLifecycle` and gets the whole M1 value line — alerts, the seven health monitors, `SelfTest`, `MatchContext`, `RobotIdentity`, `CanIdRegistry`, `ControlMap`. What it does **not** get is deterministic replay, because AdvantageKit's replay driver requires `LoggedRobot` to own the loop and feed it from the log. So `TimedRobot` is a supported but **degraded** shape, the fixtures are written as `LoggedRobot` because that is the recommended shape, and the ranking is `PumpkinRobot` → your own `LoggedRobot` → `TimedRobot` with replay given up. Either way the AdvantageKit *dependency* is not avoidable — it is a hard `requires`.
+**One clarification, so this document and `DESIGN.md` D29 do not read as contradicting each other.** D29 says a team may keep `extends TimedRobot` and wire `RootstockLifecycle` by hand; this section says every fixture extends `LoggedRobot`. **Both are true and they mean different things.** A plain `TimedRobot` that calls `Logger.start()` itself *can* drive `RootstockLifecycle` and gets the whole M1 value line — alerts, the seven health monitors, `SelfTest`, `MatchContext`, `RobotIdentity`, `CanIdRegistry`, `ControlMap`. What it does **not** get is deterministic replay, because AdvantageKit's replay driver requires `LoggedRobot` to own the loop and feed it from the log. So `TimedRobot` is a supported but **degraded** shape, the fixtures are written as `LoggedRobot` because that is the recommended shape, and the ranking is `RootstockRobot` → your own `LoggedRobot` → `TimedRobot` with replay given up. Either way the AdvantageKit *dependency* is not avoidable — it is a hard `requires`.
 
 #### 1.1b CORE's half of the `TelemetrySource` contract — the **declaration** half
 
-**Why this section exists.** `design/04` §1.1.0 resolved the push/pull argument in favour of **push**: `sample(TelemetrySink)` and the `TelemetrySink` type are deleted, and every mechanism publishes its own §3.1 key block from its own `periodic()` through the `PumpkinLog` statics. Revision 5's reconciliation pass rewrote every CORE call site accordingly — **and stopped there.** `design/04` §1.1 requires a *second* half that push does not supply: `telemetryName()` + `describe(TelemetryDescriptor)`, both consumed exactly once at registration, which is where key units, per-motor array sizes, layout generation and — critically — **the expected key set for the per-cycle schema audit (`design/04` §1.5)** come from. Without it, every key CORE publishes is a key the audit has no declaration for, and the audit is `design/04`'s load-bearing replacement for the deleted pull path. §6.1 carried an inline `OPEN CONTRACT ITEM` marker saying exactly this; **this section is that item, closed** (`DESIGN.md` §16 item 5(b)).
+**Why this section exists.** `design/04` §1.1.0 resolved the push/pull argument in favour of **push**: `sample(TelemetrySink)` and the `TelemetrySink` type are deleted, and every mechanism publishes its own §3.1 key block from its own `periodic()` through the `RootstockLog` statics. Revision 5's reconciliation pass rewrote every CORE call site accordingly — **and stopped there.** `design/04` §1.1 requires a *second* half that push does not supply: `telemetryName()` + `describe(TelemetryDescriptor)`, both consumed exactly once at registration, which is where key units, per-motor array sizes, layout generation and — critically — **the expected key set for the per-cycle schema audit (`design/04` §1.5)** come from. Without it, every key CORE publishes is a key the audit has no declaration for, and the audit is `design/04`'s load-bearing replacement for the deleted pull path. §6.1 carried an inline `OPEN CONTRACT ITEM` marker saying exactly this; **this section is that item, closed** (`DESIGN.md` §16 item 5(b)).
 
 **`design/04` §1.1 is the sole definition site of `TelemetrySource` and `TelemetryDescriptor`. This is CORE's implementation side, and it invents no method.**
 
 ```java
-package org.pumpkinlib.mechanism;
+package org.rootstock.mechanism;
 
 import static edu.wpi.first.units.Units.*;   // Meters, Degrees, MetersPerSecond,
                                              // DegreesPerSecond, Volts. NOT Value any more --
                                              // `design/04` §1.1's extra(String, Tier) overload
                                              // (added 2026-08-08) removed the last CORE use of
                                              // Units.Value as a stand-in for "no unit".
-import org.pumpkinlib.telemetry.TelemetryDescriptor;
-import org.pumpkinlib.telemetry.TelemetrySource;
-import org.pumpkinlib.core.spi.Tier;          // core.spi, NOT telemetry -- rule 9, same move as
+import org.rootstock.telemetry.TelemetryDescriptor;
+import org.rootstock.telemetry.TelemetrySource;
+import org.rootstock.core.spi.Tier;          // core.spi, NOT telemetry -- rule 9, same move as
                                               // LogConfig. This class is in ..mechanism.., so the
                                               // import is legal either way; it is spelled core.spi
                                               // because there is now exactly ONE package that
@@ -596,16 +596,16 @@ import org.pumpkinlib.core.spi.Tier;          // core.spi, NOT telemetry -- rule
 public abstract class Mechanism implements Subsystem, TelemetrySource {
 
   /** The constructor's `name` argument, unchanged. It is already the segment every key in
-   *  §6.1 is built from ("/Pumpkin/" + name + "/"), so "the log key segment" and "the
+   *  §6.1 is built from ("/Rootstock/" + name + "/"), so "the log key segment" and "the
    *  telemetry name" are the same string by construction and cannot drift.
    *
    *  `design/04` §1.1: "Registering two sources with the same name is a FATAL ConfigError,
-   *  not a warning." CORE does not enforce that here -- PumpkinRegistry.addAll does, in the
+   *  not a warning." CORE does not enforce that here -- RootstockRegistry.addAll does, in the
    *  same collected-not-thrown pass as every other config error (§5.6), so a duplicate name
    *  boots into SAFE_MODE with a sentence instead of throwing from a static initializer. */
   @Override public final String telemetryName() { return m_name; }
 
-  /** Called EXACTLY ONCE, from PumpkinRegistry.addAll(...) (D27's `instanceof TelemetrySource
+  /** Called EXACTLY ONCE, from RootstockRegistry.addAll(...) (D27's `instanceof TelemetrySource
    *  -> telemetry` route), and never again. There is no per-cycle callback into this method.
    *
    *  Everything below is read off state the mechanism already has -- the Axis, the MotorGroup,
@@ -638,7 +638,7 @@ public abstract class Mechanism implements Subsystem, TelemetrySource {
 
     // ---- The extra(...) keys: every key CORE publishes that is NOT in `design/04` §3.1's
     // ---- fixed Outputs table. Declaring it here is what makes publishing it legal; the §1.5
-    // ---- audit rejects any undeclared key under Pumpkin/<Name>/, which is the whole point.
+    // ---- audit rejects any undeclared key under Rootstock/<Name>/, which is the whole point.
     // CRITICAL, not STANDARD, and unit-free. `design/04` §3.1 OVERRULED this document's earlier
     // STANDARD declaration on 2026-08-08: "a motor controller rebooted mid-match" is the textbook
     // case of §2.2's CRITICAL definition ("anything you would need to explain a lost match"), and
@@ -646,8 +646,8 @@ public abstract class Mechanism implements Subsystem, TelemetrySource {
     // power-cycled -- there is no second copy. STANDARD would in fact survive today's FMS gate
     // (§2.7.1 raises minimumTier to STANDARD and no higher), but minimumTier is a LogConfig field
     // a team can set to CRITICAL at 11pm under a byte-budget squeeze, and §2.2 says CRITICAL keys
-    // "are never removed from the schema by any mechanism". THE PAIRED §6.2 EDIT IS PumpkinLog.log
-    // -> PumpkinLog.critical, and the §1.5 schema audit fails loudly if only one of the two moves.
+    // "are never removed from the schema by any mechanism". THE PAIRED §6.2 EDIT IS RootstockLog.log
+    // -> RootstockLog.critical, and the §1.5 schema audit fails loudly if only one of the two moves.
     d.extra("DeviceResetCount",  Tier.CRITICAL);          // §6.2, critical(String, long)
     describeExtras(d);
   }
@@ -677,8 +677,8 @@ public final class Superstructure<S extends Enum<S> & SuperState> implements Tel
 
   /** The literal "Superstructure". NOT a constructor argument, and that is a deliberate,
    *  bounded choice rather than an oversight: `design/04` hard-codes this segment in its own
-   *  key literals -- grep it for `Pumpkin/Superstructure/State`,
-   *  `Pumpkin/Superstructure/WhyNotScoring` and `RealOutputs/Pumpkin/Superstructure/AtGoal`,
+   *  key literals -- grep it for `Rootstock/Superstructure/State`,
+   *  `Rootstock/Superstructure/WhyNotScoring` and `RealOutputs/Rootstock/Superstructure/AtGoal`,
    *  all three written as literals rather than composed from a name -- so a superstructure
    *  that named itself anything else would publish into a namespace nothing reads.
    *  LIMITATION, STATED: this means exactly ONE Superstructure per
@@ -701,7 +701,7 @@ public final class Superstructure<S extends Enum<S> & SuperState> implements Tel
 }
 ```
 
-**Where the descriptor is built and who hands it over.** Nowhere in CORE. `describe(TelemetryDescriptor)` is a **callback**: `PumpkinRegistry.addAll(Object...)` (§5.6, D27) routes each argument by `instanceof`, and the `TelemetrySource` route hands the component to telemetry, which constructs the descriptor implementation, calls `describe(d)` once, and keeps the result. CORE never sees a `TelemetryDescriptor` instance outside the body of its own `describe` method, never stores one, and has no accessor that returns one — which is what keeps the "consumed once, at registration" property in `design/04` §1.1 structurally true rather than conventionally true.
+**Where the descriptor is built and who hands it over.** Nowhere in CORE. `describe(TelemetryDescriptor)` is a **callback**: `RootstockRegistry.addAll(Object...)` (§5.6, D27) routes each argument by `instanceof`, and the `TelemetrySource` route hands the component to telemetry, which constructs the descriptor implementation, calls `describe(d)` once, and keeps the result. CORE never sees a `TelemetryDescriptor` instance outside the body of its own `describe` method, never stores one, and has no accessor that returns one — which is what keeps the "consumed once, at registration" property in `design/04` §1.1 structurally true rather than conventionally true.
 
 **Two divergences from `design/04`, stated rather than papered over.** ~~**Both are `design/04`'s edits and neither is closed here.**~~ **BOTH RESOLVED 2026-08-08, both in CORE's favour, and both applied above — see the closure note after item 2.** The divergences are kept in the present tense of the revision that found them, because the finding is what made the edit happen and a reader comparing against an older `design/04` needs to recognise which side is which.
 
@@ -718,20 +718,20 @@ public final class Superstructure<S extends Enum<S> & SuperState> implements Tel
 
 | Extra key | CORE declared | `design/04`'s ruling | Overload | Publish call |
 |---|---|---|---|---|
-| `DeviceResetCount` | STANDARD | **CRITICAL — OVERRULED** | `extra(String, Tier)` | `PumpkinLog.critical(...)` — **changed** |
-| `FeedbackVolts` | STANDARD | STANDARD — confirmed | `extra(String, Unit, Tier)`, `Volts` | `PumpkinLog.log(...)` — unchanged |
-| `FeedforwardVolts` | STANDARD | STANDARD — confirmed | `extra(String, Unit, Tier)`, `Volts` | `PumpkinLog.log(...)` — unchanged |
-| `Blocked` | STANDARD | STANDARD — confirmed | `extra(String, Tier)` | `PumpkinLog.log(...)` — unchanged |
-| `Plan` | STANDARD | STANDARD — confirmed | `extra(String, Tier)` | `PumpkinLog.log(...)` — unchanged |
+| `DeviceResetCount` | STANDARD | **CRITICAL — OVERRULED** | `extra(String, Tier)` | `RootstockLog.critical(...)` — **changed** |
+| `FeedbackVolts` | STANDARD | STANDARD — confirmed | `extra(String, Unit, Tier)`, `Volts` | `RootstockLog.log(...)` — unchanged |
+| `FeedforwardVolts` | STANDARD | STANDARD — confirmed | `extra(String, Unit, Tier)`, `Volts` | `RootstockLog.log(...)` — unchanged |
+| `Blocked` | STANDARD | STANDARD — confirmed | `extra(String, Tier)` | `RootstockLog.log(...)` — unchanged |
+| `Plan` | STANDARD | STANDARD — confirmed | `extra(String, Tier)` | `RootstockLog.log(...)` — unchanged |
 
 **The one overrule and why CORE accepts it without argument.** This document's own note said `DeviceResetCount` at STANDARD was *"arguably wrong"*, and `design/04` agreed and went further. Its reasoning is stronger than the one this document offered: the STANDARD tier **does** survive today's FMS gate — §2.7.1 raises `minimumTier` to STANDARD and no higher, so this document's *"a STANDARD key disappears when the FMS gate raises `minimumTier`"* was itself **wrong on the mechanics** and is corrected here. What actually justifies CRITICAL is that `minimumTier` is a **`LogConfig` field a team can set to `CRITICAL` at 11 pm under a byte-budget squeeze**, and §2.2 promises that *"CRITICAL keys are never removed from the schema by any mechanism"*. A reset counter that can be argued away is a reset counter that will be — and correction row 9 of this document (a setpoint sent once, forever, then silently dropped by a device reset) exists precisely because that failure is invisible unless something counts it.
 
-**Both halves of the overrule land in the same edit, which is not optional.** §1.1b's declaration above is now `d.extra("DeviceResetCount", Tier.CRITICAL)` **and** §6.2's publish is `PumpkinLog.critical(...)`. The `design/04` §1.5 schema audit compares declaration against publish and fails loudly if only one moves; that guard is the reason an overrule is safe to accept, and it is also the reason a half-applied one would be worse than none. `DESIGN.md` §16 item 5(b) tracks the pair.
+**Both halves of the overrule land in the same edit, which is not optional.** §1.1b's declaration above is now `d.extra("DeviceResetCount", Tier.CRITICAL)` **and** §6.2's publish is `RootstockLog.critical(...)`. The `design/04` §1.5 schema audit compares declaration against publish and fails loudly if only one moves; that guard is the reason an overrule is safe to accept, and it is also the reason a half-applied one would be worse than none. `DESIGN.md` §16 item 5(b) tracks the pair.
 
 ### 1.2 From Tuning (`design/02-tuning.md`) — **required**
 
 ```java
-package org.pumpkinlib.tuning;
+package org.rootstock.tuning;
 
 public interface Tunable {
   double get();
@@ -748,9 +748,9 @@ public final class TunableGains {
 ```
 
 CORE requires:
-* `TuningRegistry.isTuningEnabled()` — a single global. (**D12**: the `Pumpkin` god-object that revision 3 called `Pumpkin.TUNING_MODE` is deleted; this is its replacement.) When false, `Tunable.get()` returns the compile-time default with **zero** NetworkTables traffic. Team 4738 commented out 30+ `LoggedTunableNumber` declarations by hand rather than ship them to competition (`reefscape2025/.../Vision.java:41-53`, `Elevator.java:47-52`, and 7 commented `LoggedGainConstants` in `Constants.java`). That must never be a choice a team faces.
+* `TuningRegistry.isTuningEnabled()` — a single global. (**D12**: the `Rootstock` god-object that revision 3 called `Rootstock.TUNING_MODE` is deleted; this is its replacement.) When false, `Tunable.get()` returns the compile-time default with **zero** NetworkTables traffic. Team 4738 commented out 30+ `LoggedTunableNumber` declarations by hand rather than ship them to competition (`reefscape2025/.../Vision.java:41-53`, `Elevator.java:47-52`, and 7 commented `LoggedGainConstants` in `Constants.java`). That must never be a choice a team faces.
 * Publication under `/Tuning/<MechanismName>/<field>` so AdvantageScope tuning mode and Elastic both work.
-* `hasChanged()` hard-gated on `!MatchContext.isFMSAttached()`. (`DESIGN.md` §16 item 3 / domain 06's `onlyMatchReadsDriverStation` rule: `org.pumpkinlib.core.match` is the **only** package permitted to touch `DriverStation`. Revision 3 named `DriverStation` directly here and in three other places in this document; all four now go through `MatchContext`.)
+* `hasChanged()` hard-gated on `!MatchContext.isFMSAttached()`. (`DESIGN.md` §16 item 3 / domain 06's `onlyMatchReadsDriverStation` rule: `org.rootstock.core.match` is the **only** package permitted to touch `DriverStation`. Revision 3 named `DriverStation` directly here and in three other places in this document; all four now go through `MatchContext`.)
 * Values persisted across redeploy (`Preferences`-backed or equivalent).
 
 **What is auto-registered — an explicit allowlist, no reflection.**
@@ -758,7 +758,7 @@ CORE requires:
 Revision 1 said "every numeric field of every mechanism config is auto-registered by field name." That requires reflecting over record components, which contradicts Principle 7 and DESIGN.md §14 row 6, and it exposes a large set of fields where runtime mutation is meaningless or actively harmful. `Mechanism`'s constructor registers exactly this list and nothing else:
 
 ```java
-// org.pumpkinlib.mechanism.Mechanism, constructor. Hand-written. One line per key.
+// org.rootstock.mechanism.Mechanism, constructor. Hand-written. One line per key.
 m_tunables = TuningRegistry.gains(this);              // kP kI kD kS kV kA kG
 TuningRegistry.constraint(this, "maxVelocity",     c.control().constraints()::maxVelocity);
 TuningRegistry.constraint(this, "maxAcceleration", c.control().constraints()::maxAcceleration);
@@ -787,8 +787,8 @@ CORE provides to Tuning: `Mechanism.tunables()` returning the `TunableGains` it 
 ### 1.3 From Alerts & Health (`design/06-platform-compday.md`) — **required**
 
 ```java
-package org.pumpkinlib.core.alert;    // D10 / DESIGN.md §7. Revision 3 said
-                                      // org.pumpkinlib.diagnostics.AlertSink with two-argument
+package org.rootstock.core.alert;    // D10 / DESIGN.md §7. Revision 3 said
+                                      // org.rootstock.diagnostics.AlertSink with two-argument
                                       // error/warning -- neither the package nor the arity was right.
 
 /**
@@ -798,17 +798,17 @@ package org.pumpkinlib.core.alert;    // D10 / DESIGN.md §7. Revision 3 said
  * all depend on, and a default answers it wrongly by omission.
  */
 public final class Alerts {
-  public static PumpkinAlert error(String group, String text, MatchImpact impact);
-  public static PumpkinAlert warning(String group, String text, MatchImpact impact);
-  public static PumpkinAlert info(String group, String text);   // INFO is PIT_ONLY by definition
+  public static RootstockAlert error(String group, String text, MatchImpact impact);
+  public static RootstockAlert warning(String group, String text, MatchImpact impact);
+  public static RootstockAlert info(String group, String text);   // INFO is PIT_ONLY by definition
 }
 
 public enum MatchImpact { BLOCKS_MATCH, PIT_ONLY }
 
 /** The handle. Owned by domain 06; CORE only calls set()/text(). */
-public interface PumpkinAlert {
-  PumpkinAlert set(boolean active);
-  PumpkinAlert text(String text);
+public interface RootstockAlert {
+  RootstockAlert set(boolean active);
+  RootstockAlert text(String text);
   MatchImpact impact();
 }
 ```
@@ -820,7 +820,7 @@ CORE raises, per mechanism, automatically. **Every one of them declares its `Mat
 | `<name>/motor-disconnected` | `BLOCKS_MATCH` | The mechanism cannot move. |
 | `<name>/device-reset` | `BLOCKS_MATCH` | A mid-match reset drops the mechanism until we notice. |
 | `<name>/follower-disagrees` | `BLOCKS_MATCH` | Two motors fighting destroys gearboxes. |
-| `<name>/internal-routing-fault` | `BLOCKS_MATCH` | A PumpkinLib bug that has latched the mechanism to a no-op. |
+| `<name>/internal-routing-fault` | `BLOCKS_MATCH` | A Rootstock bug that has latched the mechanism to a no-op. |
 | `<name>/unknown-setpoint` | `BLOCKS_MATCH` | A button does nothing; that is a match-losing surprise. |
 | `<name>/config-apply-failed` | `BLOCKS_MATCH` | The device is running whatever was on it before. |
 | `<name>/absolute-encoder-disconnected` | `BLOCKS_MATCH` | Position is unknown. |
@@ -836,32 +836,32 @@ CORE raises, per mechanism, automatically. **Every one of them declares its `Mat
 
 CORE needs from Diagnostics:
 * a `SystemCheck` registry so `PositionMechanism` can contribute a canned range-of-motion check;
-* a `CanIdRegistry` that CORE scans **once, globally, in `PumpkinRegistry.addAll(...)`** — *never* as a side effect of a record constructor (see §5.6b);
-* `PumpkinTracer.budget(String epoch, Time budget)` so a periodic-time regression is visible rather than inferred from loop overruns.
+* a `CanIdRegistry` that CORE scans **once, globally, in `RootstockRegistry.addAll(...)`** — *never* as a side effect of a record constructor (see §5.6b);
+* `RootstockTracer.budget(String epoch, Time budget)` so a periodic-time regression is visible rather than inferred from loop overruns.
 
 `9143-2025-A-Updated/src/main/java/frc/robot/Constants.java` documents a CAN ID of 64 that *crashed robot code on boot* because Phoenix IDs stop at 62. That must be a collected, named error that still lets the robot boot into SAFE_MODE — not a stack trace.
 
-### 1.4 From Simulation (`PumpkinSim`, specified in `design/04` and `design/06`) — **required**
+### 1.4 From Simulation (`RootstockSim`, specified in `design/04` and `design/06`) — **required**
 
 **D18: CORE declares the plant; Sim owns it.** Revision 3 said CORE "builds the WPILib physics plant itself" and shipped a `Mechanism.simulationPeriodic()` that called `m_io.simulatedMotorVoltage()` and `m_io.updateSimulatedSensors(...)`. **Binding decision D18 deleted all three**, and the two `MotorIO` methods never appeared on the §3.3 interface in the first place, so that snippet could not have compiled. The corrected seam:
 
-* `PositionConfig` + `Axis` produce a **`MechanismGeometry`** value object, declared into the `MechanismGeometrySink` of `org.pumpkinlib.core.spi` (D26). CORE decides *what the plant is* (mass, MOI, effective radius, gearing, limits, gravity) and stops there.
+* `PositionConfig` + `Axis` produce a **`MechanismGeometry`** value object, declared into the `MechanismGeometrySink` of `org.rootstock.core.spi` (D26). CORE decides *what the plant is* (mass, MOI, effective radius, gearing, limits, gravity) and stops there.
 * `MotorIO` gains `default Optional<SimMotorHandle> simHandle() { return Optional.empty(); }` (§3.3). `TalonFXMotorIO` implements it by constructing a `TalonFXSimHandle` **inside the Phoenix adapter**, so the CTRE import never leaves the adapter.
-* **`PumpkinSim`** — owned by the Simulation domain — builds and steps `ElevatorSim` / `SingleJointedArmSim` / `FlywheelSim` / `DCMotorSim` from the declared geometry, drives each `SimMotorHandle`, and never names a vendor type. There is no `Mechanism.simulationPeriodic()` for a team or the registry to call. See §6.7.
+* **`RootstockSim`** — owned by the Simulation domain — builds and steps `ElevatorSim` / `SingleJointedArmSim` / `FlywheelSim` / `DCMotorSim` from the declared geometry, drives each `SimMotorHandle`, and never names a vendor type. There is no `Mechanism.simulationPeriodic()` for a team or the registry to call. See §6.7.
 
 CORE needs from Simulation:
-* `Clock.dt()` (`org.pumpkinlib.core.compat.Clock`, DESIGN.md §7) — one authoritative timestep, so `0.02` is never hardcoded again (it is hardcoded in five places across the user's repos). `Clock.seconds()` is the monotonic companion used by the setpoint heartbeat in §3.5.
-* `PumpkinSim` registering itself as a `LifecycleHook` (D26 — an in-jar hook, so it is on `PumpkinLifecycle.create()`'s explicit list, **not** `ServiceLoader`-discovered) and consuming `MotorIO.simHandle()` for every registered mechanism. Fan-out is automatic and is *Sim's* fan-out, not CORE's.
+* `Clock.dt()` (`org.rootstock.core.compat.Clock`, DESIGN.md §7) — one authoritative timestep, so `0.02` is never hardcoded again (it is hardcoded in five places across the user's repos). `Clock.seconds()` is the monotonic companion used by the setpoint heartbeat in §3.5.
+* `RootstockSim` registering itself as a `LifecycleHook` (D26 — an in-jar hook, so it is on `RootstockLifecycle.create()`'s explicit list, **not** `ServiceLoader`-discovered) and consuming `MotorIO.simHandle()` for every registered mechanism. Fan-out is automatic and is *Sim's* fan-out, not CORE's.
 * An optional maple-sim bridge for game-piece interaction. Optional — maple-sim is beta and has a documented succession risk; it must never be a hard dependency. It is genuinely out-of-jar, so it *is* `ServiceLoader`-discovered (D20).
 
-### 1.5 From Drivetrain / Control (`design/05-drivetrain-auto.md`, which owns `org.pumpkinlib.control`)
+### 1.5 From Drivetrain / Control (`design/05-drivetrain-auto.md`, which owns `org.rootstock.control`)
 
 Drivetrain **consumes** CORE, not the reverse. It uses `Reduction`, `MotorSpec`, `MotorIO`, `Gains`, the validation/`describe()` machinery, and `CurrentLimits`. It does **not** use `PositionMechanism` — swerve steering has its own continuous-wrap + coupling semantics.
 
-Doc 02 also owns `org.pumpkinlib.control`, and CORE depends on exactly one thing from it — the archetype-dispatching feedforward that makes `RIO_FULL` correct:
+Doc 02 also owns `org.rootstock.control`, and CORE depends on exactly one thing from it — the archetype-dispatching feedforward that makes `RIO_FULL` correct:
 
 ```java
-package org.pumpkinlib.control;
+package org.rootstock.control;
 
 public final class Controllers {
   /** Sealed over the three WPILib feedforward archetypes. All inputs and outputs are SI:
@@ -902,15 +902,15 @@ Auto owes CORE: a `NamedCommandRegistry` that **rejects duplicate names**. Team 
 ### 1.7 Hard constraints inherited from the dossiers
 
 1. **No `@AutoLog`, no `@AutoLogOutput`. D24 stands, and decision 3 does not overturn it.** The obvious reading of "AdvantageKit is now required" is that the annotation processor becomes available and the hand-written `toLog`/`fromLog` can go. It does not, for two reasons that are *independent* of which logger is required:
-   * **The vendordep reason, unchanged.** A vendordep cannot add `annotationProcessor "org.littletonrobotics.akit:akit-autolog:$v"` to a consumer's `build.gradle`. Requiring `AdvantageKit.json` puts the akit *runtime* on the consumer's classpath; it does not put an annotation processor into their build. Decision 2 changes this **only for team code**: `PumpkinTemplate` owns a `build.gradle` and can wire the processor there — which is exactly what M20's replay-safety lint depends on. It does nothing for a team that adds the vendordep to an existing repo, which is the incremental-adoption path §1.1a exists to serve.
-   * **The package-scope reason, unresolved.** `@AutoLog` generates a `MotorInputsAutoLogged` subclass in the *annotated class's* package. CORE's inputs classes are `public` types in `org.pumpkinlib.hardware` that are read by `org.pumpkinlib.mechanism` and written by the vendor adapters in separate artifacts, and the generated subclass — not the annotated class — is the one that must be the field type. That relationship was never worked out, and decision 3 supplies no new information about it.
+   * **The vendordep reason, unchanged.** A vendordep cannot add `annotationProcessor "org.littletonrobotics.akit:akit-autolog:$v"` to a consumer's `build.gradle`. Requiring `AdvantageKit.json` puts the akit *runtime* on the consumer's classpath; it does not put an annotation processor into their build. Decision 2 changes this **only for team code**: `RootstockTemplate` owns a `build.gradle` and can wire the processor there — which is exactly what M20's replay-safety lint depends on. It does nothing for a team that adds the vendordep to an existing repo, which is the incremental-adoption path §1.1a exists to serve.
+   * **The package-scope reason, unresolved.** `@AutoLog` generates a `MotorInputsAutoLogged` subclass in the *annotated class's* package. CORE's inputs classes are `public` types in `org.rootstock.hardware` that are read by `org.rootstock.mechanism` and written by the vendor adapters in separate artifacts, and the generated subclass — not the annotated class — is the one that must be the field type. That relationship was never worked out, and decision 3 supplies no new information about it.
 
-   So CORE hand-writes `toLog(LogTable)` / `fromLog(LogTable)` on `MotorInputs`. What *has* changed is the target: it is `LoggableInputs` and `LogTable` directly, not revision 2's `PumpkinInputs` / `LogSink` / `LogSource`. Revision 2 also claimed this "means CORE works identically for DogLog and Epilogue users" — **that claim is withdrawn**; see §12.
+   So CORE hand-writes `toLog(LogTable)` / `fromLog(LogTable)` on `MotorInputs`. What *has* changed is the target: it is `LoggableInputs` and `LogTable` directly, not revision 2's `RootstockInputs` / `LogSink` / `LogSource`. Revision 2 also claimed this "means CORE works identically for DogLog and Epilogue users" — **that claim is withdrawn**; see §12.
 2. **Java 17 syntax ceiling for shared code.** Records ✔, sealed interfaces ✔, `instanceof` patterns ✔, arrow switch ✔. Pattern-matching `switch` ✘ (Java 21), `Math.clamp` ✘ (Java 21).
 3. **Immutable `Measure` at config boundaries only; raw doubles in the hot loop.** `MutableMeasure` is *removed* in WPILib 2027 — never expose it.
 4. **No removed-in-2027 HAL.** CAN devices and DIO only. No Relay, AnalogOutput, AnalogGyro, SPI (and no SPI IMUs), DMA, Counter, Ultrasonic, AnalogTrigger, interrupts, Servo, digital glitch filter.
 5. **No Shuffleboard / SmartDashboard / NT3.** NetworkTables 4 struct publishing only.
-6. **~~Zero hard vendordep dependencies in the core artifact.~~ WITHDRAWN by maintainer decision 3.** The `pumpkinlib` artifact depends on **WPILib + AdvantageKit**, and `PumpkinLib.json` lists `AdvantageKit.json` under `requires`. The old claim — *"a team can install PumpkinLib on kickoff day before CTRE and REV have published"* — **is no longer true and must not appear anywhere in CORE's docs, examples or README copy.** It was not marketing: AdvantageKit's own 2026 swerve templates shipped weeks late waiting on vendors, which is the fact that made the property worth having, and PumpkinLib is now on the wrong side of it. What survives is the narrower and still-true rule: **no *vendor* (CTRE/REV/PhotonVision/PathPlanner) dependency in the core artifact.** `pumpkinlib-phoenix6` and `pumpkinlib-revlib` remain separate, optional artifacts, so a REV-only team is never forced to install Phoenix. `pumpkinlib-advantagekit` no longer exists — its contents are in `pumpkinlib`. If AdvantageKit does not publish for a season, PumpkinLib does not install that season; that is risk **R18, now High and *accepted*, with a three-tier contingency in `ROADMAP.md` §4.2**, numbered here in **execution order**: **Tier 1** — contribute the port upstream; **Tier 2** — fork `pumpkinlib-akit-compat`, ~2.5 pw; **Tier 3** — state publicly, on the README's first screen, that we wait.
+6. **~~Zero hard vendordep dependencies in the core artifact.~~ WITHDRAWN by maintainer decision 3.** The `rootstock` artifact depends on **WPILib + AdvantageKit**, and `Rootstock.json` lists `AdvantageKit.json` under `requires`. The old claim — *"a team can install Rootstock on kickoff day before CTRE and REV have published"* — **is no longer true and must not appear anywhere in CORE's docs, examples or README copy.** It was not marketing: AdvantageKit's own 2026 swerve templates shipped weeks late waiting on vendors, which is the fact that made the property worth having, and Rootstock is now on the wrong side of it. What survives is the narrower and still-true rule: **no *vendor* (CTRE/REV/PhotonVision/PathPlanner) dependency in the core artifact.** `rootstock-phoenix6` and `rootstock-revlib` remain separate, optional artifacts, so a REV-only team is never forced to install Phoenix. `rootstock-advantagekit` no longer exists — its contents are in `rootstock`. If AdvantageKit does not publish for a season, Rootstock does not install that season; that is risk **R18, now High and *accepted*, with a three-tier contingency in `ROADMAP.md` §4.2**, numbered here in **execution order**: **Tier 1** — contribute the port upstream; **Tier 2** — fork `rootstock-akit-compat`, ~2.5 pw; **Tier 3** — state publicly, on the README's first screen, that we wait.
 
 > **Tier 2's licence gate is now closed, and it is favourable.** Revision 3 marked it
 > **[UNVERIFIED]**. **Verified 2026-08-07: AdvantageKit is released under a BSD 3-Clause
@@ -921,7 +921,7 @@ Auto owes CORE: a `NamedCommandRegistry` that **rejects duplicate names**. Team 
 > non-endorsement clause — *"Neither the name of Littleton Robotics, FRC 6328 ('Mechanical
 > Advantage'), AdvantageKit, nor the names of other AdvantageKit contributors may be used to
 > endorse or promote products derived from this software without specific prior written
-> permission"* — so `pumpkinlib-akit-compat` must not be **named or marketed** as an AdvantageKit
+> permission"* — so `rootstock-akit-compat` must not be **named or marketed** as an AdvantageKit
 > product; attribution in the licence file is required, endorsement is not implied, and the
 > artifact name should be reconsidered before it ships. Leaving a 30-second-checkable licence
 > question open on the plan's largest accepted risk was itself a verification failure, and it is
@@ -930,32 +930,32 @@ Auto owes CORE: a `NamedCommandRegistry` that **rejects duplicate names**. Team 
 7. **Config apply must be retried and read-back-verified at construction** — and must **never** run on the periodic path. See the two-path split in §3.9.
 8. **Never block the main loop on CAN.** `TalonFX.setPosition(double)` blocks up to 100 ms; the library only ever calls `setPosition(value, 0.0)`. `TalonFXConfigurator.apply(config)` blocks with a default 0.050 s timeout; the periodic path only ever calls `apply(config, 0.0)`.
 9. **No per-loop allocation in mechanism `periodic()`.** All vendor control-request objects are pre-allocated at construction; **all log keys are precomputed strings**; no capturing lambdas are constructed on the periodic path. Verified in CI by an allocation counter run against the full §9 example robot — **an M5 gate condition** (`ROADMAP.md` §5; the old dated gate G2 is deleted along with G0–G5), not a unit test on a synthetic mechanism.
-10. **Nothing is silently frozen.** A signal PumpkinLib did not subscribe reports `NaN`.
+10. **Nothing is silently frozen.** A signal Rootstock did not subscribe reports `NaN`.
 
 ---
 
 ## 2. Package layout
 
-**Revision 4 note.** Revision 3's tree put `Pumpkin`, `Clock`, `PumpkinLifecycle`, `PumpkinRobot` and `Reduction` in packages that the binding decisions had already moved, and kept a `Pumpkin` god-object that **D12 deleted**. The tree below is the one `DESIGN.md` §7 publishes. Only the packages CORE owns are expanded; everything else is named where it lives so no reader has to guess.
+**Revision 4 note.** Revision 3's tree put `Rootstock`, `Clock`, `RootstockLifecycle`, `RootstockRobot` and `Reduction` in packages that the binding decisions had already moved, and kept a `Rootstock` god-object that **D12 deleted**. The tree below is the one `DESIGN.md` §7 publishes. Only the packages CORE owns are expanded; everything else is named where it lives so no reader has to guess.
 
 ```
-org.pumpkinlib.pure                  -- ZERO edu.wpi.first imports (bytecode-scanned)
-├── math/  PumpkinMath               // clamp, deadband2d, expo, epsilonEquals   [used in §6.2]
-└── units/ Reduction.java            // THE gearbox type, positive-only, self-describing   [D7]
+org.rootstock.pure                  -- ZERO edu.wpi.first imports (bytecode-scanned)
+├── math/  RootstockMath               // clamp, deadband2d, expo, epsilonEquals   [used in §6.2]
+└── units/ Reduction.java              // THE gearbox type, positive-only, self-describing   [D7]
 
-org.pumpkinlib.core                  -- WPILib + AdvantageKit only, zero VENDOR deps
-├── PumpkinLifecycle.java            // PUBLIC (D29). The per-loop seam a team drives by hand.
-├── PumpkinRobot.java                // extends LoggedRobot. The ONLY base class (§1.1a).  [D13]
-├── PumpkinRegistry.java             // addAll(), onDisable(), SAFE_MODE entry             [D12/D27]
-├── spi/                             // D26. LifecycleHook, VisionSimHook, MechanismGeometrySink,
-│                                    // MechanismGeometry, SimMotorHandle. SURVIVES decision 3 --
-│                                    // see §1.1. Only the LogBackend ServiceLoader was deleted.
-├── compat/  Clock.java              // dt(), seconds() -- the ONLY source of 0.02          [D12]
-│            Platform.java           // isSimulation()/isReal(), persistentDir()/deployDir()
-├── alert/   Alerts, PumpkinAlert, MatchImpact, Severity                                    [D10]
+org.rootstock.core                  -- WPILib + AdvantageKit only, zero VENDOR deps
+├── RootstockLifecycle.java            // PUBLIC (D29). The per-loop seam a team drives by hand.
+├── RootstockRobot.java                // extends LoggedRobot. The ONLY base class (§1.1a).  [D13]
+├── RootstockRegistry.java             // addAll(), onDisable(), SAFE_MODE entry             [D12/D27]
+├── spi/                               // D26. LifecycleHook, VisionSimHook, MechanismGeometrySink,
+│                                      // MechanismGeometry, SimMotorHandle. SURVIVES decision 3 --
+│                                      // see §1.1. Only the LogBackend ServiceLoader was deleted.
+├── compat/  Clock.java                // dt(), seconds() -- the ONLY source of 0.02          [D12]
+│            Platform.java             // isSimulation()/isReal(), persistentDir()/deployDir()
+├── alert/   Alerts, RootstockAlert, MatchImpact, Severity                                    [D10]
 └── match/   MatchContext            // THE only package allowed to read DriverStation
 
-org.pumpkinlib.units
+org.rootstock.units
 ├── Axis.java                        // sealed: LinearAxis | RotaryAxis  (output rot <-> user <-> SI)
 ├── LinearAxis.java
 ├── RotaryAxis.java
@@ -963,14 +963,14 @@ org.pumpkinlib.units
 ├── Range.java
 └── MechanismUnits.java              // the ONE conversion object handed to IO, sim, limits, telemetry
 
-org.pumpkinlib.control               -- the canonical control vocabulary (owned by design/05)
+org.rootstock.control               -- the canonical control vocabulary (owned by design/05)
 ├── Gains.java                       // record, named fields only, 7 doubles, VOLTS-PER-SI  [D1/D1a]
 ├── GravityMode.java                                                                        [D2a]
 ├── ControlLocation.java, ControlLocationSource.java                                         [D5]
 ├── Controllers.java                 // the sealed feedforward dispatcher (§1.5)
 └── TuningTarget, PlantPrior, TravelLimits, SafetyEnvelope, TuningSupervisor                 [D8]
 
-org.pumpkinlib.config
+org.rootstock.config
 ├── MotorSpec.java                   // sealed: TalonFXSpec | TalonFXSSpec | SparkSpec | GenericSpec | SimSpec
 ├── OutputMode.java                  // VOLTAGE (shipped) | TORQUE_CURRENT (outside v0.1) -- NOT FOC
 ├── MotorGroup.java                  // leader + followers + inversion
@@ -991,7 +991,7 @@ org.pumpkinlib.config
 └── Validation.java                  // localChecks(), crossChecks(), describe(), printAll(),
                                      // toStrings(List<ConfigError>) -> String[] (§5.6)
 
-org.pumpkinlib.hardware
+org.rootstock.hardware
 ├── MotorIO.java                     // THE seam (+ simHandle(), D18)
 ├── MotorInputs.java                 // LoggableInputs, hand-written toLog/fromLog (D24)
 ├── MotorCapabilities.java           // + VelocityCarrier (rev 4, §3.3)
@@ -1005,9 +1005,9 @@ org.pumpkinlib.hardware
 ├── generic/   GenericMotorIO (RIO-side loop over any WPILib MotorController), DioSensorIO,
 │              DioAbsoluteEncoderIO
 └── sim/       SimMotorIO, SimGyroIO, SimDigitalSensorIO
-                                     // * = ships in a vendor adapter artifact, not in `pumpkinlib`
+                                     // * = ships in a vendor adapter artifact, not in `rootstock`
 
-org.pumpkinlib.mechanism
+org.rootstock.mechanism
 ├── Mechanism.java                   // abstract base, implements Subsystem (not SubsystemBase)
 ├── PositionMechanism.java
 ├── VelocityMechanism.java
@@ -1017,7 +1017,7 @@ org.pumpkinlib.mechanism
 ├── ManualControl.java
 └── ContinuousUnwrap.java
 
-org.pumpkinlib.superstructure
+org.rootstock.superstructure
 ├── Superstructure.java
 ├── SuperState.java                  // interface a team's enum implements
 ├── AxisGoal.java
@@ -1032,15 +1032,15 @@ org.pumpkinlib.superstructure
 
 | Revision 3 said | Revision 4 / `DESIGN.md` §7 | Decision |
 |---|---|---|
-| `org.pumpkinlib.Pumpkin` (`TUNING_MODE`, `registry()`, `alerts()`, `dt()`) | **deleted.** `TuningRegistry.isTuningEnabled()`, `org.pumpkinlib.core.PumpkinRegistry`, `org.pumpkinlib.core.alert.Alerts`, `org.pumpkinlib.core.compat.Clock.dt()` | **D12** |
-| `org.pumpkinlib.Clock` | `org.pumpkinlib.core.compat.Clock` | D12 |
-| `org.pumpkinlib.PumpkinLifecycle` / `PumpkinRobot` | `org.pumpkinlib.core.*` | **D13**, D29 |
-| `org.pumpkinlib.mechanism.PumpkinRegistry` | `org.pumpkinlib.core.PumpkinRegistry` | D12, **D27** |
-| `org.pumpkinlib.config.Gains` | `org.pumpkinlib.control.Gains` | **D1** |
-| `org.pumpkinlib.units.Reduction` | `org.pumpkinlib.pure.units.Reduction` | **D7** |
-| `org.pumpkinlib.hardware.ControlLocation`, `units.GravityMode` | `org.pumpkinlib.control.*` | D2a, **D5** |
+| `org.rootstock.Rootstock` (`TUNING_MODE`, `registry()`, `alerts()`, `dt()`) | **deleted.** `TuningRegistry.isTuningEnabled()`, `org.rootstock.core.RootstockRegistry`, `org.rootstock.core.alert.Alerts`, `org.rootstock.core.compat.Clock.dt()` | **D12** |
+| `org.rootstock.Clock` | `org.rootstock.core.compat.Clock` | D12 |
+| `org.rootstock.RootstockLifecycle` / `RootstockRobot` | `org.rootstock.core.*` | **D13**, D29 |
+| `org.rootstock.mechanism.RootstockRegistry` | `org.rootstock.core.RootstockRegistry` | D12, **D27** |
+| `org.rootstock.config.Gains` | `org.rootstock.control.Gains` | **D1** |
+| `org.rootstock.units.Reduction` | `org.rootstock.pure.units.Reduction` | **D7** |
+| `org.rootstock.hardware.ControlLocation`, `units.GravityMode` | `org.rootstock.control.*` | D2a, **D5** |
 | `SiDomain {LINEAR, ANGULAR}` | `SiDomain {LINEAR_METERS, ROTATIONAL_RADIANS}` | **D3** |
-| `org.pumpkinlib.diagnostics.AlertSink` | `org.pumpkinlib.core.alert.Alerts` (+ mandatory `MatchImpact`) | **D10** |
+| `org.rootstock.diagnostics.AlertSink` | `org.rootstock.core.alert.Alerts` (+ mandatory `MatchImpact`) | **D10** |
 
 Code blocks below carry the corrected `package` line. Where a snippet imports one of these types, the import is the corrected one.
 
@@ -1051,11 +1051,11 @@ Code blocks below carry the corrected `package` line. Where a snippet imports on
 
 ### 3.1 The tension, stated precisely
 
-A naive `PumpkinMotor` looks like this and is **wrong**:
+A naive `RootstockMotor` looks like this and is **wrong**:
 
 ```java
 // WHAT WE DO NOT BUILD
-interface PumpkinMotor {
+interface RootstockMotor {
   double getPosition();
   void setVoltage(double volts);
 }
@@ -1086,7 +1086,7 @@ The community rejected the alternative failure too. Oblarg, on a monolithic vend
 **Rule 2 — the *location* of the loop is an explicit, defaulted-with-provenance, logged config field.**
 
 ```java
-package org.pumpkinlib.hardware;
+package org.rootstock.hardware;
 
 /** WHERE the closed loop executes. This is a first-class, logged, alert-checked decision. */
 public enum ControlLocation {
@@ -1107,7 +1107,7 @@ public enum ControlLocation {
 
   /** TrapezoidProfile + PIDController + feedforward on the robot controller, ALL IN SI;
    *  voltage to the motor. Required for GenericSpec (PWM / non-smart controllers).
-   *  Re-sent every loop. On a TalonFX this is a DOWNGRADE and PumpkinLib says so. */
+   *  Re-sent every loop. On a TalonFX this is a DOWNGRADE and Rootstock says so. */
   RIO_FULL
 }
 ```
@@ -1115,7 +1115,7 @@ public enum ControlLocation {
 A team choosing `RIO_FULL` on a Kraken sees, in the driver station and in the log:
 
 ```
-[PumpkinLib][WARN] Elevator: ControlLocation.RIO_FULL on a TalonFX (CAN 20) disables Motion Magic
+[Rootstock][WARN] Elevator: ControlLocation.RIO_FULL on a TalonFX (CAN 20) disables Motion Magic
   and the 1 kHz on-motor loop. The mechanism will run a 50 Hz roboRIO loop instead.
   If this is intentional, ignore. If not, use ControlLocation.ON_MOTOR_PROFILED.
 ```
@@ -1123,7 +1123,7 @@ A team choosing `RIO_FULL` on a Kraken sees, in the driver station and in the lo
 If a team asks for `ON_MOTOR_PROFILED` on a backend that cannot do it (`GenericSpec`), CORE **downgrades and says so** rather than silently misbehaving:
 
 ```
-[PumpkinLib][ERROR] Wrist: ControlLocation.ON_MOTOR_PROFILED requested, but MotorSpec.Generic
+[Rootstock][ERROR] Wrist: ControlLocation.ON_MOTOR_PROFILED requested, but MotorSpec.Generic
   (Spark PWM on PWM 3) has no on-board closed loop. Downgraded to RIO_FULL.
   Gains you tuned for the motor controller will NOT transfer; retune with the RIO loop.
 ```
@@ -1138,14 +1138,14 @@ public interface MotorIO {
 
 // In TalonFXMotorIO:
 public TalonFX talonFX();                        // the real device
-public TalonFXConfiguration configuration();     // the live config object PumpkinLib built
+public TalonFXConfiguration configuration();     // the live config object Rootstock built
 public void applyRaw(Consumer<TalonFXConfiguration> mutator);  // merge-and-reapply, retried+verified
 ```
 
 Usage, and it appears in the README's *first* elevator example, not an appendix:
 
 ```java
-// Anything PumpkinLib does not model, you do yourself, on the real device.
+// Anything Rootstock does not model, you do yourself, on the real device.
 elevator.io().as(TalonFXMotorIO.class).ifPresent(io -> {
     io.applyRaw(cfg -> cfg.Audio.BeepOnBoot = false);
     io.talonFX().setControl(new MusicTone(440));
@@ -1157,10 +1157,10 @@ elevator.io().as(TalonFXMotorIO.class).ifPresent(io -> {
 ### 3.3 `MotorIO` — the seam, in full
 
 ```java
-package org.pumpkinlib.hardware;
+package org.rootstock.hardware;
 
-import org.pumpkinlib.config.Gains;
-import org.pumpkinlib.config.MotionConstraints;
+import org.rootstock.config.Gains;
+import org.rootstock.config.MotionConstraints;
 import java.util.Optional;
 
 /**
@@ -1216,7 +1216,7 @@ public interface MotorIO {
   /**
    * Same, but with a one-request constraint override -- the runtime constraint-profile path
    * (§6.2 addConstraintProfile). Backends that cannot do this per-request return
-   * capabilities().dynamicProfile() == false and PumpkinLib routes the mechanism to
+   * capabilities().dynamicProfile() == false and Rootstock routes the mechanism to
    * RIO_PROFILE_MOTOR_LOOP instead, LOUDLY, at construction.
    */
   void setPositionGoal(double outputRotations, double outputRotationsPerSecond,
@@ -1256,10 +1256,10 @@ public interface MotorIO {
   void reapplyFullConfigBlocking();
 
   // ---- simulation (D18) ------------------------------------------------
-  /** The sim seam. CORE DECLARES the plant (MechanismGeometry); PumpkinSim OWNS and steps it.
-   *  A backend that can be driven in simulation returns a handle here; PumpkinSim writes the
+  /** The sim seam. CORE DECLARES the plant (MechanismGeometry); RootstockSim OWNS and steps it.
+   *  A backend that can be driven in simulation returns a handle here; RootstockSim writes the
    *  simulated rotor state through it and reads the applied voltage back. Empty means "this
-   *  backend has no simulation", and PumpkinSim says so at boot rather than silently doing
+   *  backend has no simulation", and RootstockSim says so at boot rather than silently doing
    *  nothing -- the NEO-has-no-sim gap in 0000-XXXX-Robot-Template made real.
    *
    *  This method REPLACES revision 3's Mechanism.simulationPeriodic() plus the
@@ -1349,7 +1349,7 @@ public enum VelocityCarrier {
 ### 3.4 `MotorInputs` — hand-written `LoggableInputs`
 
 ```java
-package org.pumpkinlib.hardware;
+package org.rootstock.hardware;
 
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
@@ -1358,7 +1358,7 @@ import org.littletonrobotics.junction.inputs.LoggableInputs;
  * Everything read FROM a motor, once per loop, in OUTPUT-SHAFT units.
  *
  * Implements AdvantageKit's LoggableInputs DIRECTLY (revision 3, maintainer decision 3).
- * Revision 2 implemented a backend-neutral PumpkinInputs and let an AkInputs wrapper adapt
+ * Revision 2 implemented a backend-neutral RootstockInputs and let an AkInputs wrapper adapt
  * it, because ArchUnit rule 1 then banned org.littletonrobotics outside a separate adapter
  * artifact. AdvantageKit is now a required dependency, rule 1 no longer names it, and the
  * wrapper -- plus its per-key instance cache -- is deleted.
@@ -1464,7 +1464,7 @@ Revision 1 shipped, inside the library, byte-for-byte the bug it was written to 
 The fix is structural, not a second `if`:
 
 ```java
-package org.pumpkinlib.hardware.phoenix;
+package org.rootstock.hardware.phoenix;
 
 /**
  * You cannot read a signal you did not subscribe, because the ONLY way to read is to iterate
@@ -1605,16 +1605,16 @@ Not 0.6 %. Payload-only it is still 5.1 %, so even the most charitable reading o
 **Consequence for the default, stated plainly.** A swerve drivetrain on the same `rio` bus routinely runs 60–80 % utilisation on its own. At 4.5 % per mechanism motor, **eight mechanism motors at these defaults can push a loaded bus past saturation** — which manifests as dropped frames and frozen signals, the precise failure this library exists to prevent. Therefore, changed in revision 4:
 
 1. **100 Hz is the default only for `MechanismKind.POSITION`.** `VELOCITY` mechanisms already excluded position (§6.5); they now also default `VELOCITY` to **50 Hz**, because a flywheel's `atGoal` gate is debounced over tens of milliseconds and gains nothing from 100 Hz. `SIMPLE` mechanisms subscribe neither.
-2. **`describe()` prints a true aggregate frame budget**, per bus, summed over every registered mechanism, plus a declared allowance for a drivetrain (`PumpkinRegistry.declareBusAllowance("rio", 0.65)` — the drivetrain domain sets it; the default when nothing declares one is 0, and `describe()` says so rather than assuming).
+2. **`describe()` prints a true aggregate frame budget**, per bus, summed over every registered mechanism, plus a declared allowance for a drivetrain (`RootstockRegistry.declareBusAllowance("rio", 0.65)` — the drivetrain domain sets it; the default when nothing declares one is 0, and `describe()` says so rather than assuming).
 3. **A Tier-2 alert fires when the computed total for a bus exceeds 60 %**, naming every contributor and the per-mechanism `signalRateHz(...)` override that fixes it.
 4. **The 100 Hz figure is provisional and labelled as such.** Open question 14 requires a measurement of 8793's actual bus before it is frozen. The rationale for 100 Hz — a 50 Hz signal sampled by a 50 Hz loop aliases and can add a full 20 ms of latency — is unchanged and is still right; what was wrong was the claim that it was free.
 
-`MotorSpec.talonFX(id, bus).signalRateHz(50.0)` exists for a team that measures a problem, and CAN FD (SystemCore) changes these numbers substantially in our favour — but PumpkinLib must be correct on a 1 Mbps `rio` bus first, because that is what the target teams have.
+`MotorSpec.talonFX(id, bus).signalRateHz(50.0)` exists for a team that measures a problem, and CAN FD (SystemCore) changes these numbers substantially in our favour — but Rootstock must be correct on a 1 Mbps `rio` bus first, because that is what the target teams have.
 
 #### 3.5.2 Fields
 
 ```java
-package org.pumpkinlib.hardware.phoenix;
+package org.rootstock.hardware.phoenix;
 
 public final class TalonFXMotorIO implements MotorIO {
   private final TalonFX   m_leader;
@@ -1693,12 +1693,12 @@ public enum OutputMode {
 * `MotorSpec.talonFX(id, bus).outputMode(OutputMode.TORQUE_CURRENT)` is the separate, explicitly named field. **It raises a `ConfigError`** naming the reason:
 
 ```
-org.pumpkinlib.config.ConfigError: PumpkinLib config error in "Elevator" (PositionConfig)
+org.rootstock.config.ConfigError: Rootstock config error in "Elevator" (PositionConfig)
 
   field    motors.leader.outputMode = TORQUE_CURRENT
   expected VOLTAGE  (the only supported output mode)
 
-  PumpkinLib gains are VOLTS-per-SI (V/m, V/(m/s), V). Torque-current gains are AMPS-per-SI,
+  Rootstock gains are VOLTS-per-SI (V/m, V/(m/s), V). Torque-current gains are AMPS-per-SI,
   which is a different number for every one of kP kI kD kS kV kA kG, and the tuning wizard,
   the LQR feedback designer and the persisted gains.json cannot yet convert between them.
   Shipping TORQUE_CURRENT now would mean your tuned gains are silently wrong by the
@@ -1843,7 +1843,7 @@ private void buildConfig(PositionConfig c, MechanismUnits u) {
 **Two new Tier-1 validation rules fall directly out of step 6 and 7b:**
 
 ```
-org.pumpkinlib.config.ConfigError: PumpkinLib config error in "Arm" (PositionConfig)
+org.rootstock.config.ConfigError: Rootstock config error in "Arm" (PositionConfig)
 
   field    axis.horizontalAt = 95.0 deg  ->  0.2639 output rotations
   expected within +/-0.25 rotations (+/-90 deg) of the mechanism zero
@@ -1853,17 +1853,17 @@ org.pumpkinlib.config.ConfigError: PumpkinLib config error in "Arm" (PositionCon
   over the whole range and the arm would sag on one side and slam on the other.
 
   Fix: re-zero the CANcoder magnet offset so the encoder reads NEAR 0 with the arm level,
-  then set RotaryAxis.arm(Degrees.of(0)). Capture the new offset with `pumpkin zero Arm`.
+  then set RotaryAxis.arm(Degrees.of(0)). Capture the new offset with `rootstock zero Arm`.
   (If your encoder physically cannot be re-zeroed, set ControlLocation.RIO_FULL -- WPILib's
-  ArmFeedforward has no offset limit -- and PumpkinLib will tell you it downgraded.)
+  ArmFeedforward has no offset limit -- and Rootstock will tell you it downgraded.)
 ```
 
 ```
-[PumpkinLib][WARN] Elevator: control.useExpo() is true but gains.kV = 0.00 and gains.kA = 0.00.
+[Rootstock][WARN] Elevator: control.useExpo() is true but gains.kV = 0.00 and gains.kA = 0.00.
   Motion Magic Expo shapes its profile ENTIRELY from measured kV and kA; with them at zero
-  PumpkinLib would hand the device CTRE's factory defaults (0.12 V/rps, 0.1 V/rps^2) and the
+  Rootstock would hand the device CTRE's factory defaults (0.12 V/rps, 0.1 V/rps^2) and the
   profile would have nothing to do with your mechanism.
-  Fix: run the tuning wizard's kV/kA steps (`pumpkin tune Elevator --feedforward`), or switch
+  Fix: run the tuning wizard's kV/kA steps (`rootstock tune Elevator --feedforward`), or switch
   to ControlLocation.ON_MOTOR_PROFILED with trapezoid constraints (useExpo(false)).
 ```
 
@@ -1878,7 +1878,7 @@ m_leader.hasResetOccurred();
 for (TalonFX f : m_followers) f.hasResetOccurred();
 ```
 
-`MotorInputs.deviceResetCount` therefore counts **post-boot** resets only, and that is what its javadoc and the `/Pumpkin/<name>/DeviceResetCount` schema entry say. **[UNVERIFIED]** whether the Phoenix 6 26.x implementation in fact latches the power-on reset into the first call — CTRE's javadoc states the "since the previous call" contract but does not state the boot behaviour explicitly. The constructor call is correct **either way**: if the flag is not set at boot, consuming it is a no-op costing one CAN-free method call per device at construction. `DeviceResetRecoveryTest` (§11 item 8) gains a case asserting `deviceResetCount == 0` after a clean sim boot and one full `periodic()`.
+`MotorInputs.deviceResetCount` therefore counts **post-boot** resets only, and that is what its javadoc and the `/Rootstock/<name>/DeviceResetCount` schema entry say. **[UNVERIFIED]** whether the Phoenix 6 26.x implementation in fact latches the power-on reset into the first call — CTRE's javadoc states the "since the previous call" contract but does not state the boot behaviour explicitly. The constructor call is correct **either way**: if the flag is not set at boot, consuming it is a no-op costing one CAN-free method call per device at construction. `DeviceResetRecoveryTest` (§11 item 8) gains a case asserting `deviceResetCount == 0` after a clean sim boot and one full `periodic()`.
 
 ```java
 @Override public void updateInputs(MotorInputs in) {
@@ -1906,7 +1906,7 @@ for (TalonFX f : m_followers) f.hasResetOccurred();
         .set(true);
     // m_resetAlert is created ONCE in the constructor:
     //   Alerts.warning(m_name, m_name + "/device-reset", MatchImpact.BLOCKS_MATCH)   [D10, D12]
-    // Revision 3 called Pumpkin.alerts().warning(group, text) here -- a deleted facade (D12)
+    // Revision 3 called Rootstock.alerts().warning(group, text) here -- a deleted facade (D12)
     // with a two-argument signature D10 does not allow -- and it ALLOCATED a fresh alert plus
     // four string concatenations INSIDE periodic(), violating principle 9. Both fixed.
   }
@@ -1920,7 +1920,7 @@ for (TalonFX f : m_followers) f.hasResetOccurred();
 }
 ```
 
-The reset path is the **one** place a blocking apply is allowed outside construction: it happens at most a handful of times per match, the alternative is a dropped mechanism, and it is logged as an epoch so a `PumpkinTracer` spike is explained rather than mysterious.
+The reset path is the **one** place a blocking apply is allowed outside construction: it happens at most a handful of times per match, the alternative is a dropped mechanism, and it is logged as an epoch so a `RootstockTracer` spike is explained rather than mysterious.
 
 #### 3.5.6 Writes — latch-preserving, with a heartbeat
 
@@ -1994,8 +1994,8 @@ The reset path is the **one** place a blocking apply is allowed outside construc
                                         //   MatchImpact.BLOCKS_MATCH), built ONCE in the constructor
                                         //   with the full message text below. [D10, D12]
     //   "<name>: internal routing error -- ControlLocation.RIO_FULL reached the on-motor goal
-    //    path. This is a PumpkinLib bug, not your config. The mechanism is now holding position
-    //    and this call is a no-op. Please file it with `pumpkin doctor --bundle`."
+    //    path. This is a Rootstock bug, not your config. The mechanism is now holding position
+    //    and this call is a no-op. Please file it with `rootstock doctor --bundle`."
     setNeutral();
     return;
   }
@@ -2069,7 +2069,7 @@ The reset path is the **one** place a blocking apply is allowed outside construc
 **A `ConfigError` falls straight out of this, and it is worth having.** A mechanism that declares `RotaryAxis.turret(...).fieldLocked(gyro)` **and** `useExpo(true)` gets Motion Magic Expo, whose profile is shaped entirely by `MotionMagicExpo_kV`/`_kA` and which therefore fights a constant velocity offset harder than the trapezoid does. That is legal, it works, and it is worse — so it is a **Tier-2 alert**, not a fatal:
 
 ```
-[PumpkinLib][WARN] Turret: RotaryAxis.fieldLocked(gyro) with control.useExpo() = true.
+[Rootstock][WARN] Turret: RotaryAxis.fieldLocked(gyro) with control.useExpo() = true.
   The chassis-omega counter-rotation term reaches a Motion Magic request as arbitrary
   feedforward volts (kV x omega), because MotionMagicExpoVoltage has no velocity field.
   Expo re-shapes its profile from kV/kA continuously, so a sustained velocity offset is
@@ -2092,7 +2092,7 @@ Note `RIO_PROFILE_MOTOR_LOOP` calls the same method every loop with a *different
 > every array index, every division, every WPILib and vendor call can throw, so the rule would
 > either flag the entire JDK or be silently vacuous. We ship two narrower rules that a build
 > can actually enforce: (1) **no explicit `throw` statement** in any class under
-> `org.pumpkinlib.mechanism..` or `org.pumpkinlib.hardware..` outside constructors, static
+> `org.rootstock.mechanism..` or `org.rootstock.hardware..` outside constructors, static
 > factories, and `Validation`; (2) the `try/catch(Throwable)` in `Mechanism.periodic()` is
 > asserted present by a bytecode test. The invariant that revision 1 threw about is asserted in
 > a unit test (`RioFullNeverReachesOnMotorGoalPathTest`), which is where invariants belong.
@@ -2161,7 +2161,7 @@ REVLib 2026 changed materially from 2025; the user's 9143 repos will need the ne
 The `kG` / `kCos` addition is the most important 2026 REV change for this library: **REVLib now does gravity feedforward on the controller**, `kG` static for elevators and `kCos` multiplied by the cosine of absolute mechanism position for arms — the exact split Phoenix expresses as `Elevator_Static` / `Arm_Cosine`. That means `GravityMode` maps cleanly to *both* vendors with no RIO-side term, which is the reason `Gains` can be a single shared record (§4.3).
 
 ```java
-package org.pumpkinlib.hardware.rev;
+package org.rootstock.hardware.rev;
 
 public final class SparkMotorIO implements MotorIO {
   private final SparkBase m_leader;              // SparkMax or SparkFlex
@@ -2297,7 +2297,7 @@ This is the same unit-error class the library's core pitch is eliminating — th
 * **`MaxMotionUnitsTest` (release-blocking, and it gates the REV adapter's ship).** Build a `SparkMotorIO` in simulation with `positionConversionFactor`/`velocityConversionFactor` set from a known reduction, command a `kMAXMotionPositionControl` move, iterate `SparkSim.iterate(...)`, and assert the observed steady-state profile velocity equals the configured `cruiseVelocity` within 5 %. This mirrors exactly the `SparkSim.iterate` pinning test `design/04` §7.2 mandates and that `DESIGN.md` §5.6 lists as still-open item 3, and it fails loudly if REV's semantics are ever not what the javadoc says.
 * Until that test passes on real REVLib, this whole block is tagged **[UNVERIFIED-BY-EXECUTION]**: the *documentation* is verified, the *behaviour* is not, and that distinction is exactly what revision 3 collapsed.
 
-**Connection health.** Every `*IONeo` in `0000-XXXX-Robot-Template` hardcodes `inputs.connected = true` with the comment "Spark MAX has no cheap connection signal". PumpkinLib does better: `in.connected = !m_leader.hasActiveFault() && m_leader.getFirmwareVersion() != 0` plus a heartbeat check that the warning counter is not stuck. The REVLib 2026 fault-query names are **verified** and recorded as closed in `DESIGN.md` §5.6: `hasActiveFault()`, `hasStickyFault()`, `hasActiveWarning()`, `hasStickyWarning()`, plus `getFaults()`/`getWarnings()` returning `Faults`/`Warnings` objects. (Revision 3 marked these `[UNVERIFIED]`; the integration pass closed them and this document had not caught up.) This is a real behavior gap, not cosmetic — a disconnected Spark currently reports healthy on this robot. What remains **[UNVERIFIED]** is whether REVLib exposes anything equivalent to Phoenix's `hasResetOccurred()`; until it does, the §3.5.5 reset-recovery guarantee is Phoenix-only and `describe()` must say so on every REV mechanism (open question 3).
+**Connection health.** Every `*IONeo` in `0000-XXXX-Robot-Template` hardcodes `inputs.connected = true` with the comment "Spark MAX has no cheap connection signal". Rootstock does better: `in.connected = !m_leader.hasActiveFault() && m_leader.getFirmwareVersion() != 0` plus a heartbeat check that the warning counter is not stuck. The REVLib 2026 fault-query names are **verified** and recorded as closed in `DESIGN.md` §5.6: `hasActiveFault()`, `hasStickyFault()`, `hasActiveWarning()`, `hasStickyWarning()`, plus `getFaults()`/`getWarnings()` returning `Faults`/`Warnings` objects. (Revision 3 marked these `[UNVERIFIED]`; the integration pass closed them and this document had not caught up.) This is a real behavior gap, not cosmetic — a disconnected Spark currently reports healthy on this robot. What remains **[UNVERIFIED]** is whether REVLib exposes anything equivalent to Phoenix's `hasResetOccurred()`; until it does, the §3.5.5 reset-recovery guarantee is Phoenix-only and `describe()` must say so on every REV mechanism (open question 3).
 
 **Simulation parity.** The NEO path in `0000-XXXX-Robot-Template` has *no simulation at all*, so "switch one constant to NEO" ships untested code. `SparkMotorIO` implements sim via `SparkMaxSim`/`SparkFlexSim` with `SparkSim.iterate(velocity, vbus, dt)` driven by the same physics plant the Phoenix backend uses. Vendor parity in sim is a release requirement, not a nice-to-have.
 
@@ -2321,7 +2321,7 @@ Revision 1 made `applyVerified` *"the only way CORE configures hardware"* and th
 **The config path splits in two, permanently.**
 
 ```java
-package org.pumpkinlib.hardware.phoenix;
+package org.rootstock.hardware.phoenix;
 
 public final class PhoenixUtil {
   private static final int ATTEMPTS = 5;
@@ -2334,7 +2334,7 @@ public final class PhoenixUtil {
    * LEGAL CALLERS, exhaustively:
    *   1. a MotorIO constructor,
    *   2. MotorIO.reapplyFullConfigBlocking(),
-   *   3. PumpkinRegistry.onDisable(),
+   *   3. RootstockRegistry.onDisable(),
    *   4. SelfTest,
    *   5. MotorIO.applyRaw(),
    *   6. the hasResetOccurred() recovery path in §3.5.5,
@@ -2394,11 +2394,11 @@ Homing gets the same exemption the reset-recovery path already has (§3.5.5), fo
 
 * It happens **at most once per enable**, and in practice once per boot — not on a periodic cadence.
 * The alternative is unverified, and an unverified restore is a silently disarmed safety system.
-* The blocking cost lands where the robot is *already* moving slowly under a 3.0 V clamp into a hard stop, so a 50–250 ms stall in the loop degrades nothing that is not already degraded. It is logged as a `PumpkinTracer` epoch (`Mechanism/HomingConfig`, budget 300 ms) so the spike is explained rather than mysterious.
+* The blocking cost lands where the robot is *already* moving slowly under a 3.0 V clamp into a hard stop, so a 50–250 ms stall in the loop degrades nothing that is not already degraded. It is logged as a `RootstockTracer` epoch (`Mechanism/HomingConfig`, budget 300 ms) so the spike is explained rather than mysterious.
 * **The restore is checked.** `applyVerified` now returns a boolean; homing's completion step *must* see `true`. If it does not, the mechanism goes **neutral immediately**, `isHomed()` stays **false**, and `<name>/homing-limits-unrestored` (`MatchImpact.BLOCKS_MATCH`) latches with the exact text below. A mechanism whose soft limits could not be confirmed does not get to keep moving.
 
 ```
-[PumpkinLib][ERROR] Elevator: homing finished but the SOFT LIMIT RESTORE could not be verified
+[Rootstock][ERROR] Elevator: homing finished but the SOFT LIMIT RESTORE could not be verified
   after 5 attempts (TalonFX 20 on bus "rio").
   Device soft limits may still be DISABLED. The mechanism is neutral and isHomed() is false, so
   goTo() and every Superstructure transition that requires this axis will refuse.
@@ -2414,17 +2414,17 @@ Enforced, not just documented:
 
 ```java
 // ArchUnit, release-blocking.
-noClasses().that().resideInAnyPackage("org.pumpkinlib.mechanism..", "org.pumpkinlib.superstructure..")
+noClasses().that().resideInAnyPackage("org.rootstock.mechanism..", "org.rootstock.superstructure..")
            .should().callMethod(PhoenixUtil.class, "applyVerified", ParentDevice.class,
                                 Object.class, String.class);
 
 // And a budget, so a regression is visible instead of inferred from loop overruns:
-PumpkinTracer.budget("Mechanism/ApplyGains",    Milliseconds.of(1.0));
-PumpkinTracer.budget("Mechanism/Periodic",      Milliseconds.of(2.0));
-PumpkinTracer.budget("Mechanism/HomingConfig",  Milliseconds.of(300.0));  // rev 4, §6.3
+RootstockTracer.budget("Mechanism/ApplyGains",    Milliseconds.of(1.0));
+RootstockTracer.budget("Mechanism/Periodic",      Milliseconds.of(2.0));
+RootstockTracer.budget("Mechanism/HomingConfig",  Milliseconds.of(300.0));  // rev 4, §6.3
 ```
 
-The ArchUnit rule above bans `applyVerified` from `org.pumpkinlib.mechanism..` wholesale, and homing lives there — so the rule is narrowed to match the corrected legal-caller list: **`HomingStrategy` implementations and `PositionMechanism`'s homing sub-state machine are the named exception**, and the rule is written as a class-name allowlist rather than a package ban so that adding a second exception requires editing the rule.
+The ArchUnit rule above bans `applyVerified` from `org.rootstock.mechanism..` wholesale, and homing lives there — so the rule is narrowed to match the corrected legal-caller list: **`HomingStrategy` implementations and `PositionMechanism`'s homing sub-state machine are the named exception**, and the rule is written as a class-name allowlist rather than a package ban so that adding a second exception requires editing the rule.
 
 ### 3.10 Encoders
 
@@ -2432,7 +2432,7 @@ The ArchUnit rule above bans `applyVerified` from `org.pumpkinlib.mechanism..` w
 **What is passed through:** everything else.
 
 ```java
-package org.pumpkinlib.hardware;
+package org.rootstock.hardware;
 
 public interface AbsoluteEncoderIO {
   void updateInputs(AbsoluteEncoderInputs inputs);
@@ -2476,7 +2476,7 @@ public sealed interface FeedbackSpec {
 }
 ```
 
-**The guarded re-seed.** `9143-2025-A-Updated/src/main/java/frc/robot/subsystems/CorAl.java:286-344` contains a genuinely hard-won rule that PumpkinLib owns so nobody rediscovers it:
+**The guarded re-seed.** `9143-2025-A-Updated/src/main/java/frc/robot/subsystems/CorAl.java:286-344` contains a genuinely hard-won rule that Rootstock owns so nobody rediscovers it:
 
 > Seed the motor's internal sensor from the absolute encoder at boot, and again immediately before starting a move — but **never** during a move, because shifting the reference frame mid-motion makes the mechanism land off target. Re-sync from `periodic()` only when neither closed-loop nor manual control is active. Use `setPosition(value, 0.0)`; the default overload blocks the main loop up to 100 ms.
 
@@ -2495,7 +2495,7 @@ public sealed interface FeedbackSpec {
 > self-contradictory, because 65.411 is the value the very next block prescribes as the fix.
 
 ```
-[PumpkinLib][ERROR] Arm: absolute encoder and motor sensor disagree by 14.2 deg
+[Rootstock][ERROR] Arm: absolute encoder and motor sensor disagree by 14.2 deg
   (absolute 41.3 deg, motor 27.1 deg, tolerance 2.0 deg).
   Likely causes: wrong FusedCancoder.rotorPerSensor (currently 34.126), a slipped belt,   [INTENTIONAL-34.126]
   or a magnet offset that was captured at a different mechanical position.
@@ -2509,7 +2509,7 @@ public sealed interface FeedbackSpec {
 > against. Both numbers are load-bearing and neither may be swept.
 
 ```
-org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib config error in "Arm" (PositionConfig)
+org.rootstock.config.ConfigError [FATAL]: Rootstock config error in "Arm" (PositionConfig)
   (example output; the field values are the intentionally wrong ones)   [INTENTIONAL-34.126]
 
   field    feedback.rotorPerSensor  = 34.126
@@ -2589,7 +2589,7 @@ Specs and backends:
 | `SensorSpec.candi(id, bus, S1/S2)` | `CandiIO` | Phoenix CANdi digital inputs. **[UNVERIFIED]** exact signal getter names. |
 | `SensorSpec.sim(BooleanSupplier)` | `SimDigitalSensorIO` | Driven by the mechanism's simulated position by default. |
 
-**Hard limits vs soft limits.** A hard limit wired *into the motor controller* is configured through `HardwareLimitSwitch` and stops the motor in firmware — always preferred, and PumpkinLib enables it whenever `SensorSpec.motorLimit` is used. A hard limit on the RIO's DIO cannot stop the motor in firmware; PumpkinLib zeroes the output in the same loop and raises a warning at config time explaining the latency difference. Soft limits are configured on the device (§3.5.4 step 5) **and** re-clamped in Java before every goal, so a soft limit is enforced even when the device config failed to apply.
+**Hard limits vs soft limits.** A hard limit wired *into the motor controller* is configured through `HardwareLimitSwitch` and stops the motor in firmware — always preferred, and Rootstock enables it whenever `SensorSpec.motorLimit` is used. A hard limit on the RIO's DIO cannot stop the motor in firmware; Rootstock zeroes the output in the same loop and raises a warning at config time explaining the latency difference. Soft limits are configured on the device (§3.5.4 step 5) **and** re-clamped in Java before every goal, so a soft limit is enforced even when the device config failed to apply.
 
 ---
 
@@ -2623,7 +2623,7 @@ Revision 1 drew three layers and then leaked a fourth — SI — into `Gains` wi
 
 | Quantity | Type | Units | Where |
 |---|---|---|---|
-| `Gains.kP` | `double` | **V/m** (linear) or **V/rad** (rotary) | `org.pumpkinlib.config.Gains`, D1 |
+| `Gains.kP` | `double` | **V/m** (linear) or **V/rad** (rotary) | `org.rootstock.config.Gains`, D1 |
 | `Gains.kV` | `double` | **V/(m/s)** or **V/(rad/s)** | same |
 | `Gains.kS`, `Gains.kG` | `double` | **V** | same |
 | `MotionConstraints.maxVelocity` | `double` | **user**/s (m/s or **deg**/s) | `MotionConstraints` |
@@ -2638,7 +2638,7 @@ Gains are SI and constraints are user units **on purpose**: gains are machine nu
 ### 4.2 `Reduction`
 
 ```java
-package org.pumpkinlib.pure.units;        // D7 / DESIGN.md §7. HAL-free, zero edu.wpi.first imports.
+package org.rootstock.pure.units;        // D7 / DESIGN.md §7. HAL-free, zero edu.wpi.first imports.
 
 /**
  * A gearbox. Always POSITIVE. Direction is expressed by MotorGroup.leaderInverted(),
@@ -2727,7 +2727,7 @@ This is one of the literal-sweep checks that becomes a CI job at M24 and is run 
 ### 4.3 `Axis` — geometry, SI domain, and where gravity comes from
 
 ```java
-package org.pumpkinlib.units;
+package org.rootstock.units;
 
 /** Converts OUTPUT ROTATIONS to the units a human wants, declares the SI domain, and
  *  declares the gravity model. */
@@ -2881,12 +2881,12 @@ public enum GravityMode {
 ### 4.4 `MechanismUnits` — the object every layer shares
 
 ```java
-package org.pumpkinlib.units;
+package org.rootstock.units;
 
 /**
  * Built ONCE from (Reduction, Axis). Handed to the MotorIO, the physics sim, the soft-limit
  * derivation, the telemetry namespace, and the tuning UI. There is no other converter
- * in PumpkinLib, and mechanism code never performs a unit conversion by hand.
+ * in Rootstock, and mechanism code never performs a unit conversion by hand.
  */
 public final class MechanismUnits {
   public MechanismUnits(Reduction reduction, Axis axis);
@@ -2953,7 +2953,7 @@ Elevator geometry
                       kinematic radius = 5.5000 / 2pi  = 0.87535 in = 0.0222339 m
                       (geometric pitch dia = 0.250 / sin(pi/22) = 1.75669 in, so the pitch
                        circumference is 5.51893 in -- 0.34% larger. Chordal action: the chain
-                       rides a polygon. PumpkinLib uses the CHAIN ADVANCE.)
+                       rides a polygon. Rootstock uses the CHAIN ADVANCE.)
   rigging             2 stages (cascade) -> the carriage moves 2x the drum surface
   travel per drum rot 0.279400 m  (11.0000 in)  = 2 x 22 x 0.250 in
   effective radius    0.0444679 m  (kinematic radius x 2 stages) -- this is what ElevatorSim
@@ -3000,7 +3000,7 @@ Rejected alternatives, with reasons:
 | Subclass + void `config*()` setters (Spectrum 3847) | Composes with inheritance, but a config becomes a class rather than a value, so `with*()` variation and struct logging are unavailable, and validation has no natural home. |
 | Annotated constants / our own annotation processor | A vendordep cannot install an annotation processor into a consumer build. Also adds exactly the "magic" the community punishes. |
 
-**The negative-space rule we do keep from 254:** do not re-model every vendor knob. PumpkinLib's config models only what is (a) physical, (b) shared across vendors, or (c) required to derive a vendor knob. Everything else is reached through `applyRaw()`. `ControlConfig` has ~11 fields, not 40.
+**The negative-space rule we do keep from 254:** do not re-model every vendor knob. Rootstock's config models only what is (a) physical, (b) shared across vendors, or (c) required to derive a vendor knob. Everything else is reached through `applyRaw()`. `ControlConfig` has ~11 fields, not 40.
 
 ### 5.2 The structure mirrors the physical machine
 
@@ -3023,8 +3023,8 @@ One nesting level per real component, named after the real component. Nothing is
 ### 5.3 The records
 
 ```java
-package org.pumpkinlib.control;    // D1: ONE Gains, and it lives in .control, not .config.
-                                   // Everything else in this block is org.pumpkinlib.config.
+package org.rootstock.control;    // D1: ONE Gains, and it lives in .control, not .config.
+                                   // Everything else in this block is org.rootstock.config.
 
 /** Gains, in VOLTS-PER-SI (D1):
  *    kP  V/m   or V/rad          kD  V/(m/s)   or V/(rad/s)
@@ -3049,7 +3049,7 @@ public record Gains(double kP, double kI, double kD,
   /** Two readable literals instead of seven ternaries. Replaces the ~50 lines per mechanism
    *  at reefscape2025/util/Constants.java:590-606, :651-667, :741-779. */
   public static Gains realOrSim(Gains real, Gains sim) {
-    return Platform.isReal() ? real : sim;    // org.pumpkinlib.core.compat, NOT RobotBase
+    return Platform.isReal() ? real : sim;    // org.rootstock.core.compat, NOT RobotBase
   }
 
   /** Sentinel for tier-3 placeholder detection (§5.6). */
@@ -3114,7 +3114,7 @@ public record SimConfig(Mass carriageMass,               // LinearAxis: moving m
  *
  * A Setpoint carries the mechanism it belongs to and whether it RESOLVED. An unresolved
  * Setpoint is what `config.setpoint("L4 ")` returns for a typo: it never throws (a throw from
- * a static initializer is a dead robot, §5.6), it carries the error, and PumpkinRegistry
+ * a static initializer is a dead robot, §5.6), it carries the error, and RootstockRegistry
  * surfaces it before anyone presses a button.
  */
 public record Setpoint(String mechanism, String name, Measure<?> value, boolean resolved) {
@@ -3161,7 +3161,7 @@ public record PositionConfig(String name, MotorGroup motors, Reduction reduction
   public PositionConfig withSetpoint(String name, Measure<?> value);
 
   /** Typed setpoint handle. Never throws; an unknown name yields Setpoint.unresolved(...)
-   *  AND appends a ConfigError to this config's error list (surfaced by PumpkinRegistry). */
+   *  AND appends a ConfigError to this config's error list (surfaced by RootstockRegistry). */
   public Setpoint setpoint(String name);
   public Optional<Setpoint> findSetpoint(String name);
 
@@ -3202,10 +3202,10 @@ Two-Kraken cascade elevator, rotor-only feedback with current-spike homing, 12:1
 package frc.robot;
 
 import static edu.wpi.first.units.Units.*;
-import org.pumpkinlib.config.*;
-import org.pumpkinlib.units.*;
-import org.pumpkinlib.hardware.ControlLocation;
-import org.pumpkinlib.mechanism.HomingStrategy;
+import org.rootstock.config.*;
+import org.rootstock.units.*;
+import org.rootstock.hardware.ControlLocation;
+import org.rootstock.mechanism.HomingStrategy;
 
 public final class RobotConfig {
 
@@ -3271,7 +3271,7 @@ public final class RobotConfig {
 |---|---|---|
 | chain advance / drum rot | `22 teeth × 0.250 in` (one link per tooth) | 5.5000 in |
 | kinematic drum radius | `5.5000 in ÷ 2π` | 0.87535 in = 0.0222339 m |
-| *(geometric pitch dia, for reference)* | `0.25 in ÷ sin(π/22)` | 1.75669 in — its circumference, 5.51893 in, is **0.34 % larger** than the chain advance; PumpkinLib uses the advance |
+| *(geometric pitch dia, for reference)* | `0.25 in ÷ sin(π/22)` | 1.75669 in — its circumference, 5.51893 in, is **0.34 % larger** than the chain advance; Rootstock uses the advance |
 | travel / drum rot | `5.5000 in × 2 stages` | **0.279400 m** (11.0000 in) |
 | effective radius (incl. cascade) | `0.0222339 m × 2 stages` = `0.279400 ÷ 2π` | **0.0444679 m** |
 | free speed | `5800 rpm ÷ 60 ÷ 12 × 0.279400` | **2.251 m/s** |
@@ -3341,7 +3341,7 @@ public static final PositionConfig ARM = PositionConfig.rotary("Arm")
     // Slot0Configs.GravityArmPositionOffset to (-0.25, 0.25) rot with no error (§3.5.4).
     .axis(RotaryAxis.arm(/* the arm is horizontal at */ Degrees.of(0.0)))
     // The CANcoder is ON THE JOINT (sensorPerOutput = 1.0) and sees the rotor through
-    // the full 65.411:1. Phoenix fuses on-device, so PumpkinLib does NOT re-seed in Java.
+    // the full 65.411:1. Phoenix fuses on-device, so Rootstock does NOT re-seed in Java.
     // D2b: rotorPerSensor x sensorPerOutput MUST equal reduction.rotorPerOutput(); Validation
     // makes a mismatch a FATAL ConfigError (§3.10). 65.411 x 1.0 == 65.411. ✔
     .feedback(new FeedbackSpec.FusedCancoder(
@@ -3442,18 +3442,18 @@ The pipeline is now:
 
 ```
 compact constructor    -> pure, local, non-throwing; STORES List<ConfigError>
-PumpkinRegistry.addAll -> collects errors from every config,
+RootstockRegistry.addAll -> collects errors from every config,
                           runs the CROSS-config checks (CAN IDs, setpoint names, bus budget),
                           prints ALL of them at once,
                           and if any are present enters SAFE_MODE
-PumpkinLifecycle       -> init() COMPLETES either way; the robot BOOTS
-   (reached via PumpkinRobot, or wired by hand from the team's own LoggedRobot -- §1.1a.
-    D29 renamed this method from robotInit(); D13a deleted PumpkinRobot's override of the
+RootstockLifecycle       -> init() COMPLETES either way; the robot BOOTS
+   (reached via RootstockRobot, or wired by hand from the team's own LoggedRobot -- §1.1a.
+    D29 renamed this method from robotInit(); D13a deleted RootstockRobot's override of the
     WPILib hook of that name. Neither rename changes the property this diagram states.)
 ```
 
 ```java
-package org.pumpkinlib.config;
+package org.rootstock.config;
 
 /** A VALUE, not an exception. Carries everything the message needs. */
 public record ConfigError(Severity severity, String owner, String field, String value,
@@ -3463,9 +3463,9 @@ public record ConfigError(Severity severity, String owner, String field, String 
 ```
 
 ```java
-package org.pumpkinlib.mechanism;
+package org.rootstock.mechanism;
 
-public final class PumpkinRegistry {
+public final class RootstockRegistry {
   public void addAll(Object... registrables) {
     List<ConfigError> all = new ArrayList<>();
     for (Object o : registrables) all.addAll(configErrorsOf(o));         // per-config, local
@@ -3477,13 +3477,13 @@ public final class PumpkinRegistry {
     // CRITICAL tier: a FATAL config list has to survive an FMS-attached log, which is exactly
     // where a student will be reading it from. `design/04` §2.3 shape: critical(String, String[]).
     //
-    // String[], NOT a struct array. Revision 4 wrote `PumpkinLog.put(..., toStructArray(all))`,
+    // String[], NOT a struct array. Revision 4 wrote `RootstockLog.put(..., toStructArray(all))`,
     // which was wrong twice over: put(...) does not exist in `design/04` §2.3 (the owning
     // surface), and ConfigError's six fields are all Strings, so it CANNOT be StructSerializable
     // -- a WPILib struct is fixed-size by definition and there is no legal Struct<ConfigError>.
     // `Validation.toStrings` renders the same list `printAll` writes to the console, one entry
     // per error, so the NT topic and the riolog say the identical thing.
-    PumpkinLog.critical("/Pumpkin/Config/Errors", Validation.toStrings(all));
+    RootstockLog.critical("/Rootstock/Config/Errors", Validation.toStrings(all));
 
     if (all.stream().anyMatch(e -> e.severity() == FATAL)) enterSafeMode(all);
   }
@@ -3492,12 +3492,12 @@ public final class PumpkinRegistry {
 
 **SAFE_MODE, in full.** When a FATAL config error exists:
 
-* `PumpkinLifecycle.init()` **completes**, whether it was reached through `PumpkinRobot`, called explicitly at the end of the team's constructor, or run lazily by the first `beforeUserPeriodic()` (§1.1a; D29 named this method `robotInit()` through revision 5). The robot boots, connects to the driver station, and appears on the dashboard.
+* `RootstockLifecycle.init()` **completes**, whether it was reached through `RootstockRobot`, called explicitly at the end of the team's constructor, or run lazily by the first `beforeUserPeriodic()` (§1.1a; D29 named this method `robotInit()` through revision 5). The robot boots, connects to the driver station, and appears on the dashboard.
 * The `CommandScheduler` runs. Telemetry runs. Alerts publish. `describe()` still works.
 * **Every mechanism is forced to `MechanismMode.NEUTRAL` and refuses every command.** `goTo`, `manual`, `home`, `setVoltage` return `Commands.none()` with a named alert. Nothing moves.
-* `/Pumpkin/Driver/SafeMode` is `true`, and `/Pumpkin/Driver/SafeModeErrors` carries the full structured list.
+* `/Rootstock/Driver/SafeMode` is `true`, and `/Rootstock/Driver/SafeModeErrors` carries the full structured list.
 * A persistent `Alert.kError` names the count and the first error verbatim, so the driver station shows a sentence rather than an exception.
-* `pumpkin doctor` prints the whole list with fixes.
+* `rootstock doctor` prints the whole list with fixes.
 
 > A misconfigured robot boots, connects, and tells you what is wrong — instead of showing red
 > "Robot Code" with nothing. That is the difference between a five-minute fix in the pits and a
@@ -3506,7 +3506,7 @@ public final class PumpkinRegistry {
 **Tier 1 — structurally impossible: FATAL, collected, robot boots into SAFE_MODE.**
 
 ```
-org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib config error in "Elevator" (PositionConfig)
+org.rootstock.config.ConfigError [FATAL]: Rootstock config error in "Elevator" (PositionConfig)
 
   field    reduction
   value    0.0 (rotor rotations per output rotation)
@@ -3520,13 +3520,13 @@ org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib config error in "Elevator"
 ```
 
 ```
-org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib config error in "Arm" (PositionConfig)
+org.rootstock.config.ConfigError [FATAL]: Rootstock config error in "Arm" (PositionConfig)
 
   field    limits.min = 95.0 deg
   field    limits.max = 10.0 deg
   expected limits.min < limits.max
 
-  These look swapped. PumpkinLib will not order them for you, because on a mechanism with
+  These look swapped. Rootstock will not order them for you, because on a mechanism with
   an inverted motor "min" and "max" are a real physical claim about which way is positive.
   Check describe() -- it prints which direction is positive -- then fix the call.
 
@@ -3534,7 +3534,7 @@ org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib config error in "Arm" (Pos
 ```
 
 ```
-org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib config error in "Arm" (PositionConfig)
+org.rootstock.config.ConfigError [FATAL]: Rootstock config error in "Arm" (PositionConfig)
 
   field    control.gravity = COSINE
   field    axis.horizontalAt = <not set>
@@ -3545,7 +3545,7 @@ org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib config error in "Arm" (Pos
 ```
 
 ```
-org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib config error in "Arm" (PositionConfig)
+org.rootstock.config.ConfigError [FATAL]: Rootstock config error in "Arm" (PositionConfig)
 
   field    axis.horizontalAt = 95.0 deg  ->  0.2639 output rotations
   expected within +/-0.25 rotations (+/-90 deg) of the mechanism zero
@@ -3555,13 +3555,13 @@ org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib config error in "Arm" (Pos
   over the whole range: the arm sags on one side and slams on the other.
 
   Fix: re-zero the CANcoder magnet offset so the encoder reads NEAR 0 with the arm level
-  (`pumpkin zero Arm` captures it for you), then RotaryAxis.arm(Degrees.of(0)).
+  (`rootstock zero Arm` captures it for you), then RotaryAxis.arm(Degrees.of(0)).
   Alternative: ControlLocation.RIO_FULL -- WPILib's ArmFeedforward has no offset limit --
-  and PumpkinLib will tell you it downgraded.
+  and Rootstock will tell you it downgraded.
 ```
 
 ```
-org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib config error in "Wrist" (PositionConfig)
+org.rootstock.config.ConfigError [FATAL]: Rootstock config error in "Wrist" (PositionConfig)
 
   field    motors.leader.canId = 64
   expected 1..62 for a Phoenix 6 device
@@ -3573,12 +3573,12 @@ org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib config error in "Wrist" (P
 ```
 
 ```
-org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib config error in "Elevator" (PositionConfig)
+org.rootstock.config.ConfigError [FATAL]: Rootstock config error in "Elevator" (PositionConfig)
 
   field    motors.leader.outputMode = TORQUE_CURRENT
   expected VOLTAGE  (the only supported output mode)
 
-  PumpkinLib gains are VOLTS-per-SI. Torque-current gains are AMPS-per-SI and the tuning
+  Rootstock gains are VOLTS-per-SI. Torque-current gains are AMPS-per-SI and the tuning
   wizard cannot yet convert them.  If you wanted FOC's extra torque, that is the separate
   and already-enabled switch:  MotorSpec.talonFX(20, "rio").foc(true)
 ```
@@ -3587,10 +3587,10 @@ org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib config error in "Elevator"
 
 Revision 1 put the CAN-ID conflict check inside the compact constructor via a `CanIdRegistry` side effect. But **every `with*()` copy re-runs that constructor**, so the per-robot overlay pattern in `design/06 §7.3` — the design's own answer to the 9143 A/B sibling-robot problem — would register CAN ID 22 twice and throw a false "CAN ID conflict" on a *correct* config.
 
-All global state is therefore removed from record constructors. The duplicate-ID scan runs once, in `PumpkinRegistry.addAll(...)`, over the **final resolved** config set:
+All global state is therefore removed from record constructors. The duplicate-ID scan runs once, in `RootstockRegistry.addAll(...)`, over the **final resolved** config set:
 
 ```
-org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib CAN ID conflict
+org.rootstock.config.ConfigError [FATAL]: Rootstock CAN ID conflict
 
   device id 22 on bus "rio" is claimed by BOTH:
     - "Arm" leader        (TalonFX)   declared at RobotConfig.java:76
@@ -3602,12 +3602,12 @@ org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib CAN ID conflict
 
 Release-blocking test: `WithCopyDoesNotDoubleRegisterTest` asserts that
 `ELEVATOR.withGains(g).withReduction(r).withMotors(m)` produces zero errors and that
-`PumpkinRegistry.addAll(that)` reports no conflict.
+`RootstockRegistry.addAll(that)` reports no conflict.
 
 **Tier 2 — physically implausible: a persistent `Alert`, plus a log entry. Never fatal.** The robot still runs; the team can drive.
 
 ```
-[PumpkinLib][WARN] Elevator: constraints.maxVelocity = 4.00 m/s, but the free-speed estimate
+[Rootstock][WARN] Elevator: constraints.maxVelocity = 4.00 m/s, but the free-speed estimate
   is 2.251 m/s. Computed from 2 x Kraken X60 (5800 rpm free with FOC) through 12.000:1 into a
   22-tooth #25 sprocket (5.500 in of chain per drum rotation) with 2 cascade stages
   (0.279400 m of carriage travel per drum rotation). Motion Magic will never reach this cruise
@@ -3616,33 +3616,33 @@ Release-blocking test: `WithCopyDoesNotDoubleRegisterTest` asserts that
 ```
 
 ```
-[PumpkinLib][WARN] Arm: control.gains.kG = 0.00 V with GravityMode.COSINE. The arm will sag.
+[Rootstock][WARN] Arm: control.gains.kG = 0.00 V with GravityMode.COSINE. The arm will sag.
   Procedure: disable, hold the arm horizontal, enable, raise kG until the arm just holds
   station with kP = 0. Live-tunable at /Tuning/Arm/kG. Expected magnitude for a 9.5 lb arm
   at 21 in through 65.411:1 is about 0.29 V.
 ```
 
 ```
-[PumpkinLib][WARN] Elevator: control.tolerance = 0.500 in is SMALLER than one loop step at
+[Rootstock][WARN] Elevator: control.tolerance = 0.500 in is SMALLER than one loop step at
   cruise -- at 1.60 m/s the carriage moves 0.0320 m (1.260 in) per 20 ms, 2.5 tolerance bands
   per loop. The mechanism can never be OBSERVED inside the tolerance band while it is still
   moving fast, so atGoal() only latches after the profile decelerates. That is correct, and
-  PumpkinLib's velocity gate (|v| <= 0.050 m/s) enforces it -- this warning exists so
+  Rootstock's velocity gate (|v| <= 0.050 m/s) enforces it -- this warning exists so
   "atGoal took longer than I expected" is already explained.
   If you want an earlier release, use atSetpoint() or a Superstructure earlyRelease
   predicate. Do NOT widen the tolerance.
 ```
 
 ```
-[PumpkinLib][WARN] Elevator: control.useExpo() is true but gains.kV = 0.00 and gains.kA = 0.00.
+[Rootstock][WARN] Elevator: control.useExpo() is true but gains.kV = 0.00 and gains.kA = 0.00.
   Motion Magic Expo shapes its profile ENTIRELY from measured kV and kA; with them at zero
-  PumpkinLib would hand the device CTRE's factory defaults (0.12 V/rps, 0.1 V/rps^2).
-  Fix: run `pumpkin tune Elevator --feedforward`, or set .useExpo(false) and use trapezoid
+  Rootstock would hand the device CTRE's factory defaults (0.12 V/rps, 0.1 V/rps^2).
+  Fix: run `rootstock tune Elevator --feedforward`, or set .useExpo(false) and use trapezoid
   constraints.
 ```
 
 ```
-[PumpkinLib][WARN] Wrist: HomingStrategy.assumeAtBoot(Degrees.of(90)) assumes the mechanism
+[Rootstock][WARN] Wrist: HomingStrategy.assumeAtBoot(Degrees.of(90)) assumes the mechanism
   is resting on a known hard stop every time the robot powers on. There is no sensor
   confirming this. If the wrist can be moved by hand while disabled, position will be wrong
   and cosine gravity compensation will push the wrong way.
@@ -3650,12 +3650,12 @@ Release-blocking test: `WithCopyDoesNotDoubleRegisterTest` asserts that
   switch (HomingStrategy.limitSwitch(...)).
 ```
 
-That last one directly addresses the boot-seeding assumption baked into six IOs in `0000-XXXX-Robot-Template` (`ArmIOTalonFX.java:76`, `WristIOTalonFX:66`, `IntakeIOTalonFX:48`, `TurretIOTalonFX:62`, `ClimberIOTalonFX:60`, `ElevatorIOTalonFX:83-84`) — the template documents the assumption in a comment; PumpkinLib says it out loud, every boot, on the driver station.
+That last one directly addresses the boot-seeding assumption baked into six IOs in `0000-XXXX-Robot-Template` (`ArmIOTalonFX.java:76`, `WristIOTalonFX:66`, `IntakeIOTalonFX:48`, `TurretIOTalonFX:62`, `ClimberIOTalonFX:60`, `ElevatorIOTalonFX:83-84`) — the template documents the assumption in a comment; Rootstock says it out loud, every boot, on the driver station.
 
-**Tier 3 — placeholder detection.** Any config field left at a PumpkinLib sentinel (`Gains.UNTUNED`, `Reduction.UNMEASURED`) produces a boot-time checklist, reproducing the `ADD`/`VERIFY`/`TUNE` convention of `0000-XXXX-Robot-Template/Constants.java` as machine-checkable state instead of a comment:
+**Tier 3 — placeholder detection.** Any config field left at a Rootstock sentinel (`Gains.UNTUNED`, `Reduction.UNMEASURED`) produces a boot-time checklist, reproducing the `ADD`/`VERIFY`/`TUNE` convention of `0000-XXXX-Robot-Template/Constants.java` as machine-checkable state instead of a comment:
 
 ```
-[PumpkinLib] First-setup checklist -- 3 values still at placeholders:
+[Rootstock] First-setup checklist -- 3 values still at placeholders:
   VERIFY  Elevator.reduction         Reduction.UNMEASURED   (count the gear teeth)
   TUNE    Arm.control.gains.kG       0.0 V                  (/Tuning/Arm/kG)
   ADD     Turret.feedback            RotorOnly              (no absolute reference)
@@ -3684,14 +3684,14 @@ public record MechanismConfigSnapshot(
     String feedbackKind, String homingKind, String subscribedSignals,
     double simMassOrMoi, double simStartPosition,
     int configErrorCount, boolean safeMode,
-    String pumpkinLibVersion, String wpilibVersion, String vendorLibVersion
+    String rootstockVersion, String wpilibVersion, String vendorLibVersion
 ) implements StructSerializable {
   public static final Struct<MechanismConfigSnapshot> struct =
       StructGenerator.genRecord(MechanismConfigSnapshot.class);
 }
 ```
 
-Published to `/Pumpkin/Config/<name>` and to the WPILOG. This makes "is it a bug in the library? a regression between versions?" answerable from a log file alone — the exact question `web-smallteam.json` names as the debuggability acceptance test. `subscribedSignals` in particular makes a `NaN` field self-explaining from the log.
+Published to `/Rootstock/Config/<name>` and to the WPILOG. This makes "is it a bug in the library? a regression between versions?" answerable from a log file alone — the exact question `web-smallteam.json` names as the debuggability acceptance test. `subscribedSignals` in particular makes a `NaN` field self-explaining from the log.
 
 ---
 
@@ -3701,14 +3701,14 @@ Published to `/Pumpkin/Config/<name>` and to the WPILOG. This makes "is it a bug
 ### 6.1 `Mechanism` — the base
 
 ```java
-package org.pumpkinlib.mechanism;
+package org.rootstock.mechanism;
 
 import edu.wpi.first.wpilibj2.command.Subsystem;   // 2027: org.wpilib.commands2.Subsystem
-import org.pumpkinlib.telemetry.PumpkinLog;
-import org.pumpkinlib.tuning.TunableGains;
+import org.rootstock.telemetry.RootstockLog;
+import org.rootstock.tuning.TunableGains;
 
 /**
- * Base for every PumpkinLib mechanism.
+ * Base for every Rootstock mechanism.
  *
  * It `implements Subsystem` (the INTERFACE), not SubsystemBase (the class). That is
  * deliberate and it is what lets one library serve both house styles found in the user's repos:
@@ -3731,14 +3731,14 @@ public abstract class Mechanism implements Subsystem, TelemetrySource {
   protected final MotorIO         m_io;
   protected final MotorInputs     m_inputs = new MotorInputs();
   /** D9 (revision 5): there is no TelemetrySink field, and there is no TelemetrySink TYPE
-   *  anywhere in PumpkinLib -- the telemetry-side one was struck along with
-   *  TelemetrySource.sample(). CORE writes through the PumpkinLog statics from periodic()
+   *  anywhere in Rootstock -- the telemetry-side one was struck along with
+   *  TelemetrySource.sample(). CORE writes through the RootstockLog statics from periodic()
    *  (§6.2), which is the PUSH half of the contract.
    *
    *  The DECLARATION half is the other half of the same contract, and it is now declared:
    *  this class `implements TelemetrySource` (see the class header above), `telemetryName()`
    *  returns m_name, and `describe(TelemetryDescriptor)` is called ONCE from
-   *  PumpkinRegistry.addAll (D27). Full specification, including the five extra(...) keys, the
+   *  RootstockRegistry.addAll (D27). Full specification, including the five extra(...) keys, the
    *  Degrees-not-Radians divergence and the two contract requests it raises, is in §1.1b.
    *  (This javadoc carried an OPEN CONTRACT ITEM marker through revision 5, when the
    *  reconciliation pass closed the call sites and left the declaration undone -- `DESIGN.md`
@@ -3749,7 +3749,7 @@ public abstract class Mechanism implements Subsystem, TelemetrySource {
 
   // ---------- log keys, precomputed ONCE in the constructor ----------
   // Rev 1 built every key by concatenation inside periodic():
-  //     m_log.putDouble("/Pumpkin/" + m_name + "/Goal", m_goal)
+  //     m_log.putDouble("/Rootstock/" + m_name + "/Goal", m_goal)
   // -- six String allocations plus StringBuilder churn per mechanism per loop. Four mechanisms
   // at 50 Hz is 1,200 String allocations/second, in direct violation of principle 9 and of
   // DESIGN.md §1.7 constraint 9's "zero bytes allocated in periodic() after warmup".
@@ -3760,7 +3760,7 @@ public abstract class Mechanism implements Subsystem, TelemetrySource {
 
   protected Mechanism(String name, MechanismUnits units, MotorIO io, TunableGains tunables) {
     m_name = name; m_units = units; m_io = io; m_tunables = tunables;
-    String base       = "/Pumpkin/" + name + "/";
+    String base       = "/Rootstock/" + name + "/";
     kInputs           = base + "Inputs";
     kGoal             = base + "Goal";
     kSetpoint         = base + "Setpoint";
@@ -3805,10 +3805,10 @@ public abstract class Mechanism implements Subsystem, TelemetrySource {
   // m_io.updateSimulatedSensors(...) -- two methods that appear on no interface in this
   // document, so it could not have compiled. Binding decision D18 deleted the method and both
   // call sites: CORE declares a MechanismGeometry, the backend exposes MotorIO.simHandle(),
-  // and PumpkinSim owns and steps the plant. See §1.4 and §6.7.
+  // and RootstockSim owns and steps the plant. See §1.4 and §6.7.
 
   /** The plant declaration D18 requires. Pure data, computed once from PositionConfig + Axis;
-   *  handed to the MechanismGeometrySink of org.pumpkinlib.core.spi at registration. */
+   *  handed to the MechanismGeometrySink of org.rootstock.core.spi at registration. */
   public final MechanismGeometry geometry();
 
   /** Registers with the CommandScheduler. Opt-in. */
@@ -3837,7 +3837,7 @@ Five verbatim copies of `private enum ControlMode {POSITION, DUTY_CYCLE, NEUTRAL
 Serves elevator, arm/pivot, wrist, turret, hood, climber — anything whose controlled quantity is position.
 
 ```java
-package org.pumpkinlib.mechanism;
+package org.rootstock.mechanism;
 
 public final class PositionMechanism extends Mechanism {
 
@@ -3872,7 +3872,7 @@ public final class PositionMechanism extends Mechanism {
 
   /** Latch the CURRENT measured position as the goal. Distinct from goTo(STOW) --
    *  8793's maintainStateCommand() is named "maintain" but actually slams to zero
-   *  (ShooterSubsystem.java:456-462). PumpkinLib keeps these two verbs apart forever. */
+   *  (ShooterSubsystem.java:456-462). Rootstock keeps these two verbs apart forever. */
   public void holdPosition();
 
   public void setVoltage(double volts);
@@ -3938,7 +3938,7 @@ Rules that fall out of this and are enforced:
 ```java
 @Override public void periodic() {
   m_io.updateInputs(m_inputs);
-  PumpkinLog.processInputs(kInputs, m_inputs);
+  RootstockLog.processInputs(kInputs, m_inputs);
 
   m_measured    = m_units.toUser(m_inputs.positionRot);
   m_measuredVel = m_units.toUserPerSec(m_inputs.velocityRps);
@@ -3954,10 +3954,10 @@ Rules that fall out of this and are enforced:
   //    this through applyVerified -- up to 5 blocking rounds x 50 ms, ten times a second while
   //    a student drags a slider. Budgeted at 1.0 ms and traced.
   if (m_tunables.anyChanged()) {
-    PumpkinTracer.enter("Mechanism/ApplyGains");
+    RootstockTracer.enter("Mechanism/ApplyGains");
     m_io.applyGains(m_tunables.gains());              // volts-per-SI
     m_io.applyConstraints(m_tunables.constraints());  // user units per s^n
-    PumpkinTracer.exit("Mechanism/ApplyGains");
+    RootstockTracer.exit("Mechanism/ApplyGains");
   }
 
   // 3. Absolute-encoder guarded re-seed (only for non-fused sources, only when idle).
@@ -4001,15 +4001,15 @@ Rules that fall out of this and are enforced:
   //    appears here because §3.1 states outright that none of these outputs are demotable.
   //    Units are NOT passed per call -- each key's unit is declared once at registration
   //    through TelemetryDescriptor (`design/04` §1.1); see the note under §1.1.
-  PumpkinLog.critical(kGoal,             m_goal);                       // §3.1 CRITICAL
-  PumpkinLog.critical(kSetpoint,         m_setpointUser);               // §3.1 CRITICAL
-  PumpkinLog.log     (kSetpointVelocity, m_setpointVelUser);            // §3.1 STANDARD
-  PumpkinLog.critical(kMeasured,         m_measured);                   // §3.1 CRITICAL
-  PumpkinLog.critical(kError,            m_setpointUser - m_measured);  // §3.1 CRITICAL
-  PumpkinLog.log     (kGoalError,        m_goal - m_measured);          // §3.1 STANDARD
-  PumpkinLog.critical(kAtGoal,           m_atGoal);                     // §3.1 CRITICAL
-  PumpkinLog.critical(kAtSetpoint,       m_atSetpoint);                 // §3.1 CRITICAL
-  PumpkinLog.log     (kMode,             m_modeName);                   // §3.1 ControlMode, STANDARD
+  RootstockLog.critical(kGoal,             m_goal);                       // §3.1 CRITICAL
+  RootstockLog.critical(kSetpoint,         m_setpointUser);               // §3.1 CRITICAL
+  RootstockLog.log     (kSetpointVelocity, m_setpointVelUser);            // §3.1 STANDARD
+  RootstockLog.critical(kMeasured,         m_measured);                   // §3.1 CRITICAL
+  RootstockLog.critical(kError,            m_setpointUser - m_measured);  // §3.1 CRITICAL
+  RootstockLog.log     (kGoalError,        m_goal - m_measured);          // §3.1 STANDARD
+  RootstockLog.critical(kAtGoal,           m_atGoal);                     // §3.1 CRITICAL
+  RootstockLog.critical(kAtSetpoint,       m_atSetpoint);                 // §3.1 CRITICAL
+  RootstockLog.log     (kMode,             m_modeName);                   // §3.1 ControlMode, STANDARD
                                                                         //   MechanismMode.name(),
                                                                         //   cached per enum constant
   // Not in §3.1's fixed Outputs table -- declared as an extra(...) key on this mechanism's
@@ -4017,20 +4017,20 @@ Rules that fall out of this and are enforced:
   // `design/04` §2.3 has critical(String, long), and a reset COUNT is an integer. Revision 4
   // cast it to double for a put(...) that never existed.
   //
-  // THIS LINE IS HALF OF A PAIR (2026-08-08). It was PumpkinLog.log(...) -- STANDARD -- to match
+  // THIS LINE IS HALF OF A PAIR (2026-08-08). It was RootstockLog.log(...) -- STANDARD -- to match
   // §1.1b's earlier STANDARD declaration. `design/04` §3.1 overruled the tier to CRITICAL: a
   // controller that rebooted mid-match is the textbook "explain a lost match" signal, and it is
   // readable only after the fact off a robot that has since been power-cycled. §1.1b's
   // d.extra("DeviceResetCount", Tier.CRITICAL) moved in the same edit. `design/04` §1.5's schema
   // audit compares declaration against publish and fails if only one of the two moves -- so if
   // you are changing one of these lines, you are changing both.
-  PumpkinLog.critical(kDeviceResets,     (long) m_inputs.deviceResetCount);
+  RootstockLog.critical(kDeviceResets,     (long) m_inputs.deviceResetCount);
 }
 ```
 
-`publishesTheStandardSchema` (`design/04`'s contract test) asserts that a `PositionMechanism` publishes **both** `Error` and `GoalError` under `/Pumpkin/<name>/`, with `Error` computed from the setpoint. A regression to one key, or to the wrong formula, fails CI.
+`publishesTheStandardSchema` (`design/04`'s contract test) asserts that a `PositionMechanism` publishes **both** `Error` and `GoalError` under `/Rootstock/<name>/`, with `Error` computed from the setpoint. A regression to one key, or to the wrong formula, fails CI.
 
-Logging setpoint, measurement, error, and applied output for *every* loop of *every* mechanism, automatically, is the direct answer to the "abstractions hide the intermediate data" criticism: PumpkinLib makes those signals **more** visible than hand-written code, not less. And it does so at zero allocation — the CI allocation test runs against the full §9 example robot and is an **M5 gate condition**, re-checked at M24 (the dated gates G0–G5 are deleted).
+Logging setpoint, measurement, error, and applied output for *every* loop of *every* mechanism, automatically, is the direct answer to the "abstractions hide the intermediate data" criticism: Rootstock makes those signals **more** visible than hand-written code, not less. And it does so at zero allocation — the CI allocation test runs against the full §9 example robot and is an **M5 gate condition**, re-checked at M24 (the dated gates G0–G5 are deleted).
 
 **`applyClosedLoop()` — where the four control locations diverge, and only here:**
 
@@ -4081,7 +4081,7 @@ private void applyClosedLoop() {
 
     case RIO_FULL -> {
       // ===================================================================================
-      // THIS IS THE ONE PLACE IN PUMPKINLIB WHERE SI CONVERSION HAPPENS.
+      // THIS IS THE ONE PLACE IN ROOTSTOCK WHERE SI CONVERSION HAPPENS.
       //
       // Gains are volts-per-SI (V/m, V/rad -- D1). Revision 1 ran m_pid.calculate(measured,
       // goal) in USER units, feeding a V/rad kP into a controller whose error was in DEGREES
@@ -4109,7 +4109,7 @@ private void applyClosedLoop() {
       double ff = m_ff.calculate(cur.position - m_siHorizontalReference,
                                  cur.velocity, next.velocity);
 
-      m_io.setVoltage(PumpkinMath.clamp(fb + ff, -12.0, 12.0));
+      m_io.setVoltage(RootstockMath.clamp(fb + ff, -12.0, 12.0));
       m_profileFinished = p.isFinished(0.0);
       m_setpointUser    = m_units.fromSi(cur.position);
       m_setpointVelUser = m_units.fromSiPerSec(cur.velocity);
@@ -4117,8 +4117,8 @@ private void applyClosedLoop() {
       // STANDARD tier. The fb/ff split is not in `design/04` §3.1's fixed Outputs table (that
       // table carries the combined `Output`); both are declared as extra(...) keys on this
       // mechanism's TelemetryDescriptor. `design/04` §2.3 shape: log(String, double).
-      PumpkinLog.log(kFeedbackVolts, fb);
-      PumpkinLog.log(kFeedforwardVolts, ff);
+      RootstockLog.log(kFeedbackVolts, fb);
+      RootstockLog.log(kFeedforwardVolts, ff);
     }
   }
 }
@@ -4164,10 +4164,10 @@ This reproduces the fast/slow idea from `reefscape2025` (Elevator/Wrist each hol
 | REV | REVLib has no dynamic MAXMotion. Same as above: `RIO_PROFILE_MOTOR_LOOP`, at construction, with an alert. |
 
 ```
-[PumpkinLib][WARN] Elevator: addConstraintProfile("gentle", ...) needs runtime profile changes,
+[Rootstock][WARN] Elevator: addConstraintProfile("gentle", ...) needs runtime profile changes,
   but DynamicMotionMagicVoltage requires Phoenix Pro AND a CANivore bus, and this TalonFX
   (CAN 20) is on bus "rio". Switching Motion Magic constraints would require a blocking CAN
-  config write from periodic(), which PumpkinLib will not do.
+  config write from periodic(), which Rootstock will not do.
   ControlLocation has been changed from ON_MOTOR_PROFILED to RIO_PROFILE_MOTOR_LOOP: the
   roboRIO now steps the profile at 50 Hz and the Kraken still runs the position loop at 1 kHz.
   Behaviour is very close; gains transfer unchanged. describe() shows this permanently.
@@ -4186,14 +4186,14 @@ The team writes `kG` once, in volts. Which vendor knob it lands in, and the hori
 **Soft and hard limits, both layers:**
 
 1. **On the device** (`SoftwareLimitSwitch` / REV `softLimit`) — firmware-enforced, works even if robot code hangs.
-2. **In Java**, before every goal — `PumpkinMath.clamp(goal, min, max)`, so the limit holds even if the device config failed to apply, and so the clamp can be *reported*.
+2. **In Java**, before every goal — `RootstockMath.clamp(goal, min, max)`, so the limit holds even if the device config failed to apply, and so the clamp can be *reported*.
 3. **Hard stops**: `SensorSpec.motorLimit(...)` wires the controller's own limit-switch input (firmware stop, zero latency) **and subscribes the corresponding limit `StatusSignal`** (§3.5.1), so `forwardLimitTripped` is a real reading rather than a frozen `false`. A DIO switch is checked in `periodic()` and zeroes output that loop, with a config-time warning naming the latency difference.
-4. **Open-loop clamp**: `clampOpenLoopAgainstSoftLimits()` zeroes a manual/open-loop command that pushes past a soft limit, which the device's soft limit would do anyway — but doing it in Java means a student pushing the stick sees `/Pumpkin/Arm/OpenLoopClamped = true` instead of "the stick stopped working".
+4. **Open-loop clamp**: `clampOpenLoopAgainstSoftLimits()` zeroes a manual/open-loop command that pushes past a soft limit, which the device's soft limit would do anyway — but doing it in Java means a student pushing the stick sees `/Rootstock/Arm/OpenLoopClamped = true` instead of "the stick stopped working".
 
 ### 6.3 Homing / zeroing
 
 ```java
-package org.pumpkinlib.mechanism;
+package org.rootstock.mechanism;
 
 public sealed interface HomingStrategy {
 
@@ -4214,7 +4214,7 @@ public sealed interface HomingStrategy {
 
   /** Seed to a constant at boot and hope. Named so it is VISIBLE in a diff, and it always
    *  raises the Tier-2 warning of §5.6. This is what 6 IOs in 0000-XXXX-Robot-Template do
-   *  implicitly; PumpkinLib makes it an explicit, audible choice. */
+   *  implicitly; Rootstock makes it an explicit, audible choice. */
   record AssumeAtBoot(double seedToUserUnits) implements HomingStrategy {}
 
   /** Try in order; first success wins. e.g. absolute encoder, else current-spike. */
@@ -4257,7 +4257,7 @@ Guarantees the library provides for all of them — **this is a mechanism-damage
 * Homing **refuses to start in SAFE_MODE**.
 * Sim: `CurrentSpike` works in simulation because `ElevatorSim`/`SingleJointedArmSim` report a current spike at their travel limits, so the routine is testable off-robot. This is the entire reason homing lives in the library rather than in robot code.
 
-Telemetry: `/Pumpkin/<name>/Homing/{Active,Strategy,ElapsedSec,TriggerValue,Succeeded,AbortReason,LimitsSuspended,LimitsRestoreVerified}`. The last two exist so "were the soft limits actually put back?" is answerable from a log file alone, which is the question the failure above makes urgent.
+Telemetry: `/Rootstock/<name>/Homing/{Active,Strategy,ElapsedSec,TriggerValue,Succeeded,AbortReason,LimitsSuspended,LimitsRestoreVerified}`. The last two exist so "were the soft limits actually put back?" is answerable from a log file alone, which is the question the failure above makes urgent.
 
 Release-blocking test, added in revision 4: **`HomingRestoresLimitsTest`** — run a `CurrentSpike` home in simulation with a `MotorIO` stub whose `applyVerified` returns `false` on the *restore* call only, and assert that the mechanism goes neutral, `isHomed()` is false, `<name>/homing-limits-unrestored` is active with `MatchImpact.BLOCKS_MATCH`, and `Homing/LimitsRestoreVerified` is `false` in the log.
 
@@ -4265,7 +4265,7 @@ Release-blocking test, added in revision 4: **`HomingRestoresLimitsTest`** — r
 
 `8793-2026-Robot/.../ShooterSubsystem.java:349-369` contains a correct, subtle turret unwrap: track the last commanded angle, take the shortest delta across the ±180° discontinuity, and if the unwrapped target would exceed a physical limit, wrap 360° to the other side of the >360° travel range, then clamp. That is universal for any azimuth with more than one turn of travel, and it is exactly what a team writes at 2 am and never revisits.
 
-PumpkinLib owns it:
+Rootstock owns it:
 
 ```java
 /** Applied inside setGoal() when RotaryAxis has travel > 360 deg. Stateless conversions,
@@ -4290,7 +4290,7 @@ private double fieldLockVelocityUserPerSec() {
 
 **How the term reaches each device — corrected in revision 4, because revision 3 named a method that does not exist.**
 
-Revision 3 said this *"reaches the device as `PositionVoltage.withVelocity(...)` / `MotionMagicVoltage.withVelocity(...)`"*. The first is real; **the second is not** — `MotionMagicVoltage` has no `Velocity` field and no `withVelocity` method (verified; see the table in §3.5.6). So the sentence that claimed PumpkinLib fixes `TurretIONeo`'s silent drop described a code path that would not compile, on the *default* `ControlLocation` for a Kraken turret. The corrected mapping, and the `VelocityCarrier` each backend reports:
+Revision 3 said this *"reaches the device as `PositionVoltage.withVelocity(...)` / `MotionMagicVoltage.withVelocity(...)`"*. The first is real; **the second is not** — `MotionMagicVoltage` has no `Velocity` field and no `withVelocity` method (verified; see the table in §3.5.6). So the sentence that claimed Rootstock fixes `TurretIONeo`'s silent drop described a code path that would not compile, on the *default* `ControlLocation` for a Kraken turret. The corrected mapping, and the `VelocityCarrier` each backend reports:
 
 | Backend / `ControlLocation` | Carrier | Mechanism |
 |---|---|---|
@@ -4354,7 +4354,7 @@ public final class SimpleMechanism extends Mechanism {
 
   /** Stop-on-end is STRUCTURAL. 9143-A had to hand-append `.handleInterrupt(coral::stopIntake)`
    *  to three separate commands with the comment "Never leave rollers running on interrupt";
-   *  9143-B's KitBot got it right with startEnd(...) and PumpkinLib makes that the only shape. */
+   *  9143-B's KitBot got it right with startEnd(...) and Rootstock makes that the only shape. */
   public Command run(double dutyCycle);
   public Command runFor(double dutyCycle, Time duration);
   public Command runUntil(double dutyCycle, BooleanSupplier stop);
@@ -4383,7 +4383,7 @@ public final class SimpleMechanism extends Mechanism {
 
 ```java
 // 1. CORE DECLARES. Pure data, computed once at construction from PositionConfig + Axis,
-//    handed to the MechanismGeometrySink of org.pumpkinlib.core.spi at registration.
+//    handed to the MechanismGeometrySink of org.rootstock.core.spi at registration.
 //    No plant is constructed here and no vendor type is named.
 public record MechanismGeometry(
     String name,
@@ -4402,8 +4402,8 @@ public record MechanismGeometry(
 
 ```java
 // 2. THE BACKEND BRIDGES. MotorIO.simHandle() (§3.3) returns the vendor's sim state, wrapped.
-//    The CTRE import lives in pumpkinlib-phoenix6 and never leaves it.
-public interface SimMotorHandle {                       // org.pumpkinlib.core.spi
+//    The CTRE import lives in rootstock-phoenix6 and never leaves it.
+public interface SimMotorHandle {                       // org.rootstock.core.spi
   /** Volts the device is currently commanding, INCLUDING the on-device closed loop and its
    *  gravity feedforward. This is what makes vendor simulation exercise the REAL config path. */
   double appliedVolts(double busVoltage);
@@ -4417,8 +4417,8 @@ public interface SimMotorHandle {                       // org.pumpkinlib.core.s
 ```
 
 ```java
-// 3. SIM OWNS AND STEPS. PumpkinSim is a LifecycleHook (D26 -- IN-JAR, so it is on
-//    PumpkinLifecycle.create()'s EXPLICIT list, not ServiceLoader-discovered).
+// 3. SIM OWNS AND STEPS. RootstockSim is a LifecycleHook (D26 -- IN-JAR, so it is on
+//    RootstockLifecycle.create()'s EXPLICIT list, not ServiceLoader-discovered).
 //    This is Simulation's code, shown here only so the seam is legible from CORE's side.
 @Override public void simulationTick(double dt) {
   for (SimulatedMechanism m : m_mechanisms) {        // one per declared MechanismGeometry
@@ -4431,7 +4431,7 @@ public interface SimMotorHandle {                       // org.pumpkinlib.core.s
 }
 ```
 
-**What CORE no longer does:** construct a plant, own a `simulationPeriodic()`, or hold a `m_plant` field. **What CORE still does:** decide, from the `Axis` and `SimConfig`, *what plant the mechanism is* — which is the only part a team's declaration can determine and the only part that belongs above the seam. A `MotorIO` returning `Optional.empty()` from `simHandle()` gets a named boot warning from `PumpkinSim` (*"Roller: this backend has no simulation; the mechanism will not move in simulateJava"*) rather than silently doing nothing, which is the `0000-XXXX-Robot-Template` NEO gap made visible.
+**What CORE no longer does:** construct a plant, own a `simulationPeriodic()`, or hold a `m_plant` field. **What CORE still does:** decide, from the `Axis` and `SimConfig`, *what plant the mechanism is* — which is the only part a team's declaration can determine and the only part that belongs above the seam. A `MotorIO` returning `Optional.empty()` from `simHandle()` gets a named boot warning from `RootstockSim` (*"Roller: this backend has no simulation; the mechanism will not move in simulateJava"*) rather than silently doing nothing, which is the `0000-XXXX-Robot-Template` NEO gap made visible.
 
 The plant is chosen from the `Axis` and built from `SimConfig` — the team writes neither:
 
@@ -4454,7 +4454,7 @@ Crucially, the Phoenix and REV backends simulate through their **own** vendor si
 
 ### 7.1 How a subsystem is declared
 
-There is no `PumpkinSubsystem` for a team to extend. A mechanism **is** the subsystem:
+There is no `RootstockSubsystem` for a team to extend. A mechanism **is** the subsystem:
 
 ```java
 public class RobotContainer {
@@ -4463,21 +4463,21 @@ public class RobotContainer {
   private final SimpleMechanism   m_intake   = new SimpleMechanism(RobotConfig.INTAKE);
 
   public RobotContainer() {
-    PumpkinRegistry.addAll(m_elevator, m_arm, m_intake);   // ONE list, see below
+    RootstockRegistry.addAll(m_elevator, m_arm, m_intake);   // ONE list, see below
   }
 }
 ```
 
-*(D12: revision 3 wrote `Pumpkin.registry().addAll(...)`. The `Pumpkin` god-object is deleted; `org.pumpkinlib.core.PumpkinRegistry` is the replacement and `addAll` is static on it. D27 makes this the **only** registration call — `SelfTest.registerAll`, `TuningRegistry.registerAll` and `HealthMonitor.watch` are not public API.)*
+*(D12: revision 3 wrote `Rootstock.registry().addAll(...)`. The `Rootstock` god-object is deleted; `org.rootstock.core.RootstockRegistry` is the replacement and `addAll` is static on it. D27 makes this the **only** registration call — `SelfTest.registerAll`, `TuningRegistry.registerAll` and `HealthMonitor.watch` are not public API.)*
 
-`PumpkinRegistry.addAll` replaces the seven-place edit that `0000-XXXX-Robot-Template/README.md:438-447` documents as the workflow for adding a mechanism. Registered mechanisms automatically get:
+`RootstockRegistry.addAll` replaces the seven-place edit that `0000-XXXX-Robot-Template/README.md:438-447` documents as the workflow for adding a mechanism. Registered mechanisms automatically get:
 
 * **collected config validation, the global CAN-ID scan, the setpoint-name check, and SAFE_MODE entry** (§5.6) — this is the only place any of that happens
 * `periodic()` fan-out (or CommandScheduler registration, if `registerWithScheduler()` was called)
-* **`MechanismGeometry` declaration into the `MechanismGeometrySink`** so `PumpkinSim` can build and step the plant (D18, §6.7). *(Revision 3 said "`simulationPeriodic()` fan-out" here; D18 deleted that method. The registry declares geometry; it does not fan out a sim tick, because CORE does not own one.)*
+* **`MechanismGeometry` declaration into the `MechanismGeometrySink`** so `RootstockSim` can build and step the plant (D18, §6.7). *(Revision 3 said "`simulationPeriodic()` fan-out" here; D18 deleted that method. The registry declares geometry; it does not fan out a sim tick, because CORE does not own one.)*
 * stop-on-disable (replacing the hand-maintained `disabledInit()` lists in `9143-*/RobotContainer.java:369-374` and `0000-XXXX/RobotContainer.java:450-459`)
 * a **verified** full-config re-apply on `disabledInit()` — the safe place for the blocking path
-* telemetry publication under `/Pumpkin/<name>/...`
+* telemetry publication under `/Rootstock/<name>/...`
 * alert registration
 * tunable registration (the explicit allowlist of §1.2)
 * config snapshot logging
@@ -4489,9 +4489,9 @@ Adding a mechanism is now: write a config, construct it, add it to the registry.
 **Backend selection is one call, not a nested ternary.** `0000-XXXX-Robot-Template/RobotContainer.java:154-171` has nine copies of a 3-way nested ternary. `MotorIOFactory` owns it once:
 
 ```java
-package org.pumpkinlib.hardware;
+package org.rootstock.hardware;
 
-import org.pumpkinlib.core.spi.RobotMode;   // core.spi, NOT telemetry -- rule 9, the same move
+import org.rootstock.core.spi.RobotMode;   // core.spi, NOT telemetry -- rule 9, the same move
                                             // that relocated Tier and LogConfig on 2026-08-08.
                                             // Telemetry still owns what the three modes MEAN.
 
@@ -4547,7 +4547,7 @@ private Command refuse(Setpoint s) {
   return Commands.none()
       // D10: MatchImpact is required at every call site -- a button that silently does nothing
       // is exactly the kind of thing that must reach the driver mirror. D12: Alerts, not
-      // Pumpkin.alerts(). The handle is created once per mechanism in the constructor; only
+      // Rootstock.alerts(). The handle is created once per mechanism in the constructor; only
       // the text varies, so nothing allocates on the command-construction path either.
       .beforeStarting(() -> m_unknownSetpointAlert.text(unknownSetpointMessage(s)).set(true))
       .withName(m_name + ".goTo(" + s.name() + ")[REFUSED]");
@@ -4560,7 +4560,7 @@ private Command refuse(Setpoint s) {
 
 Three rules the library enforces:
 
-1. **Every factory returns a fresh instance.** WPILib forbids reusing a composed command; `0000-XXXX-Robot-Template/RobotContainer.java:322-443` works around this by storing auto *names* and rebuilding. PumpkinLib never hands out a cached `Command`.
+1. **Every factory returns a fresh instance.** WPILib forbids reusing a composed command; `0000-XXXX-Robot-Template/RobotContainer.java:322-443` works around this by storing auto *names* and rebuilding. Rootstock never hands out a cached `Command`.
 2. **Every factory sets `.withName(...)`.** Commands v3 (2027) gives full scheduler visibility; named commands make that visibility useful today in AdvantageScope and Elastic.
 3. **Every factory that starts motion is safe to interrupt.** `SimpleMechanism` factories are `startEnd`/`runEnd` with the stop in the end handler; there is no way to construct one that leaves a roller running.
 
@@ -4589,7 +4589,7 @@ public Command sysIdDynamic(SysIdRoutine.Direction d);
 
 The routine's ramp rate, step voltage, and timeout default from `PositionLimits` and are overridable. SysId **refuses to run** in SAFE_MODE, while disabled, when the mechanism is unhomed, or when `MatchContext.isFMSAttached()`. It aborts on a soft-limit approach, a stall, a device reset, or a follower disagreement — a characterization routine that drives a geared arm into a hard stop at step voltage is a broken gearbox.
 
-In `OutputMode.TORQUE_CURRENT` (post-v0.1), PumpkinLib emits the amps-not-volts caveat that `reefscape2025/.../Elevator.java:180` handles with the comment "Gaslight SysId since motor is actually running amps instead of volts" — the library states it in `describe()` and in the log rather than requiring the team to know.
+In `OutputMode.TORQUE_CURRENT` (post-v0.1), Rootstock emits the amps-not-volts caveat that `reefscape2025/.../Elevator.java:180` handles with the comment "Gaslight SysId since motor is actually running amps instead of volts" — the library states it in `describe()` and in the log rather than requiring the team to know.
 
 Four SysId wrapper methods copy-pasted into three subsystems in `reefscape2025` become zero lines.
 
@@ -4599,10 +4599,10 @@ Four SysId wrapper methods copy-pasted into three subsystems in `reefscape2025` 
 
 ### 8.1 Shape
 
-The strongest patterns in the survey are 4738's *orthogonal* sub-states (an arm state + a climb state + a claw state composed into a `SuperState`, which is what keeps 50 states tractable), 9143-A's *deferred planning from live state* with measured-state gates instead of timeouts, and `0000-XXXX`'s *on-entry latch*. PumpkinLib composes all three and fixes the failure mode all three share.
+The strongest patterns in the survey are 4738's *orthogonal* sub-states (an arm state + a climb state + a claw state composed into a `SuperState`, which is what keeps 50 states tractable), 9143-A's *deferred planning from live state* with measured-state gates instead of timeouts, and `0000-XXXX`'s *on-entry latch*. Rootstock composes all three and fixes the failure mode all three share.
 
 ```java
-package org.pumpkinlib.superstructure;
+package org.rootstock.superstructure;
 
 /** A team's state enum implements this. The enum is the team's; the machinery is ours. */
 public interface SuperState {
@@ -4645,7 +4645,7 @@ public final class Superstructure<S extends Enum<S> & SuperState> implements Tel
    *  the literal "Superstructure", which is the segment `design/04` hard-codes; §1.1b states
    *  the one-per-robot limitation that follows. */
   @Override public String telemetryName();
-  /** Called once from PumpkinRegistry.addAll (D27). Declares the state enum and the two
+  /** Called once from RootstockRegistry.addAll (D27). Declares the state enum and the two
    *  extra(...) keys. Body in §1.1b. */
   @Override public void describe(TelemetryDescriptor d);
 
@@ -4703,13 +4703,13 @@ public void periodic() {
     if (blocked.isPresent()) {
       // STANDARD tier, String. Superstructure keys are extra(...) declarations on the
       // superstructure's own TelemetryDescriptor; `design/04` §2.3 shape: log(String, String).
-      PumpkinLog.log(kBlocked, blocked.get().describe());
+      RootstockLog.log(kBlocked, blocked.get().describe());
       m_blockedAlert.set(true);
       return;                              // hold the current state; do NOT half-execute
     }
     m_blockedAlert.set(false);
     m_plan = m_planner.plan(measuredConfiguration(), m_requested);
-    PumpkinLog.log(kPlan, m_plan.waypointNames());   // String[], STANDARD; §2.3 log(String, String[])
+    RootstockLog.log(kPlan, m_plan.waypointNames());   // String[], STANDARD; §2.3 log(String, String[])
   }
 
   // Advance on MEASURED arrival (or early-release), never on a timer.
@@ -4723,7 +4723,7 @@ public void periodic() {
 }
 ```
 
-**Why measured-state gates, never timeouts:** `9143-2025-A-Updated/Superstructure.java` uses `Commands.waitUntil(() -> elevator.getCurrentPosition() >= handoff)` throughout, and its ascending escape re-evaluates its ceiling every loop so the elevator target ratchets up as the arm swings — avoiding stop-and-go stutter. A time-based version of the same sequence is both slower and unsafe when the mechanism is loaded or cold. PumpkinLib has **no** time-based waypoint gate. A waypoint may carry a *timeout*, but a timeout only raises `<name>/transition-timed-out` and holds; it never advances.
+**Why measured-state gates, never timeouts:** `9143-2025-A-Updated/Superstructure.java` uses `Commands.waitUntil(() -> elevator.getCurrentPosition() >= handoff)` throughout, and its ascending escape re-evaluates its ceiling every loop so the elevator target ratchets up as the arm swings — avoiding stop-and-go stutter. A time-based version of the same sequence is both slower and unsafe when the mechanism is loaded or cold. Rootstock has **no** time-based waypoint gate. A waypoint may carry a *timeout*, but a timeout only raises `<name>/transition-timed-out` and holds; it never advances.
 
 ### 8.3 Interlocks
 
@@ -4755,7 +4755,7 @@ List.of(
 )
 ```
 
-A blocked request is **visible, not silent**: the request is retained (so releasing the interlock completes the move), an alert names the interlock and its `explanation`, and `/Pumpkin/Superstructure/Blocked` carries the string.
+A blocked request is **visible, not silent**: the request is retained (so releasing the interlock completes the move), an alert names the interlock and its `explanation`, and `/Rootstock/Superstructure/Blocked` carries the string.
 
 Interlocks are also the documented answer for constraints that `SafetyModel`'s two-axis rectangles cannot express — see §13 OQ #7.
 
@@ -4764,7 +4764,7 @@ Interlocks are also the documented answer for constraints that `SafetyModel`'s t
 Robot-specific geometry, generic machinery. The team declares *forbidden regions of the two-axis configuration space*, not a branch tree.
 
 ```java
-package org.pumpkinlib.superstructure;
+package org.rootstock.superstructure;
 
 /**
  * Collision avoidance over a 2-axis configuration space (typically elevator height x arm angle).
@@ -4824,7 +4824,7 @@ static final SafetyModel SAFETY = SafetyModel.over(ELEVATOR, ARM)
 6. Emit the waypoint list. Cap at 4 waypoints; if no route is found, refuse the move and raise:
 
 ```
-[PumpkinLib][ERROR] Superstructure: no safe route from (Elevator 6.2 in, Arm 12.0 deg) to
+[Rootstock][ERROR] Superstructure: no safe route from (Elevator 6.2 in, Arm 12.0 deg) to
   (Elevator 52.5 in, Arm 35.0 deg). Blocking zones: arm-through-chassis
   ("the arm hits the chassis crossbar below 9 in").
   The CURRENT position is already inside a forbidden zone -- most likely the mechanism was
@@ -4839,7 +4839,7 @@ static final SafetyModel SAFETY = SafetyModel.over(ELEVATOR, ARM)
 `synchronizedAxes(false)` disables the collision guarantee. It is legal, it is logged, and it raises a **persistent** alert for as long as it is set:
 
 ```
-[PumpkinLib][WARN] Superstructure: synchronizedAxes(false) is set on the (Elevator, Arm) pair.
+[Rootstock][WARN] Superstructure: synchronizedAxes(false) is set on the (Elevator, Arm) pair.
   Collision avoidance is now tested against the straight line between configurations, but the
   two axes run independent profiles and the real path is L-shaped. A forbidden zone that the
   diagonal misses can still be entered. This alert stays up until synchronizedAxes(true).
@@ -4851,7 +4851,7 @@ The planner also re-evaluates a moving ceiling each loop for the ascending case,
 
 `0000-XXXX-Robot-Template/Superstructure.java:130-246` requires every `case` to remember to reset every actuator. The comments prove the cost: *"Don't leave rollers running at whatever the previous state set"* (MANUAL), *"entering from AIM/SHOOT must spin the flywheels down"* (EJECT), and an `AIM` case that silently forgets `intake.retract()`.
 
-PumpkinLib inverts it:
+Rootstock inverts it:
 
 ```java
 private void applyGoals(S state, boolean onEntry) {
@@ -4894,20 +4894,20 @@ A mechanism with an `earlyRelease` predicate is commanded as soon as the predica
 
 ### 8.7 Telemetry
 
-`/Pumpkin/Superstructure/{Requested, Active, Previous, Transitioning, AtState, Plan[], Blocked, BlockedReason, SafeZoneViolation, TimeInStateSec, PlannedSeconds, PlannedSource, Synchronized}`.
+`/Rootstock/Superstructure/{Requested, Active, Previous, Transitioning, AtState, Plan[], Blocked, BlockedReason, SafeZoneViolation, TimeInStateSec, PlannedSeconds, PlannedSource, Synchronized}`.
 
 `Plan[]` in particular turns "why is the arm moving there first?" from a code-reading exercise into a dashboard glance — which is the difference between a CSA helping you and a CSA giving up. All keys are precomputed strings, as in §6.1.
 
 ### 8.8 Static analysis and measured transition costs
 
-Revision 1 omitted the specific mechanisms the dossier ranks as the **#1 elite differentiator**, and nowhere stated the resulting ceiling. 254 measures transition costs on the real robot and persists them (`transition_costs.txt`, `buildCharacterizationCommand()`), auto-generates edges from `allowedNextStates()`, uses gateway states with restricted exits, and precomputes all-pairs routes; 6328 runs BFS over an explicit `DefaultDirectedGraph`. PumpkinLib substituted a greedy corner-escape heuristic capped at four waypoints with **no cost model at all**, so `AutoStep.budget()` and `plannedTransitionSeconds()` were guesses.
+Revision 1 omitted the specific mechanisms the dossier ranks as the **#1 elite differentiator**, and nowhere stated the resulting ceiling. 254 measures transition costs on the real robot and persists them (`transition_costs.txt`, `buildCharacterizationCommand()`), auto-generates edges from `allowedNextStates()`, uses gateway states with restricted exits, and precomputes all-pairs routes; 6328 runs BFS over an explicit `DefaultDirectedGraph`. Rootstock substituted a greedy corner-escape heuristic capped at four waypoints with **no cost model at all**, so `AutoStep.budget()` and `plannedTransitionSeconds()` were guesses.
 
 Two members close the gap that can be closed, and §13 states the part that cannot.
 
 **(a) `report()` — pure math, no HAL, called automatically at construction and printed in the boot dump.** 0.3 person-weeks.
 
 ```java
-package org.pumpkinlib.superstructure;
+package org.rootstock.superstructure;
 
 /** A static analysis of the declared state machine. Computed at construction from the states,
  *  the interlocks, the SafetyModel and the mechanisms' soft limits. No hardware, no motion. */
@@ -4941,7 +4941,7 @@ Any non-empty `statesWithNoPathToIdle`, `unroutableTransitions`, or `unresolvedS
 ```java
 /**
  * Drives every declared state pair once, times it, and writes
- * /home/lvuser/pumpkin/transition_costs.json. Read back at boot by
+ * /home/lvuser/rootstock/transition_costs.json. Read back at boot by
  * plannedTransitionSeconds() and by AutoStep.budget() defaults.
  *
  * This routine moves a real, geared, gravity-loaded superstructure through every legal
@@ -4959,7 +4959,7 @@ Non-negotiable safety gates, every one of which aborts the routine and names its
 5. **Constraints are scaled to 60 %** of the configured maxima for the whole run. A characterization pass is not the place to discover your accel limit.
 6. **Aborts immediately** on: any mechanism stall, any stator current above 80 % of its limit for >100 ms, any soft-limit clamp, any device disconnect or reset, any follower disagreement, any `SafetyModel` violation of the *measured* configuration, or a per-pair timeout of `3 × plannedTransitionSeconds`.
 7. **On abort**: all mechanisms neutral, the partial results are still written (marked `PARTIAL`), and a sticky alert names the pair and the abort cause.
-8. **The written file records provenance**: robot serial, PumpkinLib version, config hash, date, and the constraint scale used. A `transition_costs.json` whose config hash does not match the running config is **ignored** with a warning, never silently trusted — a re-geared mechanism must be re-characterized.
+8. **The written file records provenance**: robot serial, Rootstock version, config hash, date, and the constraint scale used. A `transition_costs.json` whose config hash does not match the running config is **ignored** with a warning, never silently trusted — a re-geared mechanism must be re-characterized.
 
 `plannedTransitionSource()` reports `MEASURED` or `PROFILE_BOUND` so an auto routine's timing budget is never a silent guess.
 
@@ -4971,10 +4971,10 @@ Three layers, in order of preference:
 
 **1. The typed form is the documented default.** `PositionConfig.setpoint(String)` returns a `Setpoint` handle a team holds as a `public static final` (§5.4), so `AxisGoal.of(RobotConfig.ELEVATOR_L4)` is checked by the compiler. Every example in this document and in the README uses it. The string form is the escape hatch, not the norm.
 
-**2. Every string is validated at construction, with a suggestion.** `Superstructure.Builder.build()` and `PumpkinRegistry.addAll(...)` resolve every `AxisGoal.named(s)` in every `SuperState`, and every unresolved `Setpoint`, against the declaring mechanism's `List<Setpoint>`, and collect one FATAL `ConfigError` per miss (all of them, at once, into SAFE_MODE):
+**2. Every string is validated at construction, with a suggestion.** `Superstructure.Builder.build()` and `RootstockRegistry.addAll(...)` resolve every `AxisGoal.named(s)` in every `SuperState`, and every unresolved `Setpoint`, against the declaring mechanism's `List<Setpoint>`, and collect one FATAL `ConfigError` per miss (all of them, at once, into SAFE_MODE):
 
 ```
-org.pumpkinlib.config.ConfigError [FATAL]: PumpkinLib unresolved setpoint
+org.rootstock.config.ConfigError [FATAL]: Rootstock unresolved setpoint
 
   SuperState.L4 references Elevator setpoint "L4 " which does not exist.
   Elevator declares: STOW, L1, L2, L3, L4.
@@ -4994,7 +4994,7 @@ The "did you mean" is a Levenshtein match over the declared names, offered when 
 * `goTo(String)` with an unknown name returns a **named** `Commands.none()` (`"Elevator.goTo(SCORE)[REFUSED]"`, visible in the scheduler and in AdvantageScope) **and** raises a sticky `kError`:
 
 ```
-[PumpkinLib][ERROR] Elevator: goTo("SCORE") -- no such setpoint. Elevator declares:
+[Rootstock][ERROR] Elevator: goTo("SCORE") -- no such setpoint. Elevator declares:
   STOW, L1, L2, L3, L4. The command did nothing and the mechanism is holding position.
   (Did you mean a setpoint on Arm? Arm declares: STOW, INTAKE, SCORE.)
 ```
@@ -5015,13 +5015,13 @@ Everything a team writes. Elevator + arm + roller, collision avoidance, driver b
 > `DescribeSnapshotTest`, `AllocationTest`)."* **That sentence was false**, in two ways that
 > compound:
 >
-> 1. **No code exists.** PumpkinLib is ~23,000 lines of design documents and zero lines of Java.
+> 1. **No code exists.** Rootstock is ~23,000 lines of design documents and zero lines of Java.
 >    None of those four test classes exists, so nothing was extracted from anything. `README.md`
 >    line 5 says this plainly — *"Every code block in these documents is a specification, not a
 >    snippet you can run"* — and this section contradicted it.
 > 2. **The snippets it covered provably could not have compiled.** §9.1 carried the uncorrected
 >    `34.126` gear ratio `[INTENTIONAL-34.126]` (a 1.92× error, and the *reason* `Validation`'s D2b identity rule exists);
->    §9.3 called `Pumpkin.registry()`, a facade **D12 deleted**; and the request chains those
+>    §9.3 called `Rootstock.registry()`, a facade **D12 deleted**; and the request chains those
 >    configs drive called `MotionMagicVoltage.withVelocity(...)`, which does not exist. A claim of
 >    machine-checked provenance is worth less than nothing when the thing it vouches for is wrong,
 >    because it stops the next reader from checking.
@@ -5036,7 +5036,7 @@ Everything a team writes. Elevator + arm + roller, collision avoidance, driver b
 >
 > | Test | Asserts |
 > |---|---|
-> | `ExampleRobotCompilesTest` | §9.1–§9.4 are extracted verbatim from `src/test/fixtures/example-robot/` and compiled against the published `pumpkinlib` jar. A drifted snippet fails the build. |
+> | `ExampleRobotCompilesTest` | §9.1–§9.4 are extracted verbatim from `src/test/fixtures/example-robot/` and compiled against the published `rootstock` jar. A drifted snippet fails the build. |
 > | `ExampleRobotSimTest` | That fixture boots headless, homes the elevator, runs `getAutonomousCommand()` to completion, and ends in `SuperState.IDLE` with both axes at goal. |
 > | `DescribeSnapshotTest` | `describe()` on `RobotConfig.ELEVATOR` and `RobotConfig.ARM` string-matches §4.4 and §3.5.7 **verbatim** — including `0.279400 m`, `5.0000 drum rot`, `kG 0.33`, `65.411:1` and `kG 0.29`. This is the test that would have caught both the dropped cascade and the 34.126 `[INTENTIONAL-34.126]`. |
 > | `AllocationTest` | One loop of that same three-mechanism fixture allocates zero bytes after warmup (§11 item 18, an **M5** gate condition). |
@@ -5048,11 +5048,11 @@ Everything a team writes. Elevator + arm + roller, collision avoidance, driver b
 package frc.robot;
 
 import static edu.wpi.first.units.Units.*;
-import org.pumpkinlib.config.*;
-import org.pumpkinlib.units.*;
-import org.pumpkinlib.hardware.ControlLocation;
-import org.pumpkinlib.mechanism.HomingStrategy;
-import org.pumpkinlib.superstructure.SafetyModel;
+import org.rootstock.config.*;
+import org.rootstock.units.*;
+import org.rootstock.hardware.ControlLocation;
+import org.rootstock.mechanism.HomingStrategy;
+import org.rootstock.superstructure.SafetyModel;
 
 public final class RobotConfig {
 
@@ -5141,12 +5141,12 @@ public final class RobotConfig {
 package frc.robot;
 
 import java.util.Map;
-import org.pumpkinlib.superstructure.*;
-import org.pumpkinlib.mechanism.Mechanism;
+import org.rootstock.superstructure.*;
+import org.rootstock.mechanism.Mechanism;
 import static frc.robot.RobotContainer.*;   // ELEVATOR, ARM, ROLLER
 import static frc.robot.RobotConfig.*;      // typed Setpoint handles
 
-public enum SuperState implements org.pumpkinlib.superstructure.SuperState {
+public enum SuperState implements org.rootstock.superstructure.SuperState {
 
   IDLE  (Map.of()),                                  // everything falls back to its default
   INTAKE(Map.of(ELEVATOR, AxisGoal.of(ELEVATOR_STOW),
@@ -5176,11 +5176,11 @@ package frc.robot;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;              // REQUIRED -- see getAutonomousCommand
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-import org.pumpkinlib.core.PumpkinRegistry;            // D12 -- there is no `Pumpkin` class
-import org.pumpkinlib.mechanism.*;
-import org.pumpkinlib.hardware.phoenix.TalonFXMotorIO;
-import org.pumpkinlib.superstructure.Superstructure;
-import org.pumpkinlib.superstructure.AxisGoal;
+import org.rootstock.core.RootstockRegistry;            // D12 -- there is no `Rootstock` class
+import org.rootstock.mechanism.*;
+import org.rootstock.hardware.phoenix.TalonFXMotorIO;
+import org.rootstock.superstructure.Superstructure;
+import org.rootstock.superstructure.AxisGoal;
 
 public class RobotContainer {
 
@@ -5205,7 +5205,7 @@ public class RobotContainer {
 
   public RobotContainer() {
     // The ONE place validation, the CAN-ID scan, setpoint-name resolution, and SAFE_MODE live.
-    PumpkinRegistry.addAll(ELEVATOR, ARM, ROLLER, m_super);      // D12 / D27
+    RootstockRegistry.addAll(ELEVATOR, ARM, ROLLER, m_super);      // D12 / D27
 
     m_driver.start().onTrue(ELEVATOR.homeCommand());
     m_driver.leftBumper().whileTrue(m_super.request(SuperState.INTAKE))
@@ -5221,7 +5221,7 @@ public class RobotContainer {
     // already there when the command started.
     ROLLER.holding().onTrue(rumble(0.4, 0.25));
 
-    // Escape hatch, on page 1: anything PumpkinLib does not model, do on the real device.
+    // Escape hatch, on page 1: anything Rootstock does not model, do on the real device.
     ELEVATOR.io().as(TalonFXMotorIO.class)
         .ifPresent(io -> io.applyRaw(cfg -> cfg.Audio.BeepOnBoot = false));
   }
@@ -5247,10 +5247,10 @@ public class RobotContainer {
 
 ### 9.4 `Robot.java` — two shapes, and the second one is not a downgrade
 
-**The convenience shape.** One base class, and it is the only one PumpkinLib ships (§1.1a):
+**The convenience shape.** One base class, and it is the only one Rootstock ships (§1.1a):
 
 ```java
-public class Robot extends PumpkinRobot {        // extends LoggedRobot underneath
+public class Robot extends RootstockRobot {        // extends LoggedRobot underneath
   private final RobotContainer m_container;
 
   public Robot() {
@@ -5258,52 +5258,52 @@ public class Robot extends PumpkinRobot {        // extends LoggedRobot undernea
     // legal and means super(LogConfig.defaults()); it is spelled out here because
     // "who starts the Logger" must be a visible decision (D29).
     super(LogConfig.defaults().withWpilogFolder("/U/logs"));
-    m_container = new RobotContainer();          // registers via PumpkinRegistry.addAll
+    m_container = new RobotContainer();          // registers via RootstockRegistry.addAll
     lifecycle().init();                          // last; idempotent, so it is safe to omit
   }
   // Nothing else. There is no simulationPeriodic() to write or to leave empty: D18 deleted
-  // Mechanism.simulationPeriodic(), and PumpkinSim steps every declared plant from its own
+  // Mechanism.simulationPeriodic(), and RootstockSim steps every declared plant from its own
   // LifecycleHook. Revision 3's version of this block overrode it with a "nothing: the registry
   // handles it" comment, which described a fan-out that no longer exists.
   //
-  // And there is no robotInit(): D13a deleted PumpkinRobot's override of the WPILib hook, and
+  // And there is no robotInit(): D13a deleted RootstockRobot's override of the WPILib hook, and
   // D29 renamed the lifecycle method to init(). Revision 5 of this document showed
   // `@Override public void robotInit()` in the block below; it is gone from both shapes.
 }
 ```
 
-`PumpkinRobot.robotPeriodic()` already runs `beforeUserPeriodic()` → `CommandScheduler.run()` → `afterUserPeriodic()`, and `PumpkinRobot.disabledInit()` already calls `PumpkinLifecycle.disabledInit()`, so neither is written here.
+`RootstockRobot.robotPeriodic()` already runs `beforeUserPeriodic()` → `CommandScheduler.run()` → `afterUserPeriodic()`, and `RootstockRobot.disabledInit()` already calls `RootstockLifecycle.disabledInit()`, so neither is written here.
 
 **The partial-adoption shape**, for an existing repo that will not change its base class — which is how 8793 and 9143 consume M1:
 
 ```java
 public class Robot extends LoggedRobot {         // the team's own, already there
-  private final PumpkinLifecycle m_pumpkin;
+  private final RootstockLifecycle m_rootstock;
   private final RobotContainer m_container;
 
   public Robot() {
     // adoptExistingLogger(), NOT defaults(): this repo already calls Logger.start().
     // Starting it twice is a crash, and the library refuses to guess which one you meant (D29).
-    m_pumpkin   = PumpkinLifecycle.create(LogConfig.adoptExistingLogger());
+    m_rootstock   = RootstockLifecycle.create(LogConfig.adoptExistingLogger());
     m_container = new RobotContainer();
-    m_pumpkin.init();                            // last: after everything is registered
+    m_rootstock.init();                            // last: after everything is registered
   }
 
   @Override public void robotPeriodic() {
-    m_pumpkin.beforeUserPeriodic();
+    m_rootstock.beforeUserPeriodic();
     CommandScheduler.getInstance().run();
-    m_pumpkin.afterUserPeriodic();
+    m_rootstock.afterUserPeriodic();
   }
-  @Override public void disabledInit()       { m_pumpkin.disabledInit(); }
-  // No simulationPeriodic(): D18. PumpkinSim is a LifecycleHook and runs inside
+  @Override public void disabledInit()       { m_rootstock.disabledInit(); }
+  // No simulationPeriodic(): D18. RootstockSim is a LifecycleHook and runs inside
   // beforeUserPeriodic()/afterUserPeriodic() like everything else.
   // No robotInit() either -- see the note in the convenience shape above.
 }
 ```
 
-Revision 2's version of this block said *"or `LoggedRobot`; PumpkinLib does not care"*, and starting from a plain `TimedRobot`. **That is no longer true and the line is removed.** Under maintainer decision 3 both shapes extend `LoggedRobot`: `PumpkinRobot` does it for you, `PumpkinLifecycle` assumes you already did. A team on plain `TimedRobot` with no logger must adopt AdvantageKit first. `PumpkinLifecycle` keeps the *seam* optional; it cannot keep the *dependency* optional, and §1.1a says so rather than pretending.
+Revision 2's version of this block said *"or `LoggedRobot`; Rootstock does not care"*, and starting from a plain `TimedRobot`. **That is no longer true and the line is removed.** Under maintainer decision 3 both shapes extend `LoggedRobot`: `RootstockRobot` does it for you, `RootstockLifecycle` assumes you already did. A team on plain `TimedRobot` with no logger must adopt AdvantageKit first. `RootstockLifecycle` keeps the *seam* optional; it cannot keep the *dependency* optional, and §1.1a says so rather than pretending.
 
-`PumpkinLifecycle.disabledInit()` — reached either way — is where the **verified**, blocking, full-config re-apply happens (§3.9) — the robot is disabled, the loop budget is irrelevant, and it guarantees that anything a mid-match device reset, a live-tuning `applyFast` frame loss, or an unconfirmed homing restore (§6.3) left inconsistent is restored before the next enable. It calls `PumpkinRegistry.onDisable()` internally (D12), so a team driving the lifecycle by hand does not have to remember both.
+`RootstockLifecycle.disabledInit()` — reached either way — is where the **verified**, blocking, full-config re-apply happens (§3.9) — the robot is disabled, the loop budget is irrelevant, and it guarantees that anything a mid-match device reset, a live-tuning `applyFast` frame loss, or an unconfirmed homing restore (§6.3) left inconsistent is restored before the next enable. It calls `RootstockRegistry.onDisable()` internally (D12), so a team driving the lifecycle by hand does not have to remember both.
 
 ### 9.5 What the team did **not** write
 
@@ -5315,7 +5315,7 @@ And it runs, with physics, in `./gradlew simulateJava` before the robot exists �
 
 ### 9.6 What a student changes to tune it
 
-Nothing in code. `/Tuning/Elevator/{kP,kI,kD,kS,kV,kA,kG,maxVelocity,maxAcceleration,jerk,tolerance,velocityTolerance,goalDebounceSeconds,manualDeadband,manualScale}` and `/Tuning/Elevator/Setpoints/{STOW,L2,L3,L4}` are live in AdvantageScope/Elastic whenever `TuningRegistry.isTuningEnabled()` is true (**D12** — revision 3 said `Pumpkin.TUNING_MODE`, on a facade that no longer exists) — the explicit allowlist of §1.2, nothing more. `/Tuning/Elevator/reduction` does **not** exist, on purpose.
+Nothing in code. `/Tuning/Elevator/{kP,kI,kD,kS,kV,kA,kG,maxVelocity,maxAcceleration,jerk,tolerance,velocityTolerance,goalDebounceSeconds,manualDeadband,manualScale}` and `/Tuning/Elevator/Setpoints/{STOW,L2,L3,L4}` are live in AdvantageScope/Elastic whenever `TuningRegistry.isTuningEnabled()` is true (**D12** — revision 3 said `Rootstock.TUNING_MODE`, on a facade that no longer exists) — the explicit allowlist of §1.2, nothing more. `/Tuning/Elevator/reduction` does **not** exist, on purpose.
 
 `jerk` is on that list, and revision 4 makes it real: `MechanismUnits.toOutputRps3` is what converts the slider's user-unit value into the `MotionMagicJerk` the device wants (§3.5.4 step 7). Before that method existed the topic was published, was tunable, and was passed to the device **unconverted**. *(Cross-doc note: `design/02`'s `ProfileConstraints` cannot currently represent `jerk` at all, which is `REVIEW.md` open question 4 for the maintainer. This document keeps it, and lists the requirement under `contractsRequested`.)*
 
@@ -5330,7 +5330,7 @@ The 2026 season is over and 2027 is a hard break (`edu.wpi.first.*` → `org.wpi
 1. **One line at a time; the dual-compile scaffolding lives and dies inside M12.** `ROADMAP.md` §7.2 is authoritative here, and docs 02 §17 and 04 §13.1 already describe this model — **revision 3 of this document did not, and said the opposite.**
 
    > **SUPERSEDED (revision 4).** Revision 3 item 1 read: *"Two release lines from day one, one
-   > source tree. `pumpkinlib-2026` (`frcYear: "2026"`) and `pumpkinlib-2027`
+   > source tree. `rootstock-2026` (`frcYear: "2026"`) and `rootstock-2027`
    > (`wpilibYear: "2027_alphaN"`), built from the same sources with a package-rewrite step."*
    > That describes a **permanent** dual-line, dual-publish model with a package-rewrite pipeline
    > maintained for years. Decision 1's roadmap deleted it, and an implementer following this
@@ -5354,12 +5354,12 @@ The 2026 season is over and 2027 is a hard break (`edu.wpi.first.*` → `org.wpi
 2. **`Mechanism` is already the noun.** Commands v3 uses "mechanism" for the exclusively-owned resource, and our `Mechanism` deliberately implements the `Subsystem` *interface* only. The v3 facade is one adapter class; nothing above it changes.
 3. **Commands v2 is the target; v3 is an adapter.** v2 survives into 2027. The coroutine `yield()` footgun is real and disproportionately hurts the target audience. CORE ships v2 first and a `commands3` adapter artifact second.
 4. **Almost nothing removed in 2027 is used, and the two exceptions are named rather than glossed.** No Relay/AnalogOutput/SPI/DMA/Counter/Ultrasonic/AnalogTrigger/interrupts/Servo, no NT3, no Shuffleboard/SmartDashboard, no `MutableMeasure`. Two live exposures:
-   * **`robotInit()` — was a live exposure, and as of D13a it is not one.** Revision 3 listed it as "not used" (false at the time — `PumpkinRobot` overrode it); revision 4 corrected that to "the single override in the library"; **D13a then deleted the override**, and `PumpkinLifecycle`'s method is D29's `init()`. So the library's exposure to this 2027-removed hook is now **zero**, the initialisation-order problem that motivated the override is solved by `init()`'s idempotence plus a constructor-tail call site (§1.1a), and ArchUnit rule 5 needs no exception. What remains is a **compatibility note, not a blocker**: whatever `LoggedRobot`'s 2027 line exposes as a post-construction start hook is still **[UNVERIFIED]** (neither WPILib 2027 nor AdvantageKit's 2027 branch exists yet), but nothing in PumpkinLib depends on the answer. It stays on M12's checklist and in open question 15 at that reduced weight.
+   * **`robotInit()` — was a live exposure, and as of D13a it is not one.** Revision 3 listed it as "not used" (false at the time — `RootstockRobot` overrode it); revision 4 corrected that to "the single override in the library"; **D13a then deleted the override**, and `RootstockLifecycle`'s method is D29's `init()`. So the library's exposure to this 2027-removed hook is now **zero**, the initialisation-order problem that motivated the override is solved by `init()`'s idempotence plus a constructor-tail call site (§1.1a), and ArchUnit rule 5 needs no exception. What remains is a **compatibility note, not a blocker**: whatever `LoggedRobot`'s 2027 line exposes as a post-construction start hook is still **[UNVERIFIED]** (neither WPILib 2027 nor AdvantageKit's 2027 branch exists yet), but nothing in Rootstock depends on the answer. It stays on M12's checklist and in open question 15 at that reduced weight.
    * **`DutyCycleEncoder`** for `FeedbackSpec.DioAbsolute` — **[UNVERIFIED]** whether it survives the Counter removal; if not, `DioAbsolute` becomes 2026-only and the config builder says so.
-5. **`Math.clamp` / `MathUtil.clamp`** — CORE uses an internal `PumpkinMath.clamp` (Java 17 has no `Math.clamp`, and `MathUtil.clamp` is renamed in 2027). One-line seam, already used in §6.2.
+5. **`Math.clamp` / `MathUtil.clamp`** — CORE uses an internal `RootstockMath.clamp` (Java 17 has no `Math.clamp`, and `MathUtil.clamp` is renamed in 2027). One-line seam, already used in §6.2.
 6. **`calculateWithVelocities` is the 2026-and-forward form.** The deprecated `calculate(position, velocity, acceleration, dt)` overloads are not used anywhere, so the 2027 removal is a no-op for us. `Controllers.Feedforward` is the single point of contact.
 7. **SystemCore has multiple CAN buses**, which makes `canBus` a first-class field on every `MotorSpec` today rather than a 2027 retrofit. It also makes `m_dynamicCapable`'s bus test (§6.2) forward-compatible.
-8. **WPILib 2027 ships first-party `Tunable` and `Telemetry` APIs.** The Tuning and Telemetry domains must be designed to *re-point* at those, not compete. CORE touches them only through `Tunable` and the `PumpkinLog` statics, so CORE is insulated from a change of *facade implementation*. **Revision 3 narrows this claim honestly:** it no longer holds for the *inputs* classes. `MotorInputs implements LoggableInputs` names an AdvantageKit type in CORE, so if WPILib's first-party telemetry ever made AdvantageKit unnecessary, CORE would have to change with it. Revision 2's `PumpkinInputs` bought exactly that insulation, and maintainer decision 3 spent it. This is one of the two places (with §1.7.6) where a decision-3 cost lands inside CORE rather than in `design/04`.
+8. **WPILib 2027 ships first-party `Tunable` and `Telemetry` APIs.** The Tuning and Telemetry domains must be designed to *re-point* at those, not compete. CORE touches them only through `Tunable` and the `RootstockLog` statics, so CORE is insulated from a change of *facade implementation*. **Revision 3 narrows this claim honestly:** it no longer holds for the *inputs* classes. `MotorInputs implements LoggableInputs` names an AdvantageKit type in CORE, so if WPILib's first-party telemetry ever made AdvantageKit unnecessary, CORE would have to change with it. Revision 2's `RootstockInputs` bought exactly that insulation, and maintainer decision 3 spent it. This is one of the two places (with §1.7.6) where a decision-3 cost lands inside CORE rather than in `design/04`.
 9. **AdvantageKit must publish for WPILib 2027 before CORE can be ported at all.** M12 (`ROADMAP.md`) is date-triggered by the first 2027 alpha; if AdvantageKit has no 2027 branch by the beta, R18's contingency fires and CORE does not port. Nothing in this document can mitigate that — it is a dependency, not a design choice.
 
 ---
@@ -5388,10 +5388,10 @@ The 2026 season is over and 2027 is a hard break (`edu.wpi.first.*` → `org.wpi
 7. **`SignalSubscriptionTest`.** Calls `configureSignals(SIMPLE, Tier.COMPETITION)` and asserts `inputs.supplyCurrentAmps` is a real number, `inputs.positionRot` is **`NaN`** (not `0.0`), and `inputs.closedLoopReferenceRot` is `NaN`. Plus a reflective boot assertion that every field a `Sink` writes is a declared `SignalSet` channel.
 8. **`DeviceResetRecoveryTest`.** In sim, force `hasResetOccurred()`, assert the config is re-applied, `deviceResetCount` increments, the setpoint is re-sent within one loop, and an alert is raised. **Plus the boot case (rev 4):** after a clean construction and exactly one `periodic()`, assert `deviceResetCount == 0` and `<name>/device-reset` is **inactive** — the constructor consumed the power-on flag (§3.5.5), so a boot is not a reset.
 9. **`SetpointHeartbeatTest`.** With an unchanged goal, assert `setControl` is called at least once per 100 ms and at most once per 100 ms.
-10. **`ApplyGainsIsNonBlockingTest`** + the ArchUnit rule of §3.9 + a `PumpkinTracer` budget assertion that `Mechanism/ApplyGains` stays under 1.0 ms at 10 Hz write-through.
+10. **`ApplyGainsIsNonBlockingTest`** + the ArchUnit rule of §3.9 + a `RootstockTracer` budget assertion that `Mechanism/ApplyGains` stays under 1.0 ms at 10 Hz write-through.
 11. **Vendor parity tests.** The same `PositionConfig` on `TalonFXMotorIO`, `SparkMotorIO`, `GenericMotorIO`, and `SimMotorIO`, run through the same profile in simulation, must land within the same tolerance. Includes `FieldLockedTurretParityTest`: the chassis-omega feedforward must be applied on **every** backend, by whichever mechanism that backend supports. The NEO path being untestable is a named defect in `0000-XXXX-Robot-Template`.
 12. **Config-error snapshot tests.** Every message in §5.6 and §8.9 is asserted verbatim. A docs example that no longer compiles, or an error message that regresses, fails CI.
-13. **`SafeModeBootsTest`.** A config with a FATAL error must produce a robot that constructs, runs the scheduler, publishes `/Pumpkin/Driver/SafeMode = true` with the full error list, and refuses every command — **not** an `ExceptionInInitializerError`.
+13. **`SafeModeBootsTest`.** A config with a FATAL error must produce a robot that constructs, runs the scheduler, publishes `/Rootstock/Driver/SafeMode = true` with the full error list, and refuses every command — **not** an `ExceptionInInitializerError`.
 14. **`WithCopyDoesNotDoubleRegisterTest`.** `ELEVATOR.withGains(g).withReduction(r)` produces no CAN-ID conflict.
 15. **`DescribeSnapshotTest`.** Constructs `RobotConfig.ELEVATOR` and `RobotConfig.ARM`, calls `describe()`, and **string-matches the §4.4 and §3.5.7 blocks verbatim**. This is the assertion Principle 11 promises; revision 1 shipped a `describe()` block that was internally inconsistent by a factor of 2.9, and revision 3 shipped one whose `kG` was low by 2.2× and whose gear ratio was wrong by 1.92×, and nothing caught either. **The expected blocks are the revision-4 recomputed ones** — `0.279400 m`, `0.0444679 m`, `5.0000 drum rot`, `2.251 m/s`, `kG 0.33`, `Slot0.kP 22.35`, `65.411:1`, `kG 0.29`, `kV 1.25`. A verbatim string match is what makes an arithmetic slip a build failure rather than a reviewer's lucky catch.
 16. **`RouterBoundingBoxTest.` **A zone the diagonal misses but the L-shaped path enters must be detected. Plus `SynchronizedAxesRestoresDiagonalTest`.
@@ -5400,7 +5400,7 @@ The 2026 season is over and 2027 is a hard break (`edu.wpi.first.*` → `org.wpi
 18. **Allocation test — an M5 gate condition** (dated gates G0–G5 deleted; see `ROADMAP.md` §5).** A loop of the **full §9 example robot** (three mechanisms + superstructure + telemetry) must allocate zero bytes after warmup. Not a synthetic mechanism. Loop overruns were attributed to competing libraries repeatedly in 2026 and the team response was to disable telemetry entirely.
 19. **`forkEvery = 1`** in the test harness, because simulated CAN devices reject duplicate IDs within one JVM — a constraint all three user repos already carry.
 20. **`InputsReplayRoundTripTest`** (new in revision 3). For each of `MotorInputs`, `AbsoluteEncoderInputs`, `GyroInputs`, `DigitalSensorInputs`: populate every field with a distinguishable value including `NaN` and an empty array, `toLog` into a `LogTable`, `fromLog` into a fresh instance, and assert field-by-field equality with `NaN`-aware comparison. Deterministic replay is now a *guaranteed* library property rather than a backend-dependent one (§1.1), and a guarantee needs a test. This also catches the classic hand-written-`toLog` bug: a field added to the class and to `toLog` but forgotten in `fromLog`, which replays silently as the default. A reflective assertion that every declared public field appears in both method bodies runs alongside it.
-21. **Partial-adoption fixture compilation** (D29, unchanged by decision 3). The four fixture projects `tunables-only`, `one-mechanism-only`, `health-only`, `full` compile on every PR, and a check asserts that **only `full` references `PumpkinRobot`**. This is what keeps §1.1a's public `PumpkinLifecycle` honest now that there is only one base class left to be tempted by.
+21. **Partial-adoption fixture compilation** (D29, unchanged by decision 3). The four fixture projects `tunables-only`, `one-mechanism-only`, `health-only`, `full` compile on every PR, and a check asserts that **only `full` references `RootstockRobot`**. This is what keeps §1.1a's public `RootstockLifecycle` honest now that there is only one base class left to be tempted by.
 22. **`ReductionTeethOrderTest`** (new in revision 4). `Reduction.ofTeeth(58, 10).rotorPerOutput() == 5.8` and `ofTeeth(58,10).then(58,18).then(42,12).rotorPerOutput() == 65.411 ± 1e-3`. Revision 3's parameter names — `ofTeeth(int driving, int driven)` — would have made a faithful implementation return `10/58` and turned the flagship arm into a 65× speed-up. A library whose central promise is making gear-ratio errors unrepresentable does not get to have that one caught by review.
 23. **`MaxMotionUnitsTest`** (new in revision 4, and it **gates the REV adapter's ship**). Drive a MAXMotion move in `SparkSim`, assert the observed steady-state profile velocity equals the configured `cruiseVelocity` within 5 %. §3.7's `× 60` was a 60×-too-fast profile on every REV elevator and arm, presented as settled next to a "Verified in the javadoc" rename claim that covered only the method's *name*. Also closes `DESIGN.md` §5.6's still-open item 3 (`SparkSim.iterate` velocity units).
 24. **`HomingRestoresLimitsTest`** (new in revision 4, §6.3). A `MotorIO` stub whose `applyVerified` fails only on the restore call must leave the mechanism neutral, `isHomed()` false, `<name>/homing-limits-unrestored` active at `BLOCKS_MATCH`, and `Homing/LimitsRestoreVerified = false` in the log.
@@ -5414,7 +5414,7 @@ The 2026 season is over and 2027 is a hard break (`edu.wpi.first.*` → `org.wpi
 
 | We do not | Because it already exists |
 |---|---|
-| Write a logging framework or a replay system | **AdvantageKit**, which as of maintainer decision 3 is a **required dependency**, not one option among three. CORE writes through the `PumpkinLog` tiered facade and implements `LoggableInputs` directly. DogLog and Epilogue are not supported and there are no adapters for them. |
+| Write a logging framework or a replay system | **AdvantageKit**, which as of maintainer decision 3 is a **required dependency**, not one option among three. CORE writes through the `RootstockLog` tiered facade and implements `LoggableInputs` directly. DogLog and Epilogue are not supported and there are no adapters for them. |
 | Write a swerve library | **YAGSL**, **CTRE `SwerveDrivetrain`**, WPILib kinematics/odometry. Drivetrain (`design/05`) composes with the Tuner-X-generated `TunerSwerveDrivetrain`; it does not replace it. |
 | Write trajectory generation or path following | **PathPlannerLib 2026.1.2**, **Choreo**. Auto (`design/05`) wraps only the four things `AutoBuilder` needs from a drivetrain. |
 | Write vision pose estimation or an AprilTag pipeline | **PhotonVision**, **Limelight/LimelightHelpers**, WPILib `SwerveDrivePoseEstimator`. |
@@ -5428,7 +5428,7 @@ The 2026 season is over and 2027 is a hard break (`edu.wpi.first.*` → `org.wpi
 | Write a dashboard | **Elastic**, **AdvantageScope**. CORE publishes NT4 structs and ships layout JSONs. |
 | Re-model every vendor config knob | **`TalonFXConfiguration`** and **`SparkMaxConfig`** are the vendors' own fluent configs, maintained by the vendors. CORE models only what is physical, shared, or derivable, and passes everything else through `applyRaw()`. |
 | Provide a unified control-execution API across on-motor and on-RIO loops | This is the specific mistake the community rejected. CORE shares *config data* and makes the *location* explicit. |
-| ~~Force AdvantageKit, `LoggedRobot`, or an IO-layer architecture~~ — **this row is REVERSED by maintainer decision 3 and is no longer something we avoid** | We now require all three. `pumpkinlib` depends on AdvantageKit; the one base class is `PumpkinRobot extends LoggedRobot`; `MotorIO`/`MotorInputs` is the IO-layer architecture. What we still do not force is the *base class*: `PumpkinLifecycle` is public and a team wires it into its own `LoggedRobot` (§1.1a). **Consequence, stated where an adopter will see it: a team already committed to DogLog or to plain Epilogue cannot adopt PumpkinLib without switching loggers, and a team on plain `TimedRobot` with no logging must adopt AdvantageKit before it can adopt even the health monitors.** Doc 04 carries the exclusion rows in the adoption matrix (M8). |
+| ~~Force AdvantageKit, `LoggedRobot`, or an IO-layer architecture~~ — **this row is REVERSED by maintainer decision 3 and is no longer something we avoid** | We now require all three. `rootstock` depends on AdvantageKit; the one base class is `RootstockRobot extends LoggedRobot`; `MotorIO`/`MotorInputs` is the IO-layer architecture. What we still do not force is the *base class*: `RootstockLifecycle` is public and a team wires it into its own `LoggedRobot` (§1.1a). **Consequence, stated where an adopter will see it: a team already committed to DogLog or to plain Epilogue cannot adopt Rootstock without switching loggers, and a team on plain `TimedRobot` with no logging must adopt AdvantageKit before it can adopt even the health monitors.** Doc 04 carries the exclusion rows in the adoption matrix (M8). |
 | Own field constants, alliance flipping, or game logic | Field/Auto domains. The 2027 field origin moves to the center of the field, so this must live behind an abstraction owned by one domain, not scattered. |
 
 ---
@@ -5443,7 +5443,7 @@ The 2026 season is over and 2027 is a hard break (`edu.wpi.first.*` → `org.wpi
 6. **`StructGenerator.genRecord` type support** is undocumented. `MechanismConfigSnapshot` is flattened to primitives to avoid the risk; if `genRecord` turns out to support enums and nested records cleanly, the snapshot could become structured. Needs a test.
 7. **Superstructure axis count — and an honest statement of the ceiling.**
 
-   > **PumpkinLib's router is 2-axis and geometric, not a cost-weighted graph search.** It
+   > **Rootstock's router is 2-axis and geometric, not a cost-weighted graph search.** It
    > routes over axis-aligned rectangles in a two-dimensional configuration space with a
    > greedy corner-escape heuristic capped at four waypoints. It is deterministic, it is
    > unit-testable with no HAL, it covers every mechanism in the user's three repos, and it
@@ -5471,7 +5471,7 @@ The 2026 season is over and 2027 is a hard break (`edu.wpi.first.*` → `org.wpi
 8. **Should `Reduction` know about belt/chain slip?** A `Reduction` measured from tooth counts is exact; a real cascade elevator can differ by a few percent. A `calibrationScale` field would let a team correct measured travel without touching the tooth counts — but it is also a place to hide a wrong ratio. Leaning against; wants a decision.
 9. **Follower disagreement threshold.** What is a sane default for a two-motor elevator before `<name>/follower-disagrees` fires? 9143-A has a hand-written "elevator sides out of sync" alert; the threshold there is robot-specific. Proposal: default to 2% of total travel with an override, and only alert while enabled.
 10. **`GravityArmPositionOffset` availability on REV.** Phoenix 26.x has it, with a verified (−0.25, 0.25) rot range. REVLib's `kCos` is multiplied by the cosine of *absolute mechanism position* with no offset field mentioned in the docs — if there is no offset, the REV arm path requires the zero of the encoder to be at horizontal, or a RIO-side correction. **[UNVERIFIED]**, and it is the one place where the two vendors may not map cleanly onto one `GravityMode`. Note that the Phoenix ±90° limit already forces teams toward "zero at horizontal", so the two paths may converge in practice.
-11. **Naming — now settled, for a reason that changed.** `MotorIO` vs `MotorPort` vs `MotorLink`. Revision 2 argued for `MotorIO` because it matches the AdvantageKit vocabulary 600+ teams already know, *while* noting that `MotorInputs implements PumpkinInputs` kept the vocabulary without the dependency. Maintainer decision 3 removes the tension entirely: we **have** the dependency, `MotorInputs` **is** a `LoggableInputs`, and a team arriving from an AdvantageKit template finds the names, the `updateInputs(inputs)` shape and the `Logger.processInputs` semantics they already use. **Keep `MotorIO`/`MotorInputs`.** The one thing to confirm before the API freeze (M24) is the *log key* schema in §3.4, since those strings are the replay contract and changing one invalidates older logs.
+11. **Naming — now settled, for a reason that changed.** `MotorIO` vs `MotorPort` vs `MotorLink`. Revision 2 argued for `MotorIO` because it matches the AdvantageKit vocabulary 600+ teams already know, *while* noting that `MotorInputs implements RootstockInputs` kept the vocabulary without the dependency. Maintainer decision 3 removes the tension entirely: we **have** the dependency, `MotorInputs` **is** a `LoggableInputs`, and a team arriving from an AdvantageKit template finds the names, the `updateInputs(inputs)` shape and the `Logger.processInputs` semantics they already use. **Keep `MotorIO`/`MotorInputs`.** The one thing to confirm before the API freeze (M24) is the *log key* schema in §3.4, since those strings are the replay contract and changing one invalidates older logs.
 12. **Does `Setpoint` need to be tunable per-robot?** A setpoint that differs between the practice bot and the comp bot is common. `PositionConfig.withSetpoint(name, value)` covers it, and setpoints are on the §1.2 tunable allowlist, but persisted per-robot tuning (tune on the practice bot, promote to the comp bot) is a Tuning-domain question that affects the `Setpoint` type's shape.
 13. **`OutputMode.TORQUE_CURRENT` — where does it go now?** Landing it requires an amps-per-SI row in `design/02` §4.2's `GainSink` table, an amps-per-SI mode in `FeedbackDesigner`, a unit tag in `gains.json`, and a migration path for a team that tuned in volts. That is a coherent chunk of work, not a flag flip. **Revision 3: revision 2 filed it under "v0.2"; there is no v0.2, and it appears in no milestone M1–M24, so it is OUTSIDE v0.1** — a genuine reduction, not a deferral to a later release. The `ConfigError` in §3.5 that refuses it is therefore permanent for v0.1, not temporary, and its message must not promise a version that does not exist.
 14. **Signal rate default — NOW BLOCKING, because revision 3's justifying arithmetic was wrong.** §3.5.1 raises position/velocity to 100 Hz to avoid aliasing against the 50 Hz loop. That rationale is sound. The claim that it was free — *"≈ 0.6 % of a 1 Mbps bus and immaterial"* — was **wrong by ~19×** (11.2 % against the claimed 0.6 %); the recomputed figure is **4.5 % per position-controlled motor**, and eight of them plus a swerve drivetrain at 60–80 % can saturate a `rio` bus. Revision 4 already narrows the default to `POSITION` mechanisms only and prints a real aggregate budget, but **the 100 Hz number itself must not be frozen without a measurement.** The measurement, specified so it can actually be run:
@@ -5479,31 +5479,31 @@ The 2026 season is over and 2027 is a hard break (`edu.wpi.first.*` → `org.wpi
     * Record utilisation with the drivetrain alone, then with each mechanism's signals added, so the per-mechanism increment is measured rather than modelled.
     * Compare against §3.5.1's one-frame-per-signal upper bound; the ratio between them is the empirical answer to the **[UNVERIFIED]** Phoenix status-frame packing question, which is the largest unknown in the whole budget.
     * **Gate:** this measurement must land before M5's allocation/telemetry gate, because the default it sets is baked into every `describe()` snapshot and therefore into `DescribeSnapshotTest`.
-15. ~~**What replaces `robotInit()` in 2027.**~~ **DOWNGRADED 2026-08-08 by `DESIGN.md` D13a + D29, and the cross-doc half is WITHDRAWN.** The question was posed because `PumpkinRobot` overrode `IterativeRobotBase.robotInit()` — the library's single use of a 2027-removed hook. **D13a deleted that override** and D29 renamed the lifecycle method to `init()`, so PumpkinLib no longer touches the hook at all and rule 5 applies without a carve-out. Revision 5's request that `DESIGN.md` §8 scope rule 5 to *"no class outside `org.pumpkinlib.core`, with `PumpkinRobot` named as the documented exception"* is **withdrawn** — the exception has no subject. What survives is a plain compatibility note: whether WPILib 2027's `IterativeRobotBase` line or AdvantageKit's 2027 `LoggedRobot` offers an equivalent post-construction start callback is **[UNVERIFIED]** and unknowable until those exist, but PumpkinLib's design does not depend on the answer, because its post-construction work runs from a constructor-tail `init()` call and a lazy first-cycle fallback (§1.1a). M12's checklist, no longer gating.
+15. ~~**What replaces `robotInit()` in 2027.**~~ **DOWNGRADED 2026-08-08 by `DESIGN.md` D13a + D29, and the cross-doc half is WITHDRAWN.** The question was posed because `RootstockRobot` overrode `IterativeRobotBase.robotInit()` — the library's single use of a 2027-removed hook. **D13a deleted that override** and D29 renamed the lifecycle method to `init()`, so Rootstock no longer touches the hook at all and rule 5 applies without a carve-out. Revision 5's request that `DESIGN.md` §8 scope rule 5 to *"no class outside `org.rootstock.core`, with `RootstockRobot` named as the documented exception"* is **withdrawn** — the exception has no subject. What survives is a plain compatibility note: whether WPILib 2027's `IterativeRobotBase` line or AdvantageKit's 2027 `LoggedRobot` offers an equivalent post-construction start callback is **[UNVERIFIED]** and unknowable until those exist, but Rootstock's design does not depend on the answer, because its post-construction work runs from a constructor-tail `init()` call and a lazy first-cycle fallback (§1.1a). M12's checklist, no longer gating.
 16. ~~***(new, 2026-08-08 — the two contract requests §1.1b raises, filed here so they are not only inside a javadoc.)*** **`design/04` owes three answers on the `TelemetrySource` declaration half**~~ — **ALL THREE ANSWERED AND APPLIED, 2026-08-08. OQ16 is CLOSED in full: (a) confirmed CORE's assumption, (b) granted CORE's request, (c) overruled CORE on one of five.**
 
     **(a) The rotary declared unit — CORE was right; `design/04` §3.1's parenthetical was the error.** It now reads *"Meters for an elevator, **Degrees** for an arm"* and carries a paragraph naming the old wording a **57.3× mislabel over a degree stream**. **No conversion added.** §1.1b's `ROTATIONAL_RADIANS -> d.positionUnit(Degrees).velocityUnit(DegreesPerSecond)` is unchanged.
 
     **(b) The unit-free overload — granted.** `design/04` §1.1 declares **`TelemetryDescriptor extra(String key, Tier tier)`** and states that it is *not* interchangeable with the three-argument form: the three-argument form writes entry metadata AdvantageScope reads for axis labelling, the two-argument form asserts there is no unit to write. **Applied in §1.1b:** `DeviceResetCount`, `Blocked` and `Plan` moved onto it and their `Units.Value` arguments deleted; `FeedbackVolts`/`FeedforwardVolts` keep `Volts` on the three-argument form because they are measurements. The `Units.Value` workaround is gone from this document's descriptor calls.
 
-    **(c) The tiers — four confirmed, `DeviceResetCount` overruled to CRITICAL, and BOTH halves applied together.** §1.1b declares `d.extra("DeviceResetCount", Tier.CRITICAL)` and §6.2 publishes `PumpkinLog.critical(kDeviceResets, (long) …)`. The `design/04` §1.5 schema audit compares declaration against publish and fails if only one moves, which is why they are one edit and not two. **One correction to this question's own reasoning, recorded rather than quietly dropped:** it argued that *"a STANDARD key vanishes when the FMS gate raises `minimumTier`"*. **That is false.** `design/04` §2.7.1 raises `minimumTier` to STANDARD **and no higher** — the gate drops DEBUG and only DEBUG — so a STANDARD key is present in an FMS-attached log today. The real argument for CRITICAL is the one `design/04` gives: `minimumTier` is a `LogConfig` field a team can set to `CRITICAL` at an event under a byte-budget squeeze, and §2.2 promises CRITICAL keys *"are never removed from the schema by any mechanism"*. CORE's conclusion was right for a wrong reason, and the wrong reason is the part worth writing down.
+    **(c) The tiers — four confirmed, `DeviceResetCount` overruled to CRITICAL, and BOTH halves applied together.** §1.1b declares `d.extra("DeviceResetCount", Tier.CRITICAL)` and §6.2 publishes `RootstockLog.critical(kDeviceResets, (long) …)`. The `design/04` §1.5 schema audit compares declaration against publish and fails if only one moves, which is why they are one edit and not two. **One correction to this question's own reasoning, recorded rather than quietly dropped:** it argued that *"a STANDARD key vanishes when the FMS gate raises `minimumTier`"*. **That is false.** `design/04` §2.7.1 raises `minimumTier` to STANDARD **and no higher** — the gate drops DEBUG and only DEBUG — so a STANDARD key is present in an FMS-attached log today. The real argument for CRITICAL is the one `design/04` gives: `minimumTier` is a `LogConfig` field a team can set to `CRITICAL` at an event under a byte-budget squeeze, and §2.2 promises CRITICAL keys *"are never removed from the schema by any mechanism"*. CORE's conclusion was right for a wrong reason, and the wrong reason is the part worth writing down.
 
     *(Superseded question text, verbatim, follows.)* CORE is written against a stated assumption for each rather than blocked on any of them.
     **(a) The rotary declared unit.** `design/04` §3.1's lead-in says *"the **declared** unit of the mechanism (Meters for an elevator, **Radians** for an arm)"*. CORE publishes user units, and a rotary axis's user unit is **degrees** (`Axis.userPerOutputRotation()`, `Axis.unitLabel() == "deg"`, §4.3). §1.1b therefore declares `Units.Degrees` / `Units.DegreesPerSecond`. If `design/04` means what it says, either that parenthetical changes or the publisher must convert — and converting would put radians on the wire for the one axis type where degrees are what a student reads. **CORE's assumption: `design/04`'s parenthetical is the error.**
     **(b) A unit-free `extra(...)` overload.** `TelemetryDescriptor.extra(String, Unit, Tier)` requires a `Unit`, but `DeviceResetCount` is a count and `Blocked`/`Plan` are `String`/`String[]`. CORE passes `edu.wpi.first.units.Units.Value` (a `DimensionlessUnit` — **verified** against the WPILib javadoc) because nothing else fits the signature. **Requested: `TelemetryDescriptor extra(String key, Tier tier)`.**
     **(c) The tiers of the five extras.** `DeviceResetCount`, `FeedbackVolts`, `FeedforwardVolts`, `Blocked` and `Plan` are absent from `design/04` §3.1's table, so §1.1b declares each at the tier its existing call site already uses (all **STANDARD**). That makes declaration and publish agree by construction, which is all the schema audit checks; it does not make the tier *right*. **`DeviceResetCount` is the one worth arguing about** — a STANDARD key vanishes when the FMS gate raises `minimumTier`, and "a motor controller rebooted mid-match" is a thing you want in an FMS-attached log. `design/04` confirms or overrules; if it overrules, the `extra(...)` line and the `critical`/`log` call move together.
-17. ~~***(new, 2026-08-08)* `LogConfig`'s construction style — `design/04` §2.2 and `DESIGN.md` D13a currently disagree, and the disagreement is load-bearing rather than stylistic.**~~ **CLOSED 2026-08-08 — `design/04` §2.2b made the edit this question asked for, and it went the way CORE was already written.** `design/04` §2.2b now declares `LogConfig` as an **immutable value with `with*()` copies**, one per field, with **no public constructor, no setter, no public field and no Builder**, plus **exactly the two D29 factories** `defaults()` and `adoptExistingLogger()`; reading is by accessor. Its own rationale paragraph cites D13a in the same terms this question did — *"a config object that can be mutated after `start()` is a config object that can silently disagree with the log's own provenance metadata"* — and D29 for the factories. **`PumpkinLog.configure(Consumer<LogConfig>)` is gone**; `design/04` §2.3's entry point is `PumpkinLog.configure(org.pumpkinlib.core.spi.LogConfig config)`, taking the value. **§1.1a's restatement did not have to change**, because it was written against D13a/D29 from the start, and that is the only reason this closes as a confirmation rather than as a rewrite. **The original text is struck through rather than deleted: it is the record of a disagreement that survived three revisions of two documents, and `DESIGN.md` §16 item 5(e) tracks it.** *(Superseded question text, verbatim, follows.)* `design/04` §2.2 declares `LogConfig` as a class of **public mutable fields**, reached through `PumpkinLog.configure(Consumer<LogConfig>)`. **D13a** — binding, and later — requires an **immutable value with `with*()` copies**, in as many words: *"The config argument is an immutable `LogConfig` value built with `with*()` copies, not a `Consumer<LogConfig>`… a consumer implies a mutable config object, which principle 6 and D1a forbid everywhere else in the library."* **D29** further requires two factories, `LogConfig.defaults()` and `LogConfig.adoptExistingLogger()`, that `design/04` §2.2 does not declare at all — and those two are the entire mechanism by which "who calls `Logger.start()`" is an answered question instead of a double-start crash. §1.1a is written against **D13a/D29** and takes **`design/04` §2.2's field set** unchanged, which is the only split that satisfies both documents' ownership claims. **`design/04` owns the fix:** re-declare §2.2's fields behind `with*()` copies, add the two factories, and either delete `PumpkinLog.configure(Consumer<LogConfig>)` or re-shape it to take a `LogConfig` value. Until that lands, `design/01` §1.1a's `LogConfig` block carries the divergence note inline rather than implying agreement. `DESIGN.md` §16 item 5(e).
-18. ~~***(new, 2026-08-08)* Where does `LogConfig` live, given that `PumpkinLifecycle` is in `org.pumpkinlib.core` and rule 9 says every arrow points into core?**~~ **CLOSED 2026-08-08 — the recommended resolution was taken, CORE's half is applied, and the residues that kept this open "for this document only" are gone. The gate below is what stays; the count is struck through rather than deleted, because a dated count that was true when written is the record of how the sweep went.**
+17. ~~***(new, 2026-08-08)* `LogConfig`'s construction style — `design/04` §2.2 and `DESIGN.md` D13a currently disagree, and the disagreement is load-bearing rather than stylistic.**~~ **CLOSED 2026-08-08 — `design/04` §2.2b made the edit this question asked for, and it went the way CORE was already written.** `design/04` §2.2b now declares `LogConfig` as an **immutable value with `with*()` copies**, one per field, with **no public constructor, no setter, no public field and no Builder**, plus **exactly the two D29 factories** `defaults()` and `adoptExistingLogger()`; reading is by accessor. Its own rationale paragraph cites D13a in the same terms this question did — *"a config object that can be mutated after `start()` is a config object that can silently disagree with the log's own provenance metadata"* — and D29 for the factories. **`RootstockLog.configure(Consumer<LogConfig>)` is gone**; `design/04` §2.3's entry point is `RootstockLog.configure(org.rootstock.core.spi.LogConfig config)`, taking the value. **§1.1a's restatement did not have to change**, because it was written against D13a/D29 from the start, and that is the only reason this closes as a confirmation rather than as a rewrite. **The original text is struck through rather than deleted: it is the record of a disagreement that survived three revisions of two documents, and `DESIGN.md` §16 item 5(e) tracks it.** *(Superseded question text, verbatim, follows.)* `design/04` §2.2 declares `LogConfig` as a class of **public mutable fields**, reached through `RootstockLog.configure(Consumer<LogConfig>)`. **D13a** — binding, and later — requires an **immutable value with `with*()` copies**, in as many words: *"The config argument is an immutable `LogConfig` value built with `with*()` copies, not a `Consumer<LogConfig>`… a consumer implies a mutable config object, which principle 6 and D1a forbid everywhere else in the library."* **D29** further requires two factories, `LogConfig.defaults()` and `LogConfig.adoptExistingLogger()`, that `design/04` §2.2 does not declare at all — and those two are the entire mechanism by which "who calls `Logger.start()`" is an answered question instead of a double-start crash. §1.1a is written against **D13a/D29** and takes **`design/04` §2.2's field set** unchanged, which is the only split that satisfies both documents' ownership claims. **`design/04` owns the fix:** re-declare §2.2's fields behind `with*()` copies, add the two factories, and either delete `RootstockLog.configure(Consumer<LogConfig>)` or re-shape it to take a `LogConfig` value. Until that lands, `design/01` §1.1a's `LogConfig` block carries the divergence note inline rather than implying agreement. `DESIGN.md` §16 item 5(e).
+18. ~~***(new, 2026-08-08)* Where does `LogConfig` live, given that `RootstockLifecycle` is in `org.rootstock.core` and rule 9 says every arrow points into core?**~~ **CLOSED 2026-08-08 — the recommended resolution was taken, CORE's half is applied, and the residues that kept this open "for this document only" are gone. The gate below is what stays; the count is struck through rather than deleted, because a dated count that was true when written is the record of how the sweep went.**
 
-    **What landed.** `design/04` **§2.2b** declares `LogConfig` under `package org.pumpkinlib.core.spi;` — **option 1**, the one §1.1a's blockquote recommended — with the rule-9 reasoning restated at the declaration site and an explicit statement that **telemetry still owns the field set and semantics; only the package moved**. `LogConfig` now sits alongside `MechanismGeometry` and `SimMotorHandle`, the two other pure immutable downward-crossing values D26 put there, which is the argument that made option 1 cheap.
+    **What landed.** `design/04` **§2.2b** declares `LogConfig` under `package org.rootstock.core.spi;` — **option 1**, the one §1.1a's blockquote recommended — with the rule-9 reasoning restated at the declaration site and an explicit statement that **telemetry still owns the field set and semantics; only the package moved**. `LogConfig` now sits alongside `MechanismGeometry` and `SimMotorHandle`, the two other pure immutable downward-crossing values D26 put there, which is the argument that made option 1 cheap.
 
-    **CORE's half, which is the whole of this document's obligation.** Both `import` lines in §1.1a — `PumpkinLifecycle`'s and `PumpkinRobot`'s — now read `org.pumpkinlib.core.spi.LogConfig`, and §1.1a's restatement block opens `package org.pumpkinlib.core.spi;`. **No signature changed**, because `create(LogConfig)` and `PumpkinRobot(LogConfig)` never spelled the package inline. §1.1a's blockquote is retitled **RESOLVED** and keeps the finding and all three candidates, because "why is a telemetry-owned type under `core.spi`" is a question the next reader will ask.
+    **CORE's half, which is the whole of this document's obligation.** Both `import` lines in §1.1a — `RootstockLifecycle`'s and `RootstockRobot`'s — now read `org.rootstock.core.spi.LogConfig`, and §1.1a's restatement block opens `package org.rootstock.core.spi;`. **No signature changed**, because `create(LogConfig)` and `RootstockRobot(LogConfig)` never spelled the package inline. §1.1a's blockquote is retitled **RESOLVED** and keeps the finding and all three candidates, because "why is a telemetry-owned type under `core.spi`" is a question the next reader will ask.
 
-    **Verified by grep, 2026-08-08, not taken on report:** `grep -n "^ *import org\.pumpkinlib\.telemetry\.LogConfig" design/01-core-mechanisms.md` returns **zero** — zero imports and zero declarations. The old package survives here only as prose, in §1.1a's blockquote and in this item.
+    **Verified by grep, 2026-08-08, not taken on report:** `grep -n "^ *import org\.rootstock\.telemetry\.LogConfig" design/01-core-mechanisms.md` returns **zero** — zero imports and zero declarations. The old package survives here only as prose, in §1.1a's blockquote and in this item.
 
-    **The residue, and the gate is written to be import-shaped so it is not confounded by the prose that reports it.** The bare-string grep is useless as a gate: every document that correctly records the move adds a hit to it, so the count goes *up* as the design gets *more* correct — the same defect `DESIGN.md` §16 names in items 1, 4(f), 6 and 7. **The gate is therefore `grep -rn "^ *import org\.pumpkinlib\.telemetry\.\(LogConfig\|Tier\|RobotMode\)" design/ DESIGN.md`, which must return zero.** ~~**It returns 3 as of this pass: `design/02` §14's end-to-end example (line 4784) and `design/06` (lines 3231 and 3282, the second a bare import with no comment).**~~ **All three were swept on 2026-08-08 by the pass that also moved `Tier` and `RobotMode`; the gate returns zero across `design/01`, `design/02`, `design/03`, `design/05` and `design/06`.** *(`DESIGN.md` §10A.4 carried a fourth and was fixed by a parallel pass while this item was originally written. `design/04` is not this pass's to edit and is not claimed clean here — it is the definition site, and its own rule-9 residue note is `DESIGN.md` §16 item 11's remaining subject, not this document's.)*
+    **The residue, and the gate is written to be import-shaped so it is not confounded by the prose that reports it.** The bare-string grep is useless as a gate: every document that correctly records the move adds a hit to it, so the count goes *up* as the design gets *more* correct — the same defect `DESIGN.md` §16 names in items 1, 4(f), 6 and 7. **The gate is therefore `grep -rn "^ *import org\.rootstock\.telemetry\.\(LogConfig\|Tier\|RobotMode\)" design/ DESIGN.md`, which must return zero.** ~~**It returns 3 as of this pass: `design/02` §14's end-to-end example (line 4784) and `design/06` (lines 3231 and 3282, the second a bare import with no comment).**~~ **All three were swept on 2026-08-08 by the pass that also moved `Tier` and `RobotMode`; the gate returns zero across `design/01`, `design/02`, `design/03`, `design/05` and `design/06`.** *(`DESIGN.md` §10A.4 carried a fourth and was fixed by a parallel pass while this item was originally written. `design/04` is not this pass's to edit and is not claimed clean here — it is the definition site, and its own rule-9 residue note is `DESIGN.md` §16 item 11's remaining subject, not this document's.)*
 
-    **AMENDMENT, 2026-08-08 — the second arrow, and why the first fix was not sufficient.** Moving `LogConfig` to `core.spi` left rule 9 **still red**, because `LogConfig`'s own public signatures named telemetry types: `minimumTier()`, `withMinimumTier(Tier)`, `mode()`, `withMode(RobotMode)`. A `core.spi` type whose public members return `org.pumpkinlib.telemetry.Tier` is the **same arrow out of core, one level down**. **Resolution taken: `enum Tier` and `enum RobotMode` move to `org.pumpkinlib.core.spi`**, joining `MechanismGeometry`, `SimMotorHandle` and `LogConfig` — the D26/D31 shape for behaviourless downward-crossing value types. **`Demotable` does not move**: it is never named in a core signature. **A narrow named rule-9 allowlist was considered and rejected** on the ground that an allowlist that grows once grows again, and rule 9's whole value is being mechanically checkable with no judgement calls. **Telemetry keeps ownership of both enums' semantics; only the package moved.** This document's four import sites (§1.1a ×2 `LogConfig`, §1.1b `Tier`, §7.1 `MotorIOFactory` `RobotMode`) all read `core.spi`, and **no signature in this document changed**, because none ever spelled a package inline.
+    **AMENDMENT, 2026-08-08 — the second arrow, and why the first fix was not sufficient.** Moving `LogConfig` to `core.spi` left rule 9 **still red**, because `LogConfig`'s own public signatures named telemetry types: `minimumTier()`, `withMinimumTier(Tier)`, `mode()`, `withMode(RobotMode)`. A `core.spi` type whose public members return `org.rootstock.telemetry.Tier` is the **same arrow out of core, one level down**. **Resolution taken: `enum Tier` and `enum RobotMode` move to `org.rootstock.core.spi`**, joining `MechanismGeometry`, `SimMotorHandle` and `LogConfig` — the D26/D31 shape for behaviourless downward-crossing value types. **`Demotable` does not move**: it is never named in a core signature. **A narrow named rule-9 allowlist was considered and rejected** on the ground that an allowlist that grows once grows again, and rule 9's whole value is being mechanically checkable with no judgement calls. **Telemetry keeps ownership of both enums' semantics; only the package moved.** This document's four import sites (§1.1a ×2 `LogConfig`, §1.1b `Tier`, §7.1 `MotorIOFactory` `RobotMode`) all read `core.spi`, and **no signature in this document changed**, because none ever spelled a package inline.
 
-    *(Superseded question text, verbatim, follows.)* D13a puts `PumpkinLifecycle`/`PumpkinRobot` in **`org.pumpkinlib.core`**; `design/04` §2.2 and `DESIGN.md` §10A.4's import line put **`LogConfig` in `org.pumpkinlib.telemetry`**; and `create(LogConfig)` therefore names a telemetry type in a public core signature. **That is an arrow out of core, and ArchUnit rule 9 forbids it** — a type reference is the same violation as the direct call §1.1 already discusses, just quieter, and D28's one-jar packaging hides it without fixing it. §1.1a's blockquote states the three candidate resolutions and recommends the first: **move `LogConfig` into `org.pumpkinlib.core.spi`**, the package D26 created for exactly this ("the types that cross a layer boundary downward"), alongside `MechanismGeometry` and `SimMotorHandle`, which are the same shape — pure immutable values with no behaviour. **`design/04` owns the type; `DESIGN.md` §8 owns the rule; CORE owns neither and has not moved anything.** This is not a blocker for M1 code — it compiles either way — but it is a blocker for rule 9 being green on the first CI run, and a rule that is red on day one is a rule that gets disabled.
+    *(Superseded question text, verbatim, follows.)* D13a puts `RootstockLifecycle`/`RootstockRobot` in **`org.rootstock.core`**; `design/04` §2.2 and `DESIGN.md` §10A.4's import line put **`LogConfig` in `org.rootstock.telemetry`**; and `create(LogConfig)` therefore names a telemetry type in a public core signature. **That is an arrow out of core, and ArchUnit rule 9 forbids it** — a type reference is the same violation as the direct call §1.1 already discusses, just quieter, and D28's one-jar packaging hides it without fixing it. §1.1a's blockquote states the three candidate resolutions and recommends the first: **move `LogConfig` into `org.rootstock.core.spi`**, the package D26 created for exactly this ("the types that cross a layer boundary downward"), alongside `MechanismGeometry` and `SimMotorHandle`, which are the same shape — pure immutable values with no behaviour. **`design/04` owns the type; `DESIGN.md` §8 owns the rule; CORE owns neither and has not moved anything.** This is not a blocker for M1 code — it compiles either way — but it is a blocker for rule 9 being green on the first CI run, and a rule that is red on day one is a rule that gets disabled.
 

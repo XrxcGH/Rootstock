@@ -1,8 +1,8 @@
-# PumpkinLib Domain 02 — The Tuning System
+# Rootstock Domain 02 — The Tuning System
 
 **Status:** Design complete, ready to implement. **Revision 4 — the missed binding-decision sweep, plus the independent expert review of 2026-08-07.**
 **Target:** WPILib 2026 (`edu.wpi.first.*`, Java 17) with a mechanical 2027 port path (`org.wpilib.*`, Java 25) · **AdvantageKit 26.0.2 REQUIRED**
-**Owner package roots:** `org.pumpkinlib.control` (the canonical control vocabulary — `Gains`, `GainId`, `GainSink`, `Controllers`, `TuningTarget`, `MechanismArchetype`, `PositionReference`, `TravelLimits`, `PlantPrior`, `SafetyEnvelope`, `TuningSupervisor`), `org.pumpkinlib.tuning`, `org.pumpkinlib.tuning.sysid`, `org.pumpkinlib.tuning.wizard`, `org.pumpkinlib.tuning.diagnostics`, `org.pumpkinlib.tuning.persist`, `org.pumpkinlib.tuning.ui`, plus the HAL-free solver core in `org.pumpkinlib.pure.solvers`.
+**Owner package roots:** `org.rootstock.control` (the canonical control vocabulary — `Gains`, `GainId`, `GainSink`, `Controllers`, `TuningTarget`, `MechanismArchetype`, `PositionReference`, `TravelLimits`, `PlantPrior`, `SafetyEnvelope`, `TuningSupervisor`), `org.rootstock.tuning`, `org.rootstock.tuning.sysid`, `org.rootstock.tuning.wizard`, `org.rootstock.tuning.diagnostics`, `org.rootstock.tuning.persist`, `org.rootstock.tuning.ui`, plus the HAL-free solver core in `org.rootstock.pure.solvers`.
 **License:** BSD-3-Clause ([`LICENSE`](../LICENSE)).
 
 > ### ⚠ Revision 4 — this document was **missed** by the 2026-08-07 four-decision sweep
@@ -18,10 +18,10 @@
 | # | Change | Section | Was |
 |---|---|---|---|
 | A | **`Gains` is exactly seven doubles** `(kP,kI,kD,kS,kV,kA,kG)`, all volts-per-SI, named-field construction only. `GravityType`, `ProfileConstraints`, `toleranceSi`, `iZone` and `iMaxVolts` are **deleted from `Gains`** and live on `ControlConfig` (**D1a/D1b/D2/D2a**). `Gains.zero()` is deleted; `Gains.UNTUNED` is the placeholder (**D2c**). | §3.2, §5.5, §11.4, §12.3, §16 | A twelve-component record with `withGravity`, `withProfile`, `withTolerance`, `withIntegral` and a twelve-value `GainId` |
-| B | **`TuningTarget` moves to `org.pumpkinlib.control`** with the exact surface [`DESIGN.md`](../DESIGN.md) §11b compiles (`tuningName()`, `siDomain()`, `measuredSi()`, `velocitySi()`, `gains()`, `gainSink()`, `travelLimits()`, `plantPrior()`) (**D8**) | §3.1, §14.4, App. A | `org.pumpkinlib.tuning.TuningTarget` with `name()`, `units()`, `getPosition()`, `applyGains(Gains)` |
+| B | **`TuningTarget` moves to `org.rootstock.control`** with the exact surface [`DESIGN.md`](../DESIGN.md) §11b compiles (`tuningName()`, `siDomain()`, `measuredSi()`, `velocitySi()`, `gains()`, `gainSink()`, `travelLimits()`, `plantPrior()`) (**D8**) | §3.1, §14.4, App. A | `org.rootstock.tuning.TuningTarget` with `name()`, `units()`, `getPosition()`, `applyGains(Gains)` |
 | C | **`LoopLocation` is deleted.** `[SUPERSEDED-NAME]` Tuning calls `ControlLocation.runsOnMotor()` (**D5**). §9.3.1's contrary "decision" and OQ#13 are marked ANSWERED. | §3.1, §9.2.1, §9.3.1, §18 | Two names for one axis, both taught to the student in one error message |
-| D | **`MechanismUnits`-the-enum → `org.pumpkinlib.units.SiDomain {LINEAR_METERS, ROTATIONAL_RADIANS}`** (**D3**). CORE keeps `MechanismUnits` as the converter. | throughout | A name collision with CORE's converter class |
-| E | **`GravityType` → `org.pumpkinlib.control.GravityMode {NONE, CONSTANT, COSINE}`**, derived from the `Axis` (**D2a**) | §3.2, §4.2, §9.3.1 | `Gains.GravityType {NONE, ELEVATOR_STATIC, ARM_COSINE}` |
+| D | **`MechanismUnits`-the-enum → `org.rootstock.units.SiDomain {LINEAR_METERS, ROTATIONAL_RADIANS}`** (**D3**). CORE keeps `MechanismUnits` as the converter. | throughout | A name collision with CORE's converter class |
+| E | **`GravityType` → `org.rootstock.control.GravityMode {NONE, CONSTANT, COSINE}`**, derived from the `Axis` (**D2a**) | §3.2, §4.2, §9.3.1 | `Gains.GravityType {NONE, ELEVATOR_STATIC, ARM_COSINE}` |
 | F | **`GainStore` → `TunedValueStore`; `GainsExporter` → `ValueExporter`** `[SUPERSEDED-NAME]` — the names [`DESIGN.md`](../DESIGN.md) §12.1a and [`ROADMAP.md`](../ROADMAP.md) M6 gate on | §1.1, §2.2, §11, App. A | Two names for one class pair, zero matches for the canonical ones |
 | G | **AdvantageKit is a REQUIRED, compile-time dependency** in §2.3, not "optional, reflectively detected". `Nt4TunableTransport` is gone from Appendix A. `[SUPERSEDED-NAME]` | §2.3, §5.6, App. A | A dependency floor stated backwards in the one document a tuning-first adopter reads |
 | H | **One `NetworkTableListenerPoller`, one `readQueue()` per loop, one `LoggableInputs` struct** (**D11a**) — not one `entry.get()` per tunable | §5.3, §5.6, §5.8 | 144 JNI calls per loop, and a replay story that did not survive contact with the poller |
@@ -33,7 +33,7 @@
 | N | **The kG drift probe could not see drift in brake mode or through gearbox stiction**, and silently set `kG = 0` on exactly the archetypes that need it. Now: idle-mode read-back, a supervised coast borrow, and a **breakaway-asymmetry** fallback that measures the sign in brake mode. The `kG = 0` shortcut is reserved for archetypes whose pre-flight gravity test already passed. | §8.4, §8.5, §3.1 | A 0.5 s zero-voltage probe on a brake-mode arm, followed by kS coming out ten times too large |
 | O | **`abort()` neutralled gravity mechanisms**, contradicting the taper note and `abortProbe` in the same section. Pre-flight now **requires** BRAKE for `hasGravity()` archetypes, and the coast borrow restores BRAKE *before* neutralling. | §7.3, §7.5, §8.7, §8.8 | A coast-mode arm dropped onto its hard stop on every `ENABLE_RELEASED` |
 | P | **`probe()` and `recentre()` were blocking `while` loops** in a codebase that bans threads and drives steps from `periodic()`, with no `supervisor.check()` and no timeout. Respecified as an explicit sub-state machine. | §8.4, §16.2 | Pseudocode that could not be implemented on the 20 ms main loop |
-| Q | **§14.1's flagship example targeted a `LinearMechanism` API that exists in no document** `[SUPERSEDED-NAME]` and seeded `Gains.zero()`. Rewritten against `PositionConfig`/`PositionMechanism` with `Gains.UNTUNED`, on `design/01` §5.4's exact geometry. §14.2 rewritten to the §11c `PumpkinLifecycle` + `PumpkinRegistry.addAll` shape. | §14 | A config language that differed from the README's and `DESIGN.md`'s in builder, type names and placeholder contract |
+| Q | **§14.1's flagship example targeted a `LinearMechanism` API that exists in no document** `[SUPERSEDED-NAME]` and seeded `Gains.zero()`. Rewritten against `PositionConfig`/`PositionMechanism` with `Gains.UNTUNED`, on `design/01` §5.4's exact geometry. §14.2 rewritten to the §11c `RootstockLifecycle` + `RootstockRegistry.addAll` shape. | §14 | A config language that differed from the README's and `DESIGN.md`'s in builder, type names and placeholder contract |
 | R | **Volatile-API confinement** (`DESIGN.md` §16 item 3): `DriverStation` → `MatchContext`, `Filesystem` → `Platform`, `Timer` → `Clock`, `Alert` → `Alerts` with a mandatory `MatchImpact` (**D10**). `TuningRegistry`'s rate-gated half becomes a `SliceScheduler` slice; its poller drain is `LifecycleHook` priority 30. | §2.1, §5.2, §7.3, §11.2, §14.2 | Direct reads of four APIs domain 06's ArchUnit rules forbid, and a free-standing `periodic()` |
 | S | **`AbortReason` is exactly twelve values**, matching [`ROADMAP.md`](../ROADMAP.md) M6's "all 12 abort conditions": eleven checked every loop by `check()` plus `UNSTABLE_RESPONSE`, raised by the refinement loop. Fit failures moved to their own `FitFailure` enum. | §7.2, §6.4, §16.2 | Eleven loop conditions, plus two fit failures and one refinement abort smuggled into the same enum — a count nobody could reconcile |
 | T | **§13.11's practice table split.** kS/kV/kA/kG are checkable answers; kP/kD are WPILib's tutorial choices, and the wizard's LQR result legitimately differs. | §13.11 | "The answer you are looking for" next to a kP the wizard does not produce |
@@ -48,7 +48,7 @@ The table above deletes five type names, and this document deliberately keeps me
 > 1. `grep -rn "LoopLocation\|GainStore\|GainsExporter\|Nt4TunableTransport\|LinearMechanism" design/` returns **zero outside `[SUPERSEDED-NAME]` marker scope**.
 > 2. **Reverse:** every `[SUPERSEDED-NAME]` marker has one of those five literals — `LoopLocation`, `GainStore`, `GainsExporter`, `Nt4TunableTransport`, `LinearMechanism` — in its scope, so a sweep that over-applies the marker fails too.
 > 3. A struck-through (`~~name~~`) or explicitly negated occurrence **still needs the marker** — the marker, not the prose, is what the grep can see.
-> 4. **The reverse gate must be defined over the *union* of every carved name set, not over these five.** [`DESIGN.md`](../DESIGN.md) §16 items **6** and **7** carve a *different* name set with the *same* `[SUPERSEDED-NAME]` literal — `getGyroHeading`, `VisionObservation`, `PumpkinAlerts.` — in `design/03`, `design/04`, `design/05` and `DESIGN.md`. Those markers are not placed yet. **When they are, a reverse gate written against only the five names above — `LoopLocation`, `GainStore`, `GainsExporter`, `Nt4TunableTransport`, `LinearMechanism` — will report every one of them as an orphan** and red-flag correct work on the day it lands, which is the exact failure mode this whole marker mechanism was invented to avoid. Stated here rather than discovered later: one marker literal, one union of carved names, one reverse gate over that union.
+> 4. **The reverse gate must be defined over the *union* of every carved name set, not over these five.** [`DESIGN.md`](../DESIGN.md) §16 items **6** and **7** carve a *different* name set with the *same* `[SUPERSEDED-NAME]` literal — `getGyroHeading`, `VisionObservation`, `RootstockAlerts.` — in `design/03`, `design/04`, `design/05` and `DESIGN.md`. Those markers are not placed yet. **When they are, a reverse gate written against only the five names above — `LoopLocation`, `GainStore`, `GainsExporter`, `Nt4TunableTransport`, `LinearMechanism` — will report every one of them as an orphan** and red-flag correct work on the day it lands, which is the exact failure mode this whole marker mechanism was invented to avoid. Stated here rather than discovered later: one marker literal, one union of carved names, one reverse gate over that union.
 >
 > **Run by hand 2026-08-08 and both directions PASS.** Across all of `design/`, **21** lines contain one of the five literals and **21** lines carry a marker, and they are the *same twenty-one*: every occurrence is marked **on its own line**, which is the strictest reading of scope, so the fenced-block / table / block-quote clauses are not being leaned on by any current site. Sixteen of the twenty-one are the supersession sites themselves — [`DESIGN.md`](../DESIGN.md) §16 item 4(f) enumerates them — and five are this definition block, which names the literals in order to forbid them and therefore needs the carve-out like anything else. No occurrence is unmarked; no marker is orphaned; `design/01` and `design/03`–`design/06` contain none of the five literals at all, so the repo-wide grep is satisfied by this file alone. It becomes a CI job at **M24** alongside the `design/01` §4.2 gate it is modelled on.
 
@@ -59,7 +59,7 @@ No tuning mathematics, no safety condition and no teaching content changed. Scop
 | # | Decision | Effect here |
 |---|---|---|
 | A | **1 — one release, v0.1, containing everything** | This domain is built across **M6** (tunables + persistence + Elastic, 1.1 pw), **M7** (wizard core + `ELEVATOR`/`FLYWHEEL`, 3.0 pw) and **M13** (`ARM`/`TURRET`/`STEER`/`DRIVE_VELOCITY` + `MechanicalHealthCheck` + step-response refinement, 3.5 pw) — **all one release.** [`ROADMAP.md`](../ROADMAP.md) is authoritative for dates. **The honest number: at solo pace M7 completes 2027-04-24, one week AFTER the 2027 season ends**; at +2 committers it completes 2026-12-15, before kickoff. That gap is the single strongest argument in the whole plan for adding a committer, and it lands squarely on this document, because the wizard is the reason the project exists. The optional web UI (§12, §18 q5) is in **no** milestone and is therefore outside v0.1. |
-| B | **2 — `PumpkinTemplate` is the front door** | `src/main/deploy/pumpkin/` and `gains.json` (schema-stamped `pumpkinlib.gains/1`) ship **inside the template**, pre-created, rather than being something a team is told to make. The generated Elastic tuning layout ships there too. |
+| B | **2 — `RootstockTemplate` is the front door** | `src/main/deploy/rootstock/` and `gains.json` (schema-stamped `rootstock.gains/1`) ship **inside the template**, pre-created, rather than being something a team is told to make. The generated Elastic tuning layout ships there too. |
 | C | **3 — AdvantageKit is REQUIRED** | §5.6's reflective transport probe is deleted; `AdvantageKitTunableTransport` is the only implementation and replay-safe tunables are a **guarantee**. **The "No AdvantageKit dependency" advantage over 6328's `LoggedTunableNumber` (§5.1) is WITHDRAWN** — we now have exactly the dependency they do, and it must not be claimed as differentiation anywhere. The remaining differentiators (one poller, FMS default-deny in constant time, the `/applied` echo, 4-tier persistence, the export path) never rested on it. |
 | D | **4 — BSD-3-Clause** | Licence decided; no "TBD" anywhere. `gains.json` and exported Java carry no licence question for a team that vendors them. |
 
@@ -94,8 +94,8 @@ This domain owns **everything between "the mechanism moves" and "the mechanism m
 
 | # | Responsibility | Deliverable |
 |---|---|---|
-| 1 | Canonical gain type and unit system | `org.pumpkinlib.control.Gains` — seven doubles, volts-per-SI, one definition for every vendor |
-| 2 | Live-tunable values over NetworkTables | `PumpkinTunable`, `TunableDouble`, `TunableBoolean`, `TunableGains`, `TuningRegistry` |
+| 1 | Canonical gain type and unit system | `org.rootstock.control.Gains` — seven doubles, volts-per-SI, one definition for every vendor |
+| 2 | Live-tunable values over NetworkTables | `RootstockTunable`, `TunableDouble`, `TunableBoolean`, `TunableGains`, `TuningRegistry` |
 | 3 | Vendor write-through of gains | `GainSink` SPI + change-gated, rate-limited apply |
 | 4 | On-robot system identification | `SysIdSweep` (wraps WPILib `SysIdRoutine`), `FeedforwardRegression` (streaming OLS) |
 | 5 | Assisted feedback-gain derivation | `FeedbackDesigner` (LQR from measured kV/kA, over the HAL-free `LqrDesign` core) + bounded step-response refinement |
@@ -106,13 +106,13 @@ This domain owns **everything between "the mechanism moves" and "the mechanism m
 | 10 | The tuning UI surface and its NT schema | `TunerPublisher`, shipped `elastic-tuning-layout.json` |
 | 11 | Teaching content | `Lessons` — real, written explanations shipped as data, published to NT |
 | 12 | Mechanical pre-flight that must pass before tuning | `MechanicalHealthCheck` (backlash, asymmetric friction, encoder slip) — **stays in tuning per D23**, because it commands raw voltage and must go through `TuningSupervisor` |
-| 13 | **Formative assessment** — the wizard asks the student to predict, then scores it | `PredictStep`, `/PumpkinTuner/predict/*`, a `Predictions: 7/9` line in the report |
+| 13 | **Formative assessment** — the wizard asks the student to predict, then scores it | `PredictStep`, `/RootstockTuner/predict/*`, a `Predictions: 7/9` line in the report |
 | 14 | A fast path for the fourth mechanism of the day | `TuningRecipe.express()` — identification only, one narration screen, ~90 s |
 
 ### 1.2 Explicitly out of scope for this domain
 
 - **Building the mechanism.** We consume a `TuningTarget` (§3.1); [`design/01-core-mechanisms.md`](01-core-mechanisms.md) constructs it.
-- **Swerve module bring-up** (invert/offset discovery). That belongs to [`design/01-core-mechanisms.md`](01-core-mechanisms.md) (`HomingStrategy`, `describe()`, the `rotorPerSensor × sensorPerOutput == reduction` identity rule) and [`design/05-drivetrain-auto.md`](05-drivetrain-auto.md) (`DriveSelfCheck`, `PumpkinCharacterization`). We *consume* a correctly-brought-up module and tune its gains.
+- **Swerve module bring-up** (invert/offset discovery). That belongs to [`design/01-core-mechanisms.md`](01-core-mechanisms.md) (`HomingStrategy`, `describe()`, the `rotorPerSensor × sensorPerOutput == reduction` identity rule) and [`design/05-drivetrain-auto.md`](05-drivetrain-auto.md) (`DriveSelfCheck`, `RootstockCharacterization`). We *consume* a correctly-brought-up module and tune its gains.
 - **Logging and replay infrastructure.** AdvantageKit, owned by [`design/04-telemetry-replay-viz.md`](04-telemetry-replay-viz.md). We publish; we do not own the logger.
 - **Plotting applications.** AdvantageScope. We publish plot topics; we do not draw them.
 - **Dashboards.** Elastic. We ship a layout JSON; we do not write a dashboard.
@@ -120,7 +120,7 @@ This domain owns **everything between "the mechanism moves" and "the mechanism m
 
 ### 1.3 The one-sentence pitch
 
-> Every other FRC tuning system shows a student **where the knobs are**. PumpkinLib tells them **which knob to turn next, why, and by how much** — and it does the arithmetic that a redeploy loop cannot do.
+> Every other FRC tuning system shows a student **where the knobs are**. Rootstock tells them **which knob to turn next, why, and by how much** — and it does the arithmetic that a redeploy loop cannot do.
 
 This is the headline feature and it is a genuinely unoccupied niche. The only FRC repo advertising an auto-tuner (`Prosper-FRC/utility-main-autoPIDTuner`) has a README and **no `src` directory** (web-tuning dossier, painPoints). YAMS ships Live Tuning but it is a manual slider panel. FrcCatalyst ships `TunableGains.checkAndApply()` but no recipe. SysId characterizes but does not teach and requires a laptop round trip.
 
@@ -128,55 +128,55 @@ This is the headline feature and it is a genuinely unoccupied niche. The only FR
 
 ## 2. Integration Points
 
-### 2.1 What I need FROM other PumpkinLib documents
+### 2.1 What I need FROM other Rootstock documents
 
 **There is no domain numbering.** The shipped set is `design/01-core-mechanisms.md`, `design/02-tuning.md` (this file), `design/03-vision.md`, `design/04-telemetry-replay-viz.md`, `design/05-drivetrain-auto.md`, `design/06-platform-compday.md`. Revisions 1–3 of this document used a nine-domain scheme in which "03" meant mechanisms and "09" meant a bring-up domain that has never existed; every such reference is replaced below with the file that actually owns the thing.
 
 | From | What I need | Why |
 |---|---|---|
-| [`design/01`](01-core-mechanisms.md) | Every `Mechanism` implements `org.pumpkinlib.control.TuningTarget` (§3.1) | The tuner is generic; it needs voltage-in / SI-state-out / limits / plant prior |
-| [`design/01`](01-core-mechanisms.md) | Mechanisms **consume** `org.pumpkinlib.control.Gains` as their gain type, and expose a `GainSink` that writes through to the vendor | Otherwise tuned values sit on a dashboard next to a controller that ignores them (this is exactly the failure in `C:/Users/ericj/GitHub/0000-XXXX-Robot-Template` — see §2.4) |
+| [`design/01`](01-core-mechanisms.md) | Every `Mechanism` implements `org.rootstock.control.TuningTarget` (§3.1) | The tuner is generic; it needs voltage-in / SI-state-out / limits / plant prior |
+| [`design/01`](01-core-mechanisms.md) | Mechanisms **consume** `org.rootstock.control.Gains` as their gain type, and expose a `GainSink` that writes through to the vendor | Otherwise tuned values sit on a dashboard next to a controller that ignores them (this is exactly the failure in `C:/Users/ericj/GitHub/0000-XXXX-Robot-Template` — see §2.4) |
 | [`design/01`](01-core-mechanisms.md) | `PlantPrior` inputs (`DCMotor`, `Reduction`, mass or MOI, drum radius or arm length) from the mechanism's own config | Sanity-bounding the fit and generating the sim plant. **D7**: `TuningRegistry.register(target)` asserts `PlantPrior.reduction().rotorPerOutput() == config.reduction().rotorPerOutput()` and refuses the registration with a named `ConfigError` if they disagree |
 | [`design/01`](01-core-mechanisms.md) | `TravelLimits` (min, max, soft margin) derived from `PositionLimits`, with device soft limits already configured | `TuningSupervisor` refuses to arm without them (§7.1, §7.3) |
 | [`design/01`](01-core-mechanisms.md) | `ControlLocation` per mechanism, **defaulted from the leader's `MotorSpec`** (**D5**) | kP means different things and the refinement loop's dt differs. Tuning asks `controlLocation().runsOnMotor()`; it never asks a team to type it |
 | [`design/01`](01-core-mechanisms.md) | Guarantee that encoder direction, gear ratio and zero offset are already correct before a `TuningTarget` is handed to us — enforced by the `rotorPerSensor × sensorPerOutput == reduction` Tier-1 rule and by `describe()` | Tuning a wrong-signed mechanism destroys hardware; we detect it (§7.5, §8.2) but we must not be the primary defence. **Revision 4:** revisions 1–3 assigned this guarantee to a "bring-up domain (09)" that does not exist, which left it unowned — a hole in the safety argument, now closed by naming the real owners |
 | [`design/01`](01-core-mechanisms.md) vendor adapters (`hardware/phoenix`, `hardware/rev`, `hardware/generic`) | `GainSink` implementations for Phoenix 6, REVLib, and RIO-side wpimath | Canonical-volts → vendor-native conversion (§4) |
-| [`design/04`](04-telemetry-replay-viz.md) | `PumpkinLog` and AdvantageKit's `Logger`/`LoggableInputs`/`LogTable` — **not optional; AdvantageKit is a required dependency** (maintainer decision 3) | Replay-safe tunables as a **guarantee**, not as a property of what the team happened to install (§5.6) |
+| [`design/04`](04-telemetry-replay-viz.md) | `RootstockLog` and AdvantageKit's `Logger`/`LoggableInputs`/`LogTable` — **not optional; AdvantageKit is a required dependency** (maintainer decision 3) | Replay-safe tunables as a **guarantee**, not as a property of what the team happened to install (§5.6) |
 | [`design/05`](05-drivetrain-auto.md) | A `DriveBackend`-backed `TuningTarget` per module for the `DRIVE_VELOCITY` and `STEER` recipes, plus `DriveSelfCheck`'s bring-up verdict | Per-module gains are the point; averaging four modules hides a bad one (§8.10) |
-| [`design/06`](06-platform-compday.md) | `Alerts.error/warning/info(group, text, MatchImpact)` returning a `PumpkinAlert` (**D10**) — every call site names a `MatchImpact`, no default, no single-argument overload | WPILib's `Alert` API is documented as unstable; we must not depend on it directly, and "does this block a match?" must be answered at the call site |
+| [`design/06`](06-platform-compday.md) | `Alerts.error/warning/info(group, text, MatchImpact)` returning a `RootstockAlert` (**D10**) — every call site names a `MatchImpact`, no default, no single-argument overload | WPILib's `Alert` API is documented as unstable; we must not depend on it directly, and "does this block a match?" must be answered at the call site |
 | [`design/06`](06-platform-compday.md) | `MatchContext.isDiagnostics()`, `isEnabled()`, `isDisabled()`, `isFMSAttached()`; `FmsPolicy.tunablesLocked()` | `MatchContext` is the only class permitted to read `DriverStation` (ArchUnit rule 10). Test-mode gating and FMS default-deny both go through it |
 | [`design/06`](06-platform-compday.md) | `Platform.persistentDir()` / `Platform.deployDir()`; `Clock.seconds()` and `Clock.dt()` | `volatileApiIsConfined` is red while this document reads `Filesystem` or `Timer` directly (`DESIGN.md` §16 item 3) |
 | [`design/06`](06-platform-compday.md) | `LifecycleHook` priority 30 (drain the poller) and one `SliceScheduler` slice named `Tuning` (metadata, echoes, write-through) | `TuningRegistry` must not own its own rate gate (`DESIGN.md` §16 item 3, §6 runtime diagram) |
-| [`design/06`](06-platform-compday.md) | The template's `src/main/deploy/pumpkin/` directory and `elastic-tuning-layout.json` served on port 5800 | Persistence baseline + zero-click UI. Decision 2: these ship **inside `PumpkinTemplate`**, pre-created |
+| [`design/06`](06-platform-compday.md) | The template's `src/main/deploy/rootstock/` directory and `elastic-tuning-layout.json` served on port 5800 | Persistence baseline + zero-click UI. Decision 2: these ship **inside `RootstockTemplate`**, pre-created |
 | [`design/06`](06-platform-compday.md) | `RobotIdentity.current()` returning a `RobotId` (`SIM`, `COMP`, `PRACTICE`, …) | The full *teaching* recipe is the default only in `SIM`; on hardware the wizard offers both and remembers the choice (§8.12) |
 | [`design/06`](06-platform-compday.md) | `ControlMap.isPortRegistered(int port)` — the driver/operator controller port registry | `TuningWizard` refuses to share a controller with the driver without an explicit, logged acknowledgement (§7.4.2) |
-| [`design/06`](06-platform-compday.md) | `ConfigError` / `Severity` / `Validation.printAll` / SAFE_MODE entry, reached through `PumpkinRegistry.addAll` (**D27**) | Config-reachable validation is collected and printed, never thrown (§3.1) |
+| [`design/06`](06-platform-compday.md) | `ConfigError` / `Severity` / `Validation.printAll` / SAFE_MODE entry, reached through `RootstockRegistry.addAll` (**D27**) | Config-reachable validation is collected and printed, never thrown (§3.1) |
 
 ### 2.2 What I provide TO other documents
 
-- `org.pumpkinlib.control.Gains` — the canonical seven-double gain record every mechanism stores.
-- `org.pumpkinlib.control.TuningTarget`, `MechanismArchetype`, `PositionReference`, `TravelLimits`, `PlantPrior`, `GainSink`, `Controllers`, `SafetyEnvelope`, `TuningSupervisor` — all in core (**D8**), so a team implements the seam without depending on the mechanism layer *or* the wizard.
+- `org.rootstock.control.Gains` — the canonical seven-double gain record every mechanism stores.
+- `org.rootstock.control.TuningTarget`, `MechanismArchetype`, `PositionReference`, `TravelLimits`, `PlantPrior`, `GainSink`, `Controllers`, `SafetyEnvelope`, `TuningSupervisor` — all in core (**D8**), so a team implements the seam without depending on the mechanism layer *or* the wizard.
 - `TuningRegistry.tunable(...)` — the general-purpose tunable-number primitive, usable by *any* document's code (vision std-dev models, auto-align tolerances, drive speed scalars). **D11**: publication is `/Tuning/<namespace>/<key>` and nowhere else, from an explicit allowlist, never by reflection over field names.
-- `StepResponseAnalyzer` — a pure, HAL-free classifier (core in `org.pumpkinlib.pure.solvers`) reusable by `design/06` for "is this mechanism still tuned?" checks between matches.
+- `StepResponseAnalyzer` — a pure, HAL-free classifier (core in `org.rootstock.pure.solvers`) reusable by `design/06` for "is this mechanism still tuned?" checks between matches.
 - `TunedValueStore` — the persistence layer; other documents may register non-gain configuration values, including `Setpoint`s (`DESIGN.md` §5.6: setpoints register under `/Tuning/<Mechanism>/Setpoints/<NAME>` and persist keyed by `RobotId`).
-- `TuningSupervisor` — reusable safety envelope for *any* routine that commands raw voltage, including `design/05`'s `PumpkinCharacterization`.
+- `TuningSupervisor` — reusable safety envelope for *any* routine that commands raw voltage, including `design/05`'s `RootstockCharacterization`.
 
 ### 2.3 Hard external dependencies
 
 **Required — all of them, at compile time.**
 
-- **AdvantageKit 26.0.2 — REQUIRED (maintainer decision 3).** `org.littletonrobotics.junction.Logger`, `org.littletonrobotics.junction.LogTable`, `org.littletonrobotics.junction.inputs.LoggableInputs`. `pumpkinlib` depends on AdvantageKit; there is no classpath without it, no reflective probe, and no NT4-only fallback. Replay-safe tunables are a **guarantee**, not a configuration. *(Revision 3 said "Optional (reflectively detected, never required)" here, three paragraphs after the header said REQUIRED. That was a stale leftover, not a supersession note, and it is deleted.)*
+- **AdvantageKit 26.0.2 — REQUIRED (maintainer decision 3).** `org.littletonrobotics.junction.Logger`, `org.littletonrobotics.junction.LogTable`, `org.littletonrobotics.junction.inputs.LoggableInputs`. `rootstock` depends on AdvantageKit; there is no classpath without it, no reflective probe, and no NT4-only fallback. Replay-safe tunables are a **guarantee**, not a configuration. *(Revision 3 said "Optional (reflectively detected, never required)" here, three paragraphs after the header said REQUIRED. That was a stale leftover, not a supersession note, and it is deleted.)*
 - `wpimath` — `ArmFeedforward`, `ElevatorFeedforward`, `SimpleMotorFeedforward`, `PIDController`, `ProfiledPIDController`, `TrapezoidProfile`, `ExponentialProfile`, `LinearSystemId`, `LinearQuadraticRegulator`, `Matrix`, `MatBuilder`, `VecBuilder`, `Nat`, `DCMotor`.
 - `wpilibj` — `RobotBase`, `Preferences`. **`Timer`, `DriverStation`, `Filesystem` and `Alert` are reached only through `design/06`'s facades** (`Clock`, `MatchContext`, `Platform`, `Alerts`), per ArchUnit rules 2, 3, 10 and 12.
 - `wpilibNewCommands` — `SysIdRoutine`, `SysIdRoutineLog`, `Command`, `Subsystem`.
 - `ntcore` — `NetworkTableInstance`, `NetworkTableListenerPoller`, `NetworkTableEvent`, `ValueEventData`, `DoublePublisher`, `StringPublisher`, `BooleanEntry`.
 - `wpinet` — `edu.wpi.first.net.WebServer` (verified: `start(int port, String path)`, `stop(int port)`).
 
-Vendor libraries (Phoenix 6, REVLib) are reached **only** through `GainSink` implementations that live in `design/01`'s vendor-adapter artifacts (`pumpkinlib-phoenix6`, `pumpkinlib-revlib`). Nothing in `org.pumpkinlib.tuning` or `org.pumpkinlib.control` imports a vendor type.
+Vendor libraries (Phoenix 6, REVLib) are reached **only** through `GainSink` implementations that live in `design/01`'s vendor-adapter artifacts (`rootstock-phoenix6`, `rootstock-revlib`). Nothing in `org.rootstock.tuning` or `org.rootstock.control` imports a vendor type.
 
 **Zero third-party math dependencies.** No JGraphT, no Apache Commons, no EJML calls outside what wpimath already exposes.
 
-> **What this costs, restated where a tuning-first adopter will read it.** A team on DogLog or plain Epilogue **cannot adopt PumpkinLib's tuning system without switching loggers.** There is no `LogBackend` SPI to write — decision 3 deleted it. See [`DESIGN.md`](../DESIGN.md) §11c. This is an exclusion, not a migration path, and it is stated here rather than discovered at install time.
+> **What this costs, restated where a tuning-first adopter will read it.** A team on DogLog or plain Epilogue **cannot adopt Rootstock's tuning system without switching loggers.** There is no `LogBackend` SPI to write — decision 3 deleted it. See [`DESIGN.md`](../DESIGN.md) §11c. This is an exclusion, not a migration path, and it is stated here rather than discovered at install time.
 
 ### 2.4 Evidence this is the right scope
 
@@ -190,19 +190,19 @@ From the user's own repositories:
 
 ## 3. Core types
 
-> **Package note (D8).** `TuningTarget` and its supporting value types live in **`org.pumpkinlib.control`**, shipped in the single `pumpkinlib` jar, *not* in `org.pumpkinlib.tuning`. A team with hand-rolled subsystems implements the seam in about thirty lines without adopting either the mechanism layer or the wizard, and the mechanism layer does not have to depend on the tuning package to be tunable. This is the single most important incremental-adoption seam in the library; [`DESIGN.md`](../DESIGN.md) §11b step 4 and `docs/graduation.md` both lead with it.
+> **Package note (D8).** `TuningTarget` and its supporting value types live in **`org.rootstock.control`**, shipped in the single `rootstock` jar, *not* in `org.rootstock.tuning`. A team with hand-rolled subsystems implements the seam in about thirty lines without adopting either the mechanism layer or the wizard, and the mechanism layer does not have to depend on the tuning package to be tunable. This is the single most important incremental-adoption seam in the library; [`DESIGN.md`](../DESIGN.md) §11b step 4 and `docs/graduation.md` both lead with it.
 
 ### 3.1 `TuningTarget` — the SPI the mechanism layer implements
 
 This is the only thing the tuner knows about a mechanism. It is deliberately narrow: raw voltage in, SI state out, plus enough physical description to be safe and to sanity-check the answer.
 
 ```java
-package org.pumpkinlib.control;
+package org.rootstock.control;
 
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import java.util.Optional;
 import java.util.OptionalDouble;
-import org.pumpkinlib.units.SiDomain;
+import org.rootstock.units.SiDomain;
 
 /**
  * The seam between a mechanism and the tuning system.
@@ -211,7 +211,7 @@ import org.pumpkinlib.units.SiDomain;
  * radians and radians/second for rotational ones. {@link #siDomain()} declares which.
  * Volts are always volts.
  *
- * <p>Implementations live in the mechanism layer. PumpkinLib's own {@code Mechanism} implements
+ * <p>Implementations live in the mechanism layer. Rootstock's own {@code Mechanism} implements
  * this; teams with hand-rolled subsystems implement it directly in about thirty lines
  * (DESIGN.md section 11b step 4, and section 14.4 below).
  */
@@ -227,7 +227,7 @@ public interface TuningTarget {
 
   /**
    * Linear (metres) or rotational (radians). Derived, never typed by a team:
-   * PumpkinLib's mechanisms return {@code config.units().siDomain()} (D3).
+   * Rootstock's mechanisms return {@code config.units().siDomain()} (D3).
    */
   SiDomain siDomain();
 
@@ -248,7 +248,7 @@ public interface TuningTarget {
    * Command a raw voltage. Must bypass any closed loop. Must respect device soft limits.
    *
    * <p><b>{@link TuningSupervisor} is the only legal caller.</b> Nothing in
-   * {@code org.pumpkinlib.tuning} calls this directly, and {@code TuningSupervisorCallerTest}
+   * {@code org.rootstock.tuning} calls this directly, and {@code TuningSupervisorCallerTest}
    * (section 16.1) fails the build if anything does.
    */
   void setVoltage(double volts);
@@ -267,7 +267,7 @@ public interface TuningTarget {
   /**
    * Acceleration in m/s^2 or rad/s^2. Implementations with no acceleration signal return
    * {@link Double#NaN}; the tuner then differences velocity itself with a
-   * {@link org.pumpkinlib.tuning.sysid.CentralDifferenceAccel} filter.
+   * {@link org.rootstock.tuning.sysid.CentralDifferenceAccel} filter.
    */
   default double accelerationSi() { return Double.NaN; }
 
@@ -303,12 +303,12 @@ public interface TuningTarget {
    * How this mechanism knows where it is, in the sense the SUPERVISOR cares about:
    * can {@link #measuredSi()} be trusted enough to arm a routine that commands voltage?
    *
-   * <p>This is deliberately <b>not</b> {@code org.pumpkinlib.config.FeedbackSpec}, which answers a
+   * <p>This is deliberately <b>not</b> {@code org.rootstock.config.FeedbackSpec}, which answers a
    * different question — which sensor is wired where ({@code RotorOnly}, {@code FusedCancoder},
    * {@code RemoteCancoder}, {@code SparkAbsolute}, {@code DioAbsolute}). Two different questions
    * under one name is the bug class this library exists to delete, and {@code config} sits
    * <i>above</i> {@code control} in the dependency graph so the tuning seam could not name it
-   * anyway. PumpkinLib's mechanisms map one to the other in one total function.
+   * anyway. Rootstock's mechanisms map one to the other in one total function.
    */
   PositionReference positionReference();
 
@@ -347,7 +347,7 @@ public interface TuningTarget {
   /**
    * The SI position at which a COSINE-gravity mechanism is HORIZONTAL — i.e. the angle from which
    * the gravity term is {@code kG * cos(measuredSi() - horizontalReferenceSi())}. Zero for a linear
-   * axis and for {@link GravityMode#NONE}. PumpkinLib's mechanisms return
+   * axis and for {@link GravityMode#NONE}. Rootstock's mechanisms return
    * {@code units().toSi(config.axis().horizontalReference())}.
    *
    * <p>Revisions 1 through 3 asked a boolean, {@code armZeroIsHorizontal()}. A boolean cannot carry
@@ -367,7 +367,7 @@ public interface TuningTarget {
    * "At goal" tolerance in SI — {@code ControlConfig.tolerance} converted through
    * {@code MechanismUnits} (D1b: ControlConfig is the sole owner of tolerance; {@code Gains}
    * has no tolerance field). Used by {@code arm()} precondition 10, by
-   * {@link org.pumpkinlib.tuning.diagnostics.StepResponseAnalyzer}, and by the bisection's
+   * {@link org.rootstock.tuning.diagnostics.StepResponseAnalyzer}, and by the bisection's
    * recentre settle band.
    *
    * <p>{@code NaN} means "I do not have one"; the supervisor then substitutes
@@ -438,10 +438,10 @@ public interface TuningTarget {
 }
 ```
 
-Supporting value types, all in `org.pumpkinlib.control`:
+Supporting value types, all in `org.rootstock.control`:
 
 ```java
-package org.pumpkinlib.control;
+package org.rootstock.control;
 
 public enum MechanismArchetype {
   /** Velocity control, no gravity, high inertia. Shooter wheels, intake rollers under load. */
@@ -500,10 +500,10 @@ public sealed interface PositionReference {
 ```
 
 ```java
-package org.pumpkinlib.control;
+package org.rootstock.control;
 
 import java.util.List;
-import org.pumpkinlib.pure.ConfigError;
+import org.rootstock.pure.ConfigError;
 
 /**
  * All values in SI (m or rad).
@@ -522,7 +522,7 @@ import org.pumpkinlib.pure.ConfigError;
  * structurally unrepresentable and design/01 section 5.6 rebuilt its whole validation pipeline to
  * prevent it; this record reintroduced it one package over, in the domain aimed at the least
  * experienced users. Problems are now <b>collected</b> by {@link #validate(String)} and surfaced by
- * {@code TuningRegistry.register(...)} through {@code PumpkinRegistry.addAll}, which prints them all
+ * {@code TuningRegistry.register(...)} through {@code RootstockRegistry.addAll}, which prints them all
  * at once and enters SAFE_MODE on any FATAL.
  */
 public record TravelLimits(double min, double max, double softMargin) {
@@ -587,12 +587,12 @@ public record TravelLimits(double min, double max, double softMargin) {
 ```
 
 ```java
-package org.pumpkinlib.control;
+package org.rootstock.control;
 
 import edu.wpi.first.math.system.plant.DCMotor;
 import java.util.List;
-import org.pumpkinlib.pure.ConfigError;
-import org.pumpkinlib.pure.units.Reduction;
+import org.rootstock.pure.ConfigError;
+import org.rootstock.pure.units.Reduction;
 
 /**
  * Physics prior. Used for three things and three things only:
@@ -695,10 +695,10 @@ public record PlantPrior(
 **D1a: `Gains` is exactly seven doubles.** Gravity mode, motion constraints, tolerance, integral windup parameters, neutral mode and manual-control parameters all live on `ControlConfig`, which is where a mechanism's *policy* belongs. A tuner writes gains; it does not write policy.
 
 ```java
-package org.pumpkinlib.control;
+package org.rootstock.control;
 
 /**
- * Canonical PumpkinLib gains. ALL gains are expressed in <b>volts per SI unit</b>, matching
+ * Canonical Rootstock gains. ALL gains are expressed in <b>volts per SI unit</b>, matching
  * wpimath exactly:
  *
  * <pre>
@@ -711,8 +711,8 @@ package org.pumpkinlib.control;
  *   kD  volts / (unit/second)       (derivative)
  * </pre>
  *
- * where "unit" is metres for {@link org.pumpkinlib.units.SiDomain#LINEAR_METERS}
- * and radians for {@link org.pumpkinlib.units.SiDomain#ROTATIONAL_RADIANS}.
+ * where "unit" is metres for {@link org.rootstock.units.SiDomain#LINEAR_METERS}
+ * and radians for {@link org.rootstock.units.SiDomain#ROTATIONAL_RADIANS}.
  *
  * <p>Conversion to Phoenix 6 output-per-rotation and REVLib duty-cycle-per-rotation happens
  * exactly once, in a {@link GainSink}. Team code never sees vendor units.
@@ -750,7 +750,7 @@ public record Gains(double kP, double kI, double kD,
    * {@code RobotBase}, per DESIGN.md section 16 item 3.
    */
   public static Gains realOrSim(Gains real, Gains sim) {
-    return org.pumpkinlib.core.compat.Platform.isReal() ? real : sim;
+    return org.rootstock.core.compat.Platform.isReal() ? real : sim;
   }
 
   /**
@@ -761,7 +761,7 @@ public record Gains(double kP, double kI, double kD,
    *
    * <p>In <b>simulation</b>, {@code UNTUNED} resolves at mechanism construction to a physics-derived
    * first guess from {@link PlantPrior} (kV/kA from {@code LinearSystemId}, kG from section 6.5's
-   * {@code kGprior}, kP from {@link org.pumpkinlib.tuning.FeedbackDesigner}); the mechanism moves,
+   * {@code kGprior}, kP from {@link org.rootstock.tuning.FeedbackDesigner}); the mechanism moves,
    * and the boot dump says <i>"these gains were derived from your declared mass, not measured — run
    * the tuning wizard."</i> On <b>real hardware</b> a mechanism constructed with {@code UNTUNED}
    * <b>refuses closed-loop control</b> and holds neutral. Manual control and homing still work.
@@ -805,9 +805,9 @@ public record Gains(double kP, double kI, double kD,
 ```
 
 ```java
-package org.pumpkinlib.control;
+package org.rootstock.control;
 
-import org.pumpkinlib.units.SiDomain;
+import org.rootstock.units.SiDomain;
 
 /** Exactly one id per component of {@link Gains}. Seven, and the NT schema is generated from it. */
 public enum GainId {
@@ -832,7 +832,7 @@ public enum GainId {
 **Where the integral guard went, so it is not lost.** `ControlConfig` (design/01 §5.3) owns it:
 
 ```java
-// org.pumpkinlib.config.ControlConfig.Builder -- design/01 owns this; reproduced for the contract.
+// org.rootstock.config.ControlConfig.Builder -- design/01 owns this; reproduced for the contract.
 //
 // The ONLY way to enable integral gain. There is deliberately no withI(double), and the three
 // arguments must be supplied together, because integral windup with no clamp is how arms slam.
@@ -841,16 +841,16 @@ public Builder integral(double kI, double iZone, double iMaxVolts);
 
 Its validation is a **collected `ConfigError`**, not a throw — `kI != 0 && !(iMaxVolts > 0)` is FATAL with the message *"Non-zero kI requires iMaxVolts > 0. Integral windup with no clamp is how arms slam. If you are reaching for kI to fix steady-state error, you almost certainly need kS or kG instead."* The wizard's `REVIEW` panel writes `iZone` and `iMaxVolts` as ordinary tunables (§5.5), so the failure revision 2 row 10 fixed — a student enabling kI from the panel and taking the wizard down mid-session — cannot happen: there is no constructor to trip.
 
-**Cross-doc contract:** `ConfigRegistry` must reject a live `/Tuning/<M>/kI` edit that would leave `iMaxVolts == 0`, publishing the same sentence to `/PumpkinTuner/result/warnings` rather than applying it. `GainsTest` and `ControlConfigIntegralTest` pin both halves.
+**Cross-doc contract:** `ConfigRegistry` must reject a live `/Tuning/<M>/kI` edit that would leave `iMaxVolts == 0`, publishing the same sentence to `/RootstockTuner/result/warnings` rather than applying it. `GainsTest` and `ControlConfigIntegralTest` pin both halves.
 
 ### 3.3 Building the wpimath objects from `Gains`
 
 Team code never does this by hand; `Controllers` does it and is the only place `calculateWithVelocities` is called.
 
-**`Controllers` takes explicit primitives, not a `ControlConfig`.** `org.pumpkinlib.config` sits *above* `org.pumpkinlib.control` in the dependency graph (`ControlConfig` holds a `Gains`), so control cannot name it. The mechanism layer converts its `ControlConfig` fields to SI through `MechanismUnits` and passes them in.
+**`Controllers` takes explicit primitives, not a `ControlConfig`.** `org.rootstock.config` sits *above* `org.rootstock.control` in the dependency graph (`ControlConfig` holds a `Gains`), so control cannot name it. The mechanism layer converts its `ControlConfig` fields to SI through `MechanismUnits` and passes them in.
 
 ```java
-package org.pumpkinlib.control;
+package org.rootstock.control;
 
 import edu.wpi.first.math.controller.*;
 import edu.wpi.first.math.trajectory.ExponentialProfile;
@@ -959,12 +959,12 @@ The same physical mechanism, the same physical behaviour, three different number
 
 That is a 10,000× spread for one mechanism. `C:/Users/ericj/GitHub/0000-XXXX-Robot-Template/src/main/java/frc/robot/subsystems/swerve/ModuleIOTalonFX.java:79-98` already fights this by hand (`config.Slot0.kV = SwerveConstants.DRIVE_kV * 2.0 * Math.PI;`) with a unit test pinning the invariant. Good instinct, wrong layer.
 
-**Decision:** PumpkinLib gains are *always* volts-per-SI. Conversion happens exactly once, in a `GainSink`. Every number the tuner shows, stores, or writes back to source is in these units. A number a student learns from the WPILib arm tutorial transfers unchanged to their Kraken or their NEO.
+**Decision:** Rootstock gains are *always* volts-per-SI. Conversion happens exactly once, in a `GainSink`. Every number the tuner shows, stores, or writes back to source is in these units. A number a student learns from the WPILib arm tutorial transfers unchanged to their Kraken or their NEO.
 
 ### 4.2 `GainSink`
 
 ```java
-package org.pumpkinlib.control;
+package org.rootstock.control;
 
 /**
  * Converts canonical volts-per-SI gains into whatever the actual control loop wants,
@@ -1073,9 +1073,9 @@ That block alone answers guineawheek's "which knob is misconfigured?" question f
 | Requirement | Source |
 |---|---|
 | Publish plain NT4 doubles under `/Tuning/<Mechanism>/<gain>` | AdvantageScope tuning mode reads the `/Tuning` table; Elastic Text Display and Number Slider are editable. This is the only path that works in **both** with zero setup. |
-| ~~No AdvantageKit dependency~~ — **WITHDRAWN by maintainer decision 3.** PumpkinLib now requires AdvantageKit, exactly as 6328's `LoggedTunableNumber` and `TunableControls` do. This is no longer a point of differentiation and must not be claimed as one. | The remaining requirements in this table — one poller, plain NT4 doubles readable by both dashboards, FMS default-deny in constant time, the `/applied` echo, 4-tier persistence — stand on their own merits and never depended on this row. |
+| ~~No AdvantageKit dependency~~ — **WITHDRAWN by maintainer decision 3.** Rootstock now requires AdvantageKit, exactly as 6328's `LoggedTunableNumber` and `TunableControls` do. This is no longer a point of differentiation and must not be claimed as one. | The remaining requirements in this table — one poller, plain NT4 doubles readable by both dashboards, FMS default-deny in constant time, the `/applied` echo, 4-tier persistence — stand on their own merits and never depended on this row. |
 | Never touch SmartDashboard or Shuffleboard | Both deleted in WPILib 2027. YAMS's `NT:/SmartDashboard/.../Live Tuning` path dies in January. |
-| Default-deny under FMS, with a constant-time disabled path | DogLog gates by default; 6328's does not. FrcCatalyst returns cached defaults in constant time. PumpkinLib consults `FmsPolicy.tunablesLocked()` (design/06), which is DogLog's semantic copied verbatim. |
+| Default-deny under FMS, with a constant-time disabled path | DogLog gates by default; 6328's does not. FrcCatalyst returns cached defaults in constant time. Rootstock consults `FmsPolicy.tunablesLocked()` (design/06), which is DogLog's semantic copied verbatim. |
 | Mechanism name required at construction | `TunableControls`' stated motivation is collisions between controller instances sharing a name. |
 | Change-gated vendor writes | FrcCatalyst calls `checkAndApply(motor)` every periodic; unguarded that is a CAN flood. |
 | Unit + range metadata | DogLog carries units so AdvantageScope renders them. 6328's does not. |
@@ -1085,11 +1085,11 @@ That block alone answers guineawheek's "which knob is misconfigured?" question f
 ### 5.2 `TuningRegistry` — the single entry point
 
 ```java
-package org.pumpkinlib.tuning;
+package org.rootstock.tuning;
 
 import java.util.List;
-import org.pumpkinlib.control.TuningTarget;
-import org.pumpkinlib.pure.ConfigError;
+import org.rootstock.control.TuningTarget;
+import org.rootstock.pure.ConfigError;
 
 /**
  * Process-wide owner of every tunable value and every {@link TuningTarget}.
@@ -1175,7 +1175,7 @@ public final class TuningRegistry {
    *
    * <p>Returns the <b>collected</b> configuration errors rather than throwing any of them —
    * {@code TravelLimits.validate}, {@code PlantPrior.validate}, a duplicate name, and the D7
-   * cross-check below all land here. {@code PumpkinRegistry.addAll} (D27) is the caller, and it
+   * cross-check below all land here. {@code RootstockRegistry.addAll} (D27) is the caller, and it
    * prints every error in the robot at once and enters SAFE_MODE if any is FATAL.
    *
    * <p><b>D7 cross-check, run here and nowhere else:</b>
@@ -1192,7 +1192,7 @@ public final class TuningRegistry {
   // ---- lifecycle ---------------------------------------------------------------------
 
   /**
-   * {@code LifecycleHook} priority 30, called from {@code PumpkinLifecycle.beforeUserPeriodic()},
+   * {@code LifecycleHook} priority 30, called from {@code RootstockLifecycle.beforeUserPeriodic()},
    * BEFORE subsystem periodic. Performs exactly one {@code readQueue()} and dispatches the events.
    * Costs one boolean check and one early return when tuning is disabled.
    */
@@ -1209,7 +1209,7 @@ public final class TuningRegistry {
 ### 5.3 `TunableDouble`
 
 ```java
-package org.pumpkinlib.tuning;
+package org.rootstock.tuning;
 
 import java.util.function.DoubleConsumer;
 import java.util.function.DoubleSupplier;
@@ -1225,7 +1225,7 @@ import java.util.function.DoubleSupplier;
  *   <li>{@link #get()} every loop - simplest, always correct, costs a cached field read;</li>
  *   <li>{@link #hasChanged(int)} with {@code hashCode()} as the id - the 6328 idiom, kept for
  *       source compatibility with existing team code;</li>
- *   <li>{@link #onChange(DoubleConsumer)} - the DogLog idiom, and the one PumpkinLib uses
+ *   <li>{@link #onChange(DoubleConsumer)} - the DogLog idiom, and the one Rootstock uses
  *       internally, because it removes the change-detection {@code if} from user code entirely.</li>
  * </ol>
  */
@@ -1262,7 +1262,7 @@ public final class TunableDouble implements DoubleSupplier {
 **`TunableBoolean` — the same object with a boolean topic** (`design/03` §2.7 contract **C8**). It is deliberately the smaller surface: there is no `unit()`, no slider range, and no `ifChanged` fan-in, because the callers are pit switches rather than swept quantities.
 
 ```java
-package org.pumpkinlib.tuning;
+package org.rootstock.tuning;
 
 import edu.wpi.first.util.function.BooleanConsumer;   // WPILib's; the JDK has no BooleanConsumer
 import java.util.function.BooleanSupplier;
@@ -1275,7 +1275,7 @@ import java.util.function.BooleanSupplier;
  * convenience: it is what lets a handle be passed straight into
  * {@code VisionFilters.enabledWhen(BooleanSupplier)} (design/03 §7.2) and into
  * {@code Trigger}/{@code Commands} without the vision or command domain importing anything
- * from {@code org.pumpkinlib.tuning}.
+ * from {@code org.rootstock.tuning}.
  *
  * <p>Same lifecycle as {@link TunableDouble} in every respect that matters: one shared
  * {@code NetworkTableListenerPoller}, one {@code readQueue()} per loop (D11a), one boolean
@@ -1329,9 +1329,9 @@ public final class TunableBoolean implements BooleanSupplier {
 ### 5.4 `TunableGains` — write-through, change-gated, rate-limited
 
 ```java
-package org.pumpkinlib.tuning;
+package org.rootstock.tuning;
 
-import org.pumpkinlib.control.Gains;
+import org.rootstock.control.Gains;
 
 /**
  * The seven-gain set for one mechanism, published as editable doubles under
@@ -1410,9 +1410,9 @@ public final class TunableGains {
 **`setpoint` is not a gain, and neither are the LQR sliders.** `setpoint` is a poke target — it commands motion, `Gains` cannot hold it, and `TunableGains.checkAndApply()` has nothing to do with it. The two `LqrSuggestStep` sliders are *student preferences*: inputs to a solver, never written to a motor controller, never persisted in the `gains` block of `gains.json`. All three live outside `/Tuning`:
 
 ```
-/PumpkinTuner/<Mechanism>/setpoint            double   (manual poke target; the wizard also drives it)
-/PumpkinTuner/<Mechanism>/lqr/maxError        double   (section 9.2 slider, SI)
-/PumpkinTuner/<Mechanism>/lqr/maxVolts        double   (section 9.2 slider, V)
+/RootstockTuner/<Mechanism>/setpoint            double   (manual poke target; the wizard also drives it)
+/RootstockTuner/<Mechanism>/lqr/maxError        double   (section 9.2 slider, SI)
+/RootstockTuner/<Mechanism>/lqr/maxVolts        double   (section 9.2 slider, V)
 ```
 
 `TunableGains` builds its seven-topic list by iterating `GainId.values()`, so the gain half of the schema above is **generated, not typed**. `NtSchemaTest` (§16.2) asserts the two sets are equal in both directions: every `GainId` has a topic and every topic directly under `/Tuning/<Mechanism>/` maps either to a `GainId` that `Gains.with(...)` and `Gains.get(...)` both handle, or to a declared `ControlConfig` tunable. A gain that can be published but not applied is the exact failure this test exists to make impossible. **`NtSchemaTest` is a cross-document test:** it asserts the topic list above is byte-identical to the one `design/01` §9.6 documents, so the two specifications cannot drift again.
@@ -1420,7 +1420,7 @@ public final class TunableGains {
 Metadata lives **outside** `/Tuning`, as one JSON string per mechanism, so it never clutters the tuning tab:
 
 ```
-/PumpkinTuner/Mechanisms/<Mechanism>/meta     string (JSON)
+/RootstockTuner/Mechanisms/<Mechanism>/meta     string (JSON)
 ```
 
 ```json
@@ -1459,7 +1459,7 @@ library**, not a property of what a team happened to install.
 **The fix: one poller, one `LoggableInputs` struct, one `processInputs` call.**
 
 ```java
-package org.pumpkinlib.tuning;
+package org.rootstock.tuning;
 
 /** How a tunable's value crosses from the dashboard into robot code, replay-safely. */
 public interface TunableTransport {
@@ -1491,7 +1491,7 @@ One implementation ships; one more is named and reserved:
 `TuningInputs` is one struct for the whole table, hand-written per **D24** (`@AutoLog` is banned library-wide, because it generates into the annotated type's own package):
 
 ```java
-package org.pumpkinlib.tuning;
+package org.rootstock.tuning;
 
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
@@ -1529,11 +1529,11 @@ final class TuningInputs implements LoggableInputs {
 ```
 
 > **Reviewer pushback:** the routed finding asks §2.3 to read *"required (maintainer decision 3); `LoggedNetworkNumber` referenced at compile time."*
-> **Why we keep AdvantageKit Required but change the named class:** AdvantageKit **is** moved into the Required list exactly as the finding asks, and the "optional / reflectively detected" wording is deleted. But `LoggedNetworkNumber` cannot be the mechanism. Its `periodic()` is documented as *"Updates internal value from NetworkTables (unless in replay mode) and processes inputs"* — **one NT read and one `processInputs` per instance, per loop** (verified 2026-08-08 against the source: `LoggedNetworkNumber(String key)`, `LoggedNetworkNumber(String key, double defaultValue)`, `double get()`, `void set(double)`, `void setDefault(double)`, `void periodic()`, `double getAsDouble()` — https://github.com/Mechanical-Advantage/AdvantageKit, `akit/src/main/java/org/littletonrobotics/junction/networktables/LoggedNetworkNumber.java`). Binding **D11a(b)** requires *one* JNI call per loop **regardless of tunable count**, and explicitly names the ~250-reads-per-loop model it replaced. One `LoggedNetworkNumber` per tunable is that model wearing a different hat. The design above keeps **both** properties — one queue drain and one `processInputs` — by owning the struct instead of the wrapper, which is also what **D9** already requires of every other IO layer in the library ("IO layers implement `LoggableInputs` **directly**"). The compile-time AdvantageKit references in this domain are therefore `Logger`, `LogTable` and `LoggableInputs`, plus `LoggedRobot` reached through `PumpkinRobot`.
+> **Why we keep AdvantageKit Required but change the named class:** AdvantageKit **is** moved into the Required list exactly as the finding asks, and the "optional / reflectively detected" wording is deleted. But `LoggedNetworkNumber` cannot be the mechanism. Its `periodic()` is documented as *"Updates internal value from NetworkTables (unless in replay mode) and processes inputs"* — **one NT read and one `processInputs` per instance, per loop** (verified 2026-08-08 against the source: `LoggedNetworkNumber(String key)`, `LoggedNetworkNumber(String key, double defaultValue)`, `double get()`, `void set(double)`, `void setDefault(double)`, `void periodic()`, `double getAsDouble()` — https://github.com/Mechanical-Advantage/AdvantageKit, `akit/src/main/java/org/littletonrobotics/junction/networktables/LoggedNetworkNumber.java`). Binding **D11a(b)** requires *one* JNI call per loop **regardless of tunable count**, and explicitly names the ~250-reads-per-loop model it replaced. One `LoggedNetworkNumber` per tunable is that model wearing a different hat. The design above keeps **both** properties — one queue drain and one `processInputs` — by owning the struct instead of the wrapper, which is also what **D9** already requires of every other IO layer in the library ("IO layers implement `LoggableInputs` **directly**"). The compile-time AdvantageKit references in this domain are therefore `Logger`, `LogTable` and `LoggableInputs`, plus `LoggedRobot` reached through `RootstockRobot`.
 
 Rules the implementation must obey:
 
-1. **Never call `Timer.getFPGATimestamp()` or `Timer.getTimestamp()`.** All timestamps come from `org.pumpkinlib.core.compat.Clock.seconds()` and all periods from `Clock.dt()`, so unit tests and replay can drive time. *(Revision 3 said "`Timer.getTimestamp()`"; `DESIGN.md` §16 item 3 requires the facade — domain 06's `volatileApiIsConfined` rule is red otherwise.)*
+1. **Never call `Timer.getFPGATimestamp()` or `Timer.getTimestamp()`.** All timestamps come from `org.rootstock.core.compat.Clock.seconds()` and all periods from `Clock.dt()`, so unit tests and replay can drive time. *(Revision 3 said "`Timer.getTimestamp()`"; `DESIGN.md` §16 item 3 requires the facade — domain 06's `volatileApiIsConfined` rule is red otherwise.)*
 2. **No `HashMap` iteration-order dependence** in anything that produces an output. `TuningRegistry` stores tunables in a `LinkedHashMap` keyed by full NT key and iterates in insertion order; `TuningInputs.keys` is sorted once and frozen.
 3. **No `Math.random()`, no background threads.** Sweeps are driven from the main loop; the OLS accumulation happens inline; every wizard step is a `begin`/`periodic`/`isComplete` state machine (§8.1). **This rule is why §8.4's bisection is written as an explicit sub-state machine and not as a `while` loop with a `yieldOneLoop()` — see §8.4.**
 4. **The wizard refuses to arm in REPLAY mode** and publishes `state = "DISABLED_REPLAY"`. Actuating a mechanism during a replay is nonsensical; re-running the *fit* against replayed data is a feature we expose separately (§8.8, offline refit).
@@ -1563,7 +1563,7 @@ Loop overruns were attributed to competing libraries repeatedly in 2026, and at 
 
 **The one allocation on the enabled path, named.** `readQueue()` returns a `NetworkTableEvent[]`, which is an allocation per loop even when empty. That is why `TuningAllocationTest` asserts **zero** allocations on the **disabled** path (where the poller is never touched) and a **bounded, constant** allocation on the enabled path — one small array, independent of tunable count. Revision 3's budget row claimed zero allocation for the enabled steady state, which was true of the per-entry model and is not true of the poller model; the poller model is still strictly cheaper, and this is the honest statement of what it costs.
 
-Enforced by `TuningAllocationTest` and `LoopTimingTest` (steady-state budget on the CI container), and by `PumpkinTracer`'s per-domain loop-time budget for the `Tuning` slice (design/06 §12.6).
+Enforced by `TuningAllocationTest` and `LoopTimingTest` (steady-state budget on the CI container), and by `RootstockTracer`'s per-domain loop-time budget for the `Tuning` slice (design/06 §12.6).
 
 ---
 
@@ -1582,11 +1582,11 @@ The motion itself is correct and well-tested, and re-implementing it would be ex
 | Quasistatic voltage ramp | **WPILib `SysIdRoutine.quasistatic(Direction)`** |
 | Dynamic voltage step | **WPILib `SysIdRoutine.dynamic(Direction)`** |
 | WPILog `sysid` state/data entries | **WPILib `SysIdRoutineLog`**, via the routine's log callback |
-| Generating the two callbacks from a mechanism declaration | **PumpkinLib** (`SysIdSweep.routineFor(target)`) |
-| Deriving safe ramp rate, step voltage and timeout from soft limits | **PumpkinLib** (§6.2) — WPILib's 1 V/s, 7 V, 10 s defaults are unsafe on a 1.4 m elevator |
-| Safety aborts during the sweep | **PumpkinLib** (`TuningSupervisor`, §7) — WPILib states explicitly that the routine only creates voltage commands and limits are your problem |
-| Fitting kS/kV/kA/kG | **PumpkinLib** (streaming OLS, §6.3), *in addition to* writing the WPILog |
-| Log hygiene (one routine per file, auto-named) | **PumpkinLib** (§6.6) |
+| Generating the two callbacks from a mechanism declaration | **Rootstock** (`SysIdSweep.routineFor(target)`) |
+| Deriving safe ramp rate, step voltage and timeout from soft limits | **Rootstock** (§6.2) — WPILib's 1 V/s, 7 V, 10 s defaults are unsafe on a 1.4 m elevator |
+| Safety aborts during the sweep | **Rootstock** (`TuningSupervisor`, §7) — WPILib states explicitly that the routine only creates voltage commands and limits are your problem |
+| Fitting kS/kV/kA/kG | **Rootstock** (streaming OLS, §6.3), *in addition to* writing the WPILog |
+| Log hygiene (one routine per file, auto-named) | **Rootstock** (§6.6) |
 | Off-robot analysis in the SysId GUI | **WPILib SysId**, still fully supported as an escape hatch |
 
 Nothing is taken away. A team that wants the official tool gets a clean, correctly-named, single-routine WPILog with no extra effort. A team that does not want a laptop gets the gains on the dashboard 20 seconds after the sweep ends.
@@ -1594,7 +1594,7 @@ Nothing is taken away. A team that wants the official tool gets a clean, correct
 ### 6.2 `SysIdSweep` — generated routine with a derived envelope
 
 ```java
-package org.pumpkinlib.tuning.sysid;
+package org.rootstock.tuning.sysid;
 
 import edu.wpi.first.units.measure.Time;
 import edu.wpi.first.units.measure.Voltage;
@@ -1602,8 +1602,8 @@ import edu.wpi.first.units.measure.Velocity;
 import edu.wpi.first.units.VoltageUnit;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
-import org.pumpkinlib.control.SafetyEnvelope;
-import org.pumpkinlib.control.TuningTarget;
+import org.rootstock.control.SafetyEnvelope;
+import org.rootstock.control.TuningTarget;
 
 /**
  * Wraps {@link SysIdRoutine} so a team never hand-writes the drive and log callbacks, and so the
@@ -1664,7 +1664,7 @@ dynamicTimeout = 3.0
 
 `SysIdRoutine.Config` is then constructed with the verified signature
 `Config(Velocity<VoltageUnit> rampRate, Voltage stepVoltage, Time timeout, Consumer<SysIdRoutineLog.State> recordState)`,
-where the fourth argument is PumpkinLib's own state consumer that (a) forwards to `SysIdRoutineLog` so the WPILog stays valid, and (b) drives the regression's phase tracking.
+where the fourth argument is Rootstock's own state consumer that (a) forwards to `SysIdRoutineLog` so the WPILog stays valid, and (b) drives the regression's phase tracking.
 
 The `Mechanism` is constructed with the verified signature
 `Mechanism(Consumer<Voltage> drive, Consumer<SysIdRoutineLog> log, Subsystem subsystem, String name)`:
@@ -1730,16 +1730,16 @@ RMSE =  sqrt(SSE / N)                    // volts
 
 That identity is exact, needs only the accumulators we already have, and gives a voltage-prediction R^2 and an RMSE in volts.
 
-> **[UNVERIFIED]** This voltage-prediction R^2 is **not** the same statistic as SysId's reported "simulated velocity r^2" or "acceleration r^2", and the two are not directly comparable. SysId's thresholds (simulated-velocity r^2 > 0.9 good; acceleration r^2 rarely above 0.5) do not transfer. PumpkinLib therefore reports its own metric with its own thresholds and labels it clearly as `voltageFitR2`, and additionally computes a *simulated-velocity* R^2 from the decimated replay buffer (§6.5) so a student who knows SysId sees a familiar number too.
+> **[UNVERIFIED]** This voltage-prediction R^2 is **not** the same statistic as SysId's reported "simulated velocity r^2" or "acceleration r^2", and the two are not directly comparable. SysId's thresholds (simulated-velocity r^2 > 0.9 good; acceleration r^2 rarely above 0.5) do not transfer. Rootstock therefore reports its own metric with its own thresholds and labels it clearly as `voltageFitR2`, and additionally computes a *simulated-velocity* R^2 from the decimated replay buffer (§6.5) so a student who knows SysId sees a familiar number too.
 
 ### 6.4 `FeedforwardRegression` — the implementation
 
-> **Package note.** `FeedforwardRegression` is HAL-free and lives in **`org.pumpkinlib.pure.solvers`** (`DESIGN.md` §7 package tree; the zero-`edu.wpi.first`-import rule is enforced by bytecode scan at the package level). It is re-exported for readability under `org.pumpkinlib.tuning.sysid` only in the sense that the sysid package is its only caller; there is one class.
+> **Package note.** `FeedforwardRegression` is HAL-free and lives in **`org.rootstock.pure.solvers`** (`DESIGN.md` §7 package tree; the zero-`edu.wpi.first`-import rule is enforced by bytecode scan at the package level). It is re-exported for readability under `org.rootstock.tuning.sysid` only in the sense that the sysid package is its only caller; there is one class.
 
 ```java
-package org.pumpkinlib.pure.solvers;
+package org.rootstock.pure.solvers;
 
-import org.pumpkinlib.control.MechanismArchetype;
+import org.rootstock.control.MechanismArchetype;
 
 /**
  * Streaming ordinary-least-squares fit of kS/kV/kA (+ kG) using normal equations.
@@ -1818,7 +1818,7 @@ public final class FeedforwardRegression {
 **`FitFailure`, and why it is not `AbortReason`.**
 
 ```java
-package org.pumpkinlib.pure.solvers;
+package org.rootstock.pure.solvers;
 
 /** Why a fit could not be produced. Distinct from AbortReason, which is why MOTION stopped. */
 public enum FitFailure { INSUFFICIENT_DATA, RANK_DEFICIENT }
@@ -1898,7 +1898,7 @@ private static double[] solve4(double[][] a, double[] b) {
 }
 ```
 
-> **The one WPILib import in `org.pumpkinlib.pure`, and how it is avoided.** `MatBuilder`/`VecBuilder`/`Matrix` are `edu.wpi.first.math` types, which the pure package forbids. The solver core therefore takes a `LinearSolver` functional interface — `double[] solve(double[][] A, double[] b)` — and `org.pumpkinlib.tuning.sysid` supplies the wpimath-backed implementation above. `PurePackageScanTest` (design/06) fails the build on any `edu.wpi.first` reference inside `org.pumpkinlib.pure`, so this is enforced rather than remembered.
+> **The one WPILib import in `org.rootstock.pure`, and how it is avoided.** `MatBuilder`/`VecBuilder`/`Matrix` are `edu.wpi.first.math` types, which the pure package forbids. The solver core therefore takes a `LinearSolver` functional interface — `double[] solve(double[][] A, double[] b)` — and `org.rootstock.tuning.sysid` supplies the wpimath-backed implementation above. `PurePackageScanTest` (design/06) fails the build on any `edu.wpi.first` reference inside `org.rootstock.pure`, so this is enforced rather than remembered.
 
 > **Verified WPILib signatures used above:**
 > `MatBuilder.fill(Nat<R> rows, Nat<C> cols, double... data)` (row-major),
@@ -1910,7 +1910,7 @@ private static double[] solve4(double[][] a, double[] b) {
 `FeedforwardFit`:
 
 ```java
-package org.pumpkinlib.tuning.sysid;
+package org.rootstock.tuning.sysid;
 
 public record FeedforwardFit(
     double kS, double kV, double kA, double kG,
@@ -1925,14 +1925,14 @@ public record FeedforwardFit(
 }
 ```
 
-**Quality thresholds** (PumpkinLib's own, chosen to be conservative; not from a WPILib source, so labelled as ours in the UI):
+**Quality thresholds** (Rootstock's own, chosen to be conservative; not from a WPILib source, so labelled as ours in the UI):
 
 | `voltageFitR2` | `rmseVolts` | Quality | UI text |
 |---|---|---|---|
 | >= 0.95 | <= 0.25 | `GOOD` | "Good fit. The model explains 97% of the voltage you applied." |
 | >= 0.85 | <= 0.50 | `ACCEPTABLE` | "Usable fit, but noisy. Re-run with a slower ramp if the gains look odd." |
 | >= 0.60 | any | `SUSPECT` | "Poor fit. Usually this means backlash, a slipping encoder, or something else fighting the motor." |
-| < 0.60 | any | `UNUSABLE` | "This fit is not trustworthy and PumpkinLib will not accept it. Run the mechanical health check." |
+| < 0.60 | any | `UNUSABLE` | "This fit is not trustworthy and Rootstock will not accept it. Run the mechanical health check." |
 
 ### 6.5 Sanity-bounding the fit against physics
 
@@ -2042,28 +2042,28 @@ Every one of those five lines is asserted by `PlantPriorDerivationTest` against 
 
 ### 6.6 Log hygiene
 
-WPILib is explicit: *"Only log files with a single routine in them are usable for analysis."* Running sequential routines without extracting or power-cycling causes analysis failure. PumpkinLib owns this so a student cannot get it wrong:
+WPILib is explicit: *"Only log files with a single routine in them are usable for analysis."* Running sequential routines without extracting or power-cycling causes analysis failure. Rootstock owns this so a student cannot get it wrong:
 
 1. `SysIdSweep.fullSweep()` calls `DataLogManager.start()` if not already started, then closes the current log and starts a **new** one named `sysid-<Mechanism>-<yyyyMMdd-HHmmss>.wpilog` before the first test.
 2. Between the four tests it inserts a `settle` command (mechanism neutral, 0.75 s) and, for position archetypes, a return-to-start move. No second routine is written to the same file.
-3. At the end of the sweep the file is closed and its path is published to `/PumpkinTuner/lastSysIdLog` (string) so a student can find it with FTP/scp without guessing.
-4. The UI always shows: `"AdvantageKit logs are not directly loadable by SysId. PumpkinLib wrote a separate plain WPILog for you at /U/logs/sysid-Elevator-20260808-141233.wpilog."` — *always*, not "when AdvantageKit is detected", because under maintainer decision 3 there is no configuration in which it is absent.
+3. At the end of the sweep the file is closed and its path is published to `/RootstockTuner/lastSysIdLog` (string) so a student can find it with FTP/scp without guessing.
+4. The UI always shows: `"AdvantageKit logs are not directly loadable by SysId. Rootstock wrote a separate plain WPILog for you at /U/logs/sysid-Elevator-20260808-141233.wpilog."` — *always*, not "when AdvantageKit is detected", because under maintainer decision 3 there is no configuration in which it is absent.
 5. If `/U` is not mounted (no USB stick), we log to `Platform.persistentDir() + "/logs"` and raise `Alerts.warning("Tuning", ..., MatchImpact.PIT_ONLY)` rather than failing. A robot that will not run because logging failed is a lost match.
 
 ---
 
 ## 7. Safety — `TuningSupervisor`
 
-Every existing FRC live-tuning implementation ships with a documentation warning and no interlocks. YAMS: *"Live Tuning can be DANGEROUS please test in sim before the real robot."* WPILib SysId: *"it is up to you to set up hard or soft limits to prevent injury or damage."* FrcCatalyst ships tuning enabled by default. **PumpkinLib makes safety structural instead of documentary.** This is the single strongest differentiator for a library aimed at teams where no mentor is watching.
+Every existing FRC live-tuning implementation ships with a documentation warning and no interlocks. YAMS: *"Live Tuning can be DANGEROUS please test in sim before the real robot."* WPILib SysId: *"it is up to you to set up hard or soft limits to prevent injury or damage."* FrcCatalyst ships tuning enabled by default. **Rootstock makes safety structural instead of documentary.** This is the single strongest differentiator for a library aimed at teams where no mentor is watching.
 
 ### 7.1 `SafetyEnvelope`
 
 ```java
-package org.pumpkinlib.control;
+package org.rootstock.control;
 
 import java.util.List;
-import org.pumpkinlib.pure.ConfigError;
-import org.pumpkinlib.units.SiDomain;
+import org.rootstock.pure.ConfigError;
+import org.rootstock.units.SiDomain;
 
 /** Every actuating tuning routine runs inside one of these. Derived from the target; overridable. */
 public record SafetyEnvelope(
@@ -2092,7 +2092,7 @@ public record SafetyEnvelope(
    *   <li>{@code positionMin/Max} are pulled in from the <b>hard</b> limits by
    *       {@code softMargin + max(0.03 * range, floor)} — the team's margin <b>plus</b> a travel-derived
    *       guard, never the maximum of the two — so the supervisor band is <b>strictly</b> inside the
-   *       device's soft-limit band for every legal margin. The student always sees "PumpkinLib
+   *       device's soft-limit band for every legal margin. The student always sees "Rootstock
    *       stopped this" instead of a silent device clamp.</li>
    *   <li>{@code maxAbsVelocity} = 1.15 x the free speed predicted by {@link PlantPrior}.</li>
    *   <li>{@code maxStatorAmps} = 0.85 x the configured stator limit, or 60 A if unknown.</li>
@@ -2202,14 +2202,14 @@ Velocity-runaway (condition 5) deserves a note: for a `FLYWHEEL` the free-speed 
 ### 7.3 `TuningSupervisor`
 
 ```java
-package org.pumpkinlib.control;
+package org.rootstock.control;
 
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
 
 /**
  * Single choke point for every volt a tuning routine commands. Nothing in
- * org.pumpkinlib.tuning calls {@link TuningTarget#setVoltage} directly, and
+ * org.rootstock.tuning calls {@link TuningTarget#setVoltage} directly, and
  * {@code TuningSupervisorCallerTest} fails the build if anything does.
  */
 public final class TuningSupervisor {
@@ -2227,7 +2227,7 @@ public final class TuningSupervisor {
    *       {@code allowNoCurrentSensing()} explicitly;</li>
    *   <li>the mechanism is currently inside the safe band;</li>
    *   <li>the robot is enabled and not connected to an FMS;</li>
-   *   <li>{@code PumpkinLog.isReplay()} is false;</li>
+   *   <li>{@code RootstockLog.isReplay()} is false;</li>
    *   <li>{@code MatchContext.isDiagnostics()} is true — see section 7.4. In code
    *       preconditions 5 and 7 collapse to the single expression
    *       {@code MatchContext.isDiagnostics() && MatchContext.isEnabled()
@@ -2246,9 +2246,9 @@ public final class TuningSupervisor {
    *
    * <p><b>Containment (revision 4).</b> {@code TuningWizard} is the <b>sole</b> caller of this
    * method. It wraps the call in a {@code try/catch (IllegalStateException)}, publishes
-   * {@code getMessage()} verbatim to {@code /PumpkinTuner/safety/message}, raises
+   * {@code getMessage()} verbatim to {@code /RootstockTuner/safety/message}, raises
    * {@code Alerts.warning("Tuning", msg, MatchImpact.PIT_ONLY)}, and remains in
-   * {@link org.pumpkinlib.tuning.wizard.WizardState#READY} with the arm refused. <b>The exception
+   * {@link org.rootstock.tuning.wizard.WizardState#READY} with the arm refused. <b>The exception
    * never leaves {@code wizard.periodic()}</b>, and therefore never reaches
    * {@code robotPeriodic()} — which would kill the robot code loop and violate design/01's
    * "degrade, never crash" principle with the library's own throw. The hard throw is right for the
@@ -2392,7 +2392,7 @@ The acknowledgement string is logged verbatim into the tuning report and shown a
 | **Predict** | D-pad up / left / right | Select one of the three outcomes in a `PredictStep` (§8.4). No motion. |
 | **Manual nudge** | Left stick Y | Only in `REVIEW` state; moves the mechanism at up to 15% output so a student can reposition it by hand-ish. |
 
-A secondary control path exists for laptop-only workflows: momentary boolean topics under `/PumpkinTuner/cmd/` that the robot consumes and resets to `false` in the same loop. When a routine is driven this way, `requireHeldEnable` cannot be satisfied, so `maxVolts` is halved and `maxRoutineSeconds` is capped at 3 s. This is stated in the UI: `"No gamepad enable held - running in reduced-power mode."` Test mode is still required; the dashboard path relaxes the *held* enable, never the *mode*.
+A secondary control path exists for laptop-only workflows: momentary boolean topics under `/RootstockTuner/cmd/` that the robot consumes and resets to `false` in the same loop. When a routine is driven this way, `requireHeldEnable` cannot be satisfied, so `maxVolts` is halved and `maxRoutineSeconds` is capped at 3 s. This is stated in the UI: `"No gamepad enable held - running in reduced-power mode."` Test mode is still required; the dashboard path relaxes the *held* enable, never the *mode*.
 
 ### 7.5 `MechanicalHealthCheck` — run before you touch a gain
 
@@ -2473,9 +2473,9 @@ The sim gate is the third, and its value is real but bounded: it proves the enve
 The wizard is a state machine over a **recipe**, which is an ordered list of **steps**. Recipes are data; steps are small strategy objects. Nothing about the wizard is mechanism-specific — the six built-in recipes are just six lists.
 
 ```java
-package org.pumpkinlib.tuning.wizard;
+package org.rootstock.tuning.wizard;
 
-import org.pumpkinlib.control.GainId;
+import org.rootstock.control.GainId;
 
 /** One teachable move in a recipe. */
 public interface TuningStep {
@@ -2517,27 +2517,27 @@ public interface TuningStep {
 ```
 
 ```java
-package org.pumpkinlib.tuning.wizard;
+package org.rootstock.tuning.wizard;
 
 /** Everything a step is allowed to touch. */
 public interface StepContext {
-  org.pumpkinlib.control.TuningTarget target();
-  org.pumpkinlib.control.TuningSupervisor supervisor();   // the ONLY way to command volts
-  org.pumpkinlib.control.Gains gains();                   // gains as accumulated so far this session
+  org.rootstock.control.TuningTarget target();
+  org.rootstock.control.TuningSupervisor supervisor();    // the ONLY way to command volts
+  org.rootstock.control.Gains gains();                    // gains as accumulated so far this session
   double toleranceSi();                                   // supervisor.effectiveToleranceSi()
   double elapsedSeconds();                                // Clock.seconds() based, never Timer
   double dt();                                            // Clock.dt()
-  org.pumpkinlib.tuning.sysid.SampleBuffer buffer();      // decimated ring buffer for plots + analysis
-  void narrate(String line);                              // appends to /PumpkinTuner/log
+  org.rootstock.tuning.sysid.SampleBuffer buffer();       // decimated ring buffer for plots + analysis
+  void narrate(String line);                              // appends to /RootstockTuner/log
   void publishProgress(double fraction0to1);
 }
 ```
 
 ```java
-package org.pumpkinlib.tuning.wizard;
+package org.rootstock.tuning.wizard;
 
-import org.pumpkinlib.control.GainId;
-import org.pumpkinlib.control.Gains;
+import org.rootstock.control.GainId;
+import org.rootstock.control.Gains;
 
 /** The outcome of a step, presented to the student for accept / retry / skip. */
 public record StepResult(
@@ -2552,7 +2552,7 @@ public record StepResult(
 
     /**
      * Whether the student's prediction for this step was right. Empty when the step had no
-     * {@link org.pumpkinlib.tuning.wizard.steps.PredictStep} in front of it, or when the student
+     * {@link org.rootstock.tuning.wizard.steps.PredictStep} in front of it, or when the student
      * skipped the question. This is the only field in the whole design that measures the STUDENT
      * rather than the mechanism, and it is what makes the difference between a teaching tool and a
      * progress bar visible to a mentor who was not in the room. See section 8.4.
@@ -2593,7 +2593,7 @@ public record StepResult(
 | `REVIEW` | Step complete; `StepResult` shown with plots. Student presses A/B/Y. | manual nudge only |
 | `ABORTED` | Something tripped. Reason shown. Gains reverted to the step's starting values. | no |
 | `DONE` | Recipe complete; report generated; gains staged for persistence. | no |
-| `DISABLED_REPLAY` | `PumpkinLog.isReplay()` is true. | no |
+| `DISABLED_REPLAY` | `RootstockLog.isReplay()` is true. | no |
 
 Invariants enforced in code:
 - Motion is possible in exactly two states, and both require `supervisor.isArmed()`.
@@ -2604,7 +2604,7 @@ Invariants enforced in code:
 ### 8.3 `TuningWizard` — the public surface
 
 ```java
-package org.pumpkinlib.tuning.wizard;
+package org.rootstock.tuning.wizard;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -2612,7 +2612,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 public final class TuningWizard {
 
   /**
-   * Build the wizard over every registered {@link org.pumpkinlib.control.TuningTarget}.
+   * Build the wizard over every registered {@link org.rootstock.control.TuningTarget}.
    * The controller supplies enable/accept/retry/back/skip/abort/predict per section 7.4.
    *
    * <p><b>Give the wizard its own port.</b> At construction this checks
@@ -2659,7 +2659,7 @@ public final class TuningWizard {
    * Call every loop. Costs one branch when the wizard is {@code IDLE}.
    *
    * <p><b>This is safe to call from {@code robotPeriodic()} because of
-   * {@link org.pumpkinlib.control.TuningSupervisor#arm()} precondition 7, not because of anything
+   * {@link org.rootstock.control.TuningSupervisor#arm()} precondition 7, not because of anything
    * this method does.</b> {@code arm()} throws unless {@code MatchContext.isDiagnostics()}, so
    * during teleop and autonomous the wizard can advance its own state machine and publish narration
    * but <i>cannot command a volt</i> — no button on any controller, held or not, can cause motion
@@ -2671,7 +2671,7 @@ public final class TuningWizard {
    * {@link WizardState#READY}. Nothing propagates out of here into {@code robotPeriodic()}.
    *
    * <p>It additionally hard-returns when {@code MatchContext.isFMSAttached()}, and publishes
-   * {@code state = "DISABLED_REPLAY"} and returns when {@code PumpkinLog.isReplay()}.
+   * {@code state = "DISABLED_REPLAY"} and returns when {@code RootstockLog.isReplay()}.
    */
   public void periodic() { /* ... */ }
 
@@ -2685,7 +2685,7 @@ public final class TuningWizard {
 }
 ```
 
-> **Lifecycle note (D26, `DESIGN.md` §6).** A team that adopts `PumpkinLifecycle` or `PumpkinRobot` does **not** call `TuningWizard.periodic()` by hand: `PumpkinRegistry.addAll(m_tuner, ...)` routes it into the priority-30 `LifecycleHook` alongside `TuningRegistry.drainPoller()`. §14.2 shows that shape. The bare `periodic()` remains public for the standalone, no-lifecycle path, which is a documented row in the §11c adoption matrix rather than an undocumented divergence — see §14.2.
+> **Lifecycle note (D26, `DESIGN.md` §6).** A team that adopts `RootstockLifecycle` or `RootstockRobot` does **not** call `TuningWizard.periodic()` by hand: `RootstockRegistry.addAll(m_tuner, ...)` routes it into the priority-30 `LifecycleHook` alongside `TuningRegistry.drainPoller()`. §14.2 shows that shape. The bare `periodic()` remains public for the standalone, no-lifecycle path, which is a documented row in the §11c adoption matrix rather than an undocumented divergence — see §14.2.
 
 ### 8.4 Step primitives
 
@@ -2698,7 +2698,7 @@ Without this step the wizard is a progress bar with good prose. A student can co
 `PredictStep` is interleaved before the `RUNNING` phase of the kS, kG, kP and verify steps. It commands no motion. It asks one multiple-choice question in plain language, records the answer, and — after the real step runs — tells the student whether they were right and *why*.
 
 ```java
-package org.pumpkinlib.tuning.wizard.steps;
+package org.rootstock.tuning.wizard.steps;
 
 /**
  * A no-motion step that asks the student to predict what the NEXT step will do, then scores it.
@@ -2723,10 +2723,10 @@ public final class PredictStep implements TuningStep {
 **Wire format.** Three topics, bound to an Elastic ComboBox — no new widget types:
 
 ```
-/PumpkinTuner/predict/question   string     "Your elevator's kD is 4.93 and its kV is 5.00. What if kD were zero?"
-/PumpkinTuner/predict/options    string[]   three plain-language outcomes
-/PumpkinTuner/predict/answer     double     RW - index 0/1/2, written by the ComboBox or the D-pad
-/PumpkinTuner/predict/score      string     "Predictions: 7 of 9"
+/RootstockTuner/predict/question   string     "Your elevator's kD is 4.93 and its kV is 5.00. What if kD were zero?"
+/RootstockTuner/predict/options    string[]   three plain-language outcomes
+/RootstockTuner/predict/answer     double     RW - index 0/1/2, written by the ComboBox or the D-pad
+/RootstockTuner/predict/score      string     "Predictions: 7 of 9"
 ```
 
 **A real question, from this document's elevator, at the refinement step:**
@@ -2832,11 +2832,11 @@ Revisions 1 through 3 wrote `probe()` and `recentre()` as blocking `while` loops
 `HoldBisectionStep` is therefore an explicit sub-state machine whose `periodic()` calls `supervisor.check()` as its **first statement**, and whose recentre phase is bounded twice — by a widened settle band and by a wall-clock budget.
 
 ```java
-package org.pumpkinlib.tuning.wizard.steps;
+package org.rootstock.tuning.wizard.steps;
 
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
-import org.pumpkinlib.control.GravityMode;
-import org.pumpkinlib.tuning.FeedbackDesigner;
+import org.rootstock.control.GravityMode;
+import org.rootstock.tuning.FeedbackDesigner;
 
 final class HoldBisectionStep implements TuningStep {
 
@@ -3051,7 +3051,7 @@ final class HoldBisectionStep implements TuningStep {
 
   /**
    * Java 17: instanceof patterns only. No pattern-matching switch (preview in 17), no preview
-   * features anywhere in PumpkinLib -- see section 17.
+   * features anywhere in Rootstock -- see section 17.
    *
    * Guard tripped: the DIRECTION of the abort IS the measurement. "Moved up" means we over-pushed
    * against gravity, so mid is too many volts.
@@ -3194,7 +3194,7 @@ Integral gain is never produced by any recipe. It appears only in the `REVIEW` s
 
 **Bang-bang branch.** If `neutralMode()` reports `COAST` and the archetype is `FLYWHEEL`, step 8 offers an alternative:
 
-> "Your wheel is in coast mode, which means you can use a bang-bang controller instead. Bang-bang has no gains at all: it's full voltage when you're below the target and zero when you're above. On a heavy wheel under a varying load it often recovers faster than a P controller. PumpkinLib will set it up as `BangBangController` output x 12 V plus 0.9 x your feedforward — the 0.9 is deliberate, so the feedforward slightly undershoots and bang-bang only ever has to push, never brake."
+> "Your wheel is in coast mode, which means you can use a bang-bang controller instead. Bang-bang has no gains at all: it's full voltage when you're below the target and zero when you're above. On a heavy wheel under a varying load it often recovers faster than a P controller. Rootstock will set it up as `BangBangController` output x 12 V plus 0.9 x your feedforward — the 0.9 is deliberate, so the feedforward slightly undershoots and bang-bang only ever has to push, never brake."
 
 The library **refuses** to enable bang-bang unless idle mode is coast, and says why: braking fights the controller and causes destructive oscillation. (Note the symmetry with §7.3.1: a flywheel *must* be coast for its best controller, and a gravity mechanism *must* be brake for a safe abort. Both are read back from the same `neutralMode()` accessor, and both are checked at pre-flight.)
 
@@ -3242,7 +3242,7 @@ Identical in shape to the elevator recipe, with these differences:
 
 | # | Difference | Detail |
 |---|---|---|
-| 1 | **Pre-flight adds the zero-convention question** | "PumpkinLib needs to know the angle at which your arm points straight out sideways. Your config says `RotaryAxis.arm(Degrees.of(0.0))`. Move the arm to horizontal now and tell me what the encoder says." The measured value is compared with `horizontalReferenceSi()`; a mismatch > 5 degrees blocks the recipe with an explanation. |
+| 1 | **Pre-flight adds the zero-convention question** | "Rootstock needs to know the angle at which your arm points straight out sideways. Your config says `RotaryAxis.arm(Degrees.of(0.0))`. Move the arm to horizontal now and tell me what the encoder says." The measured value is compared with `horizontalReferenceSi()`; a mismatch > 5 degrees blocks the recipe with an explanation. |
 | 2 | **Pre-flight BLOCKS on coast** | Same rule as the elevator (§7.3.1). An arm that coasts drops onto its hard stop on every `ENABLE_RELEASED`. |
 | 3 | **Gravity pre-pass runs at three angles** | The `HoldBisectionStep` three-angle check (§8.4). Chooses the angle closest to horizontal that is inside the safe band as `theta_1`, then `theta_1 +/- 25 degrees` clamped to the band. The move *between* angles is the same closed-loop `recentre()` the bisection uses, not an open-loop command. Fits `V_hold(theta) = kG * cos(theta - horizontalRef + phi)`. Reports both `kG` and the residual phase error `phi`. |
 | 4 | **kS is measured near horizontal** | Friction on an arm is roughly angle-independent, but the *gravity cancellation* is only exact if `kG` is right, so the kS ramp is run at `theta_1` where `cos(theta - horizontalRef)` is largest and the cancellation is best conditioned. |
@@ -3278,7 +3278,7 @@ Same shape as the elevator recipe with the gravity steps removed:
 
 **Continuous rotation.** If the turret has more than 360 degrees of travel, `design/01`'s `RotaryAxis.turret(false)` declares it a **bounded** axis (min/max in radians, unwrapped) and **not** continuous. Continuous input is only enabled for `STEER`. The user's 8793 turret (`ShooterSubsystem.java:349-369`) is exactly this case: a >360-degree bounded axis with unwrapping, not a continuous one. The recipe verifies the distinction at pre-flight:
 
-> "This mechanism reports 740 degrees of travel, so it is a bounded axis, not a continuous one. PumpkinLib will not enable continuous wrapping. If it can actually spin forever, change the archetype to STEER and set `RotaryAxis.turret(true)`."
+> "This mechanism reports 740 degrees of travel, so it is a bounded axis, not a continuous one. Rootstock will not enable continuous wrapping. If it can actually spin forever, change the archetype to STEER and set `RotaryAxis.turret(true)`."
 
 ---
 
@@ -3296,7 +3296,7 @@ Drive-specific pre-flight, all of which block:
 |---|---|
 | Robot is **not** on blocks | WPILib: *"the robot drive can not be accurately characterized while on blocks."* Detected by commanding 1.0 V for 300 ms and checking that measured acceleration is below `0.4 * (predicted free-spin acceleration)`. On blocks, the wheel accelerates ~20x faster than the loaded robot does, so this is an easy, reliable test. Message: `"These wheels accelerated far faster than a robot of this mass could. Are you on blocks? Put it on the floor."` |
 | At least 3 m of travel available | Asked, not measured: a `Toggle Switch` on the dashboard the student must set. |
-| All modules pointed forward and held | The recipe commands the steer axes to zero and holds them for the whole sweep, through `design/05`'s `PumpkinDrive`. |
+| All modules pointed forward and held | The recipe commands the steer axes to zero and holds them for the whole sweep, through `design/05`'s `RootstockDrive`. |
 | Only one module (or one side) under test at a time, unless `allModules()` was selected | Per-module gains are the point; averaging four modules hides a bad one. |
 | `DriveSelfCheck` reports no bring-up faults | The tuner consumes a correctly-brought-up module (§2.1); it is not the primary defence against a wrong offset or a wrong invert. |
 
@@ -3314,7 +3314,7 @@ Published starting points are offered as a fallback if the student skips identif
 | TalonFX / Kraken / Falcon (YAGSL defaults) | 1.0 | 50.0 | 0.32 |
 | CTRE Tuner X generated (`Slot0Configs`) | 0.1 (kS 0, kV 0.124) | 100 (kS 0.1, kV 1.91, kD 0.5) | — |
 
-These are shown **as vendor-native numbers with a warning that PumpkinLib's own gains are in volts-per-SI and are not comparable**, and are offered only as "make it move so you can start" values.
+These are shown **as vendor-native numbers with a warning that Rootstock's own gains are in volts-per-SI and are not comparable**, and are offered only as "make it move so you can start" values.
 
 ---
 
@@ -3347,9 +3347,9 @@ Differences from TURRET:
 So we ship two modes, and we are explicit about which is which:
 
 ```java
-package org.pumpkinlib.tuning.wizard;
+package org.rootstock.tuning.wizard;
 
-import org.pumpkinlib.control.MechanismArchetype;
+import org.rootstock.control.MechanismArchetype;
 
 public final class TuningRecipe {
 
@@ -3364,7 +3364,7 @@ public final class TuningRecipe {
    * Identification only. Runs the gravity pre-pass, kS, kV and kA end-to-end behind a single
    * narration screen and a single held trigger, then hands over the numbers and the profile
    * constraints. No PredictStep, no per-step review, no LQR panel, no refinement — kP and kD come
-   * straight from {@link org.pumpkinlib.tuning.FeedbackDesigner} at the archetype defaults and are
+   * straight from {@link org.rootstock.tuning.FeedbackDesigner} at the archetype defaults and are
    * labelled {@code WIZARD_LQR} with no {@code WIZARD_REFINE} pass.
    *
    * <p>Every safety property is unchanged. Express skips *teaching*, never interlocks: the
@@ -3414,13 +3414,13 @@ The chosen method has neither problem. LQR is a closed-form solve on a model we 
 This is the highest-leverage feature in the domain and it needs no new math. SysId's own Feedback Analysis view derives kP/kD via LQR from kV/kA plus max-acceptable-error, max-acceptable-control-effort, and measurement delay. Every piece is in wpimath. The only thing missing was somebody doing it on the robot.
 
 ```java
-package org.pumpkinlib.tuning;
+package org.rootstock.tuning;
 
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.controller.LinearQuadraticRegulator;
 import edu.wpi.first.math.system.plant.LinearSystemId;
-import org.pumpkinlib.control.MechanismArchetype;
-import org.pumpkinlib.control.TravelLimits;
+import org.rootstock.control.MechanismArchetype;
+import org.rootstock.control.TravelLimits;
 
 /**
  * Derives kP and kD from measured kV/kA using LQR - the same relationship SysId's
@@ -3430,7 +3430,7 @@ import org.pumpkinlib.control.TravelLimits;
  * "how much error can you live with" and "how many volts may I spend correcting it".
  * Smaller acceptable error or larger acceptable effort both produce larger gains.
  *
- * <p>The HAL-free solve lives in {@code org.pumpkinlib.pure.solvers.LqrDesign}; this class is the
+ * <p>The HAL-free solve lives in {@code org.rootstock.pure.solvers.LqrDesign}; this class is the
  * wpimath-backed wrapper plus the student-facing preferences, the warnings, and the panel text.
  */
 public final class FeedbackDesigner {
@@ -3489,7 +3489,7 @@ public final class FeedbackDesigner {
 > `LinearSystemId.identifyPositionSystem(double kV, double kA)` returning `LinearSystem<N2,N1,N2>`;
 > `LinearSystemId.identifyVelocitySystem(double kV, double kA)` returning `LinearSystem<N1,N1,N1>`.
 >
-> **[UNVERIFIED]** The exact Q and R matrices SysId's own Feedback Analysis constructs internally could not be read from `sysid`'s C++ source; the construction above is inferred from WPILib's prose (*"via LQR"*, *"Max Acceptable Error"*, *"Max Acceptable Control Effort"*) plus the public wpimath API. The relationship is Bryson's rule — `Q = diag(1/qelms^2)`, `R = diag(1/relms^2)` — which is what the `Vector` overload of the constructor documents ("maximum desired error tolerance for each state" / "maximum desired control effort for each input"). PumpkinLib's numbers may therefore differ slightly from SysId's for the same inputs. This is stated in the UI: *"These are educated starting points, not final answers"* — WPILib's own framing.
+> **[UNVERIFIED]** The exact Q and R matrices SysId's own Feedback Analysis constructs internally could not be read from `sysid`'s C++ source; the construction above is inferred from WPILib's prose (*"via LQR"*, *"Max Acceptable Error"*, *"Max Acceptable Control Effort"*) plus the public wpimath API. The relationship is Bryson's rule — `Q = diag(1/qelms^2)`, `R = diag(1/relms^2)` — which is what the `Vector` overload of the constructor documents ("maximum desired error tolerance for each state" / "maximum desired control effort for each input"). Rootstock's numbers may therefore differ slightly from SysId's for the same inputs. This is stated in the UI: *"These are educated starting points, not final answers"* — WPILib's own framing.
 
 #### 9.2.0 The closed form, and what it means for the student
 
@@ -3661,7 +3661,7 @@ Weights chosen so that steady-state error and ringing are punished harder than b
 residualVolts = mean over the last 0.5 s of target.getFeedbackVolts()
 ```
 
-i.e. exactly the voltage the *feedback* term is holding to keep the mechanism where it is. In steady state that voltage is, by definition, the feedforward term that is missing. Adding 60% of it to kS or kG (rather than 100%) keeps the loop from over-correcting and oscillating between iterations. This is the single most useful piece of arithmetic in the whole refinement loop, and it is why PumpkinLib can tell a student *"add kS"* instead of *"add kI"*.
+i.e. exactly the voltage the *feedback* term is holding to keep the mechanism where it is. In steady state that voltage is, by definition, the feedforward term that is missing. Adding 60% of it to kS or kG (rather than 100%) keeps the loop from over-correcting and oscillating between iterations. This is the single most useful piece of arithmetic in the whole refinement loop, and it is why Rootstock can tell a student *"add kS"* instead of *"add kI"*.
 
 **It is not always computable, and the design says so instead of pretending.** The original definition was `mean(commandedVolts - feedforwardVolts)`, which quietly assumed the robot could see both halves. When `controlLocation().runsOnMotor()` — the library's recommended default, `ControlLocation.ON_MOTOR_PROFILED`, and the setting `design/01`'s builder defaults to for every smart controller — the feedforward is computed *inside* the Talon or the Spark and `TuningTarget` exposed only the applied voltage, which is the sum. `feedforwardVolts` was not computable, so all three `STEADY_STATE_ERROR` rules were dead on the default configuration and the wizard fell through to the `kP *= 1.4` catch-all — which is precisely the "reach for kP/kI instead of kS/kG" mistake §13.7 says this library exists to prevent.
 
@@ -3705,7 +3705,7 @@ This is a *reconstruction*, not a measurement, and `describeConversion()` says s
 Wrist gain conversion (REVLib, voltage-compensated 12.0 V, ControlLocation.ON_MOTOR_PROFILED)
   ...
   NOTE: REVLib does not report how the controller split feedforward from feedback.
-        PumpkinLib reconstructs the feedforward half in Java from your kS/kV/kA/kG and the
+        Rootstock reconstructs the feedforward half in Java from your kS/kV/kA/kG and the
         profile state, so "residual volts" here is computed, not measured. On a Phoenix 6
         device the same number is read directly off the motor controller.
 ```
@@ -3733,7 +3733,7 @@ This is what turns a plot into a lesson. Given a recorded step (or profiled move
 ### 10.1 The sample buffer
 
 ```java
-package org.pumpkinlib.tuning.sysid;
+package org.rootstock.tuning.sysid;
 
 /**
  * Fixed-capacity ring buffer of loop samples. Allocated once at construction; never grows.
@@ -3802,7 +3802,7 @@ residualVolts = mean over the last 0.5 s of feedbackVolts_i        // from Tunin
               = NaN                                                 // when the split is not observable
 ```
 
-`SampleBuffer.Sample.feedbackVolts` is `NaN` for the whole window when `getFeedbackVolts()` is empty, and every consumer treats `NaN` as "unknown," never as zero. The `/PumpkinTuner/plot/ffVolts` and `/plot/fbVolts` topics publish `NaN` too, so the two-line graph visibly *stops* rather than drawing a flat zero that a student would read as "feedback is doing nothing."
+`SampleBuffer.Sample.feedbackVolts` is `NaN` for the whole window when `getFeedbackVolts()` is empty, and every consumer treats `NaN` as "unknown," never as zero. The `/RootstockTuner/plot/ffVolts` and `/plot/fbVolts` topics publish `NaN` too, so the two-line graph visibly *stops* rather than drawing a flat zero that a student would read as "feedback is doing nothing."
 
 **Oscillation frequency** — zero crossings of the error signal after the first peak:
 
@@ -3847,7 +3847,7 @@ expectedSettle = 0.341199 + 0.25                                     = 0.591199 
 Evaluated top to bottom; first match wins. This ordering matters: instability must be caught before anything else, and a mechanism that never arrives must not be classified on its (nonexistent) overshoot.
 
 ```java
-package org.pumpkinlib.tuning.diagnostics;
+package org.rootstock.tuning.diagnostics;
 
 public enum ResponseClass {
   INSUFFICIENT_EXCITATION,   // the step was too small to say anything
@@ -3874,7 +3874,7 @@ public enum ResponseClass {
 ### 10.4 `ResponseVerdict` and the plain-language layer
 
 ```java
-package org.pumpkinlib.tuning.diagnostics;
+package org.rootstock.tuning.diagnostics;
 
 public record ResponseVerdict(
     ResponseClass classification,
@@ -3896,16 +3896,16 @@ public record ResponseVerdict(
 ```
 
 ```java
-package org.pumpkinlib.tuning.diagnostics;
+package org.rootstock.tuning.diagnostics;
 
 /**
  * Pure, HAL-free. Reusable by design/06 to answer "is this mechanism still tuned?"
- * The metric core lives in org.pumpkinlib.pure.solvers; this class is the thin typed wrapper.
+ * The metric core lives in org.rootstock.pure.solvers; this class is the thin typed wrapper.
  */
 public final class StepResponseAnalyzer {
 
   public static ResponseVerdict analyze(
-      java.util.List<org.pumpkinlib.tuning.sysid.SampleBuffer.Sample> window,
+      java.util.List<org.rootstock.tuning.sysid.SampleBuffer.Sample> window,
       double toleranceSi,
       double expectedRiseSec,
       double expectedSettleSec,
@@ -3913,13 +3913,13 @@ public final class StepResponseAnalyzer {
 }
 ```
 
-**The actual recommendation text**, one entry per class. These strings ship in `Coach` and are published to `/PumpkinTuner/result/verdict` and `/recommendation`. Numbers in braces are substituted.
+**The actual recommendation text**, one entry per class. These strings ship in `Coach` and are published to `/RootstockTuner/result/verdict` and `/recommendation`. Numbers in braces are substituted.
 
 | Class | `diagnosis` | `recommendation` |
 |---|---|---|
 | `GOOD` | "Nice. It got there in {riseTime} s, overshot by {overshootPct}%, settled in {settleTime} s, and finished {sse} off target — inside your tolerance of {tolerance}." | "Nothing to change. Press A to keep these gains." |
-| `SLUGGISH` | "It's heading the right way, just lazily. It took {riseTime} s to cover 10% to 90% of the move; for this mechanism that should be closer to {expectedRise} s. There's no overshoot at all, which means kP is doing less than it could." | "Turn kP up. PumpkinLib will multiply it by 1.6 and try again — press A, or press B to change it yourself." |
-| `OVERSHOOT_RING` | "It overshoots by {overshootPct}% and then rings {crossings} times before settling. Damping ratio came out at {zeta} — anything under about 0.7 will visibly bounce. That's a stiff spring with no shock absorber." | "Add damping: cut kP by 30% **or** add kD. PumpkinLib will try kD first, because that keeps the mechanism fast. Press A." |
+| `SLUGGISH` | "It's heading the right way, just lazily. It took {riseTime} s to cover 10% to 90% of the move; for this mechanism that should be closer to {expectedRise} s. There's no overshoot at all, which means kP is doing less than it could." | "Turn kP up. Rootstock will multiply it by 1.6 and try again — press A, or press B to change it yourself." |
+| `OVERSHOOT_RING` | "It overshoots by {overshootPct}% and then rings {crossings} times before settling. Damping ratio came out at {zeta} — anything under about 0.7 will visibly bounce. That's a stiff spring with no shock absorber." | "Add damping: cut kP by 30% **or** add kD. Rootstock will try kD first, because that keeps the mechanism fast. Press A." |
 | `OSCILLATING` (low freq) | "It's swinging back and forth {oscHz} times a second and not settling. Damping ratio {zeta}. This is a kP that's too high for this mechanism — the spring is so stiff it throws the mechanism past the target every time." | "Cut kP by 40%. Press A. If it still oscillates after two tries, check for backlash — no gain can fix slop." |
 | `OSCILLATING` (>= 8 Hz) | "It's buzzing at {oscHz} Hz. That's far too fast to be the mechanism itself moving — it's kD amplifying noise in your encoder reading and feeding it back into the motor." | "Halve kD. Press A. If the buzz persists at kD = 0, your encoder is noisy or your velocity signal is being filtered somewhere you don't know about." |
 | `STEADY_STATE_ERROR` (friction signature) | "It settles {sse} short of the target and just sits there. The controller is holding {residualVolts} V trying to close that gap. That voltage is friction — and friction is exactly what kS is for." | "Raise kS by {delta} V. Do **not** reach for kI: a constant offset means a feedforward term is missing, and adding an integrator hides the problem instead of fixing it." |
@@ -3952,7 +3952,7 @@ All filesystem access goes through `design/06`'s `Platform` facade, never throug
 
 | Path | Accessor | Persistence | Notes |
 |---|---|---|---|
-| `/home/lvuser/deploy` | `Platform.deployDir()` | Rewritten by `./gradlew deploy` | This is where `src/main/deploy/**` lands. **[UNVERIFIED]** whether GradleRIO deletes files not present in the source tree — behaviour has varied by year and by artifact config — so PumpkinLib treats anything here as *replaceable at any deploy* and never writes runtime state to it. |
+| `/home/lvuser/deploy` | `Platform.deployDir()` | Rewritten by `./gradlew deploy` | This is where `src/main/deploy/**` lands. **[UNVERIFIED]** whether GradleRIO deletes files not present in the source tree — behaviour has varied by year and by artifact config — so Rootstock treats anything here as *replaceable at any deploy* and never writes runtime state to it. |
 | `/home/lvuser` | `Platform.persistentDir()` | Survives deploys and reboots | Where runtime state belongs. Cleared only by re-imaging. |
 | `/U` (USB stick) | — | Survives everything, removable | Used for logs, not for gains — a gains file that vanishes when someone borrows the stick is worse than no gains file. |
 | `Preferences` (NT-backed roboRIO flash) | — | Survives deploys and reboots | Flat `String -> double` keys, no structure, no metadata, no diffing, and the same key namespace as every other subsystem. Rejected as the primary store; see §11.7. |
@@ -3968,11 +3968,11 @@ Four sources, lowest to highest priority. Every value records which source it ca
                   -> always present, always the fallback
                   -> Gains.UNTUNED is a legal CODE_DEFAULT and is what the template ships (D2c)
 
-2. DEPLOY_FILE    src/main/deploy/pumpkin/gains.json  ->  Platform.deployDir()/pumpkin/gains.json
+2. DEPLOY_FILE    src/main/deploy/rootstock/gains.json  ->  Platform.deployDir()/rootstock/gains.json
                   -> CHECKED INTO GIT. This is the team's committed, reviewed answer.
                   -> The template pre-creates this file (decision 2), so it always exists.
 
-3. ROBOT_FILE     Platform.persistentDir()/pumpkin/gains.json
+3. ROBOT_FILE     Platform.persistentDir()/rootstock/gains.json
                   -> written by the wizard / the Save button. Survives deploy and reboot.
                   -> the "we tuned it at the field on Saturday" file.
 
@@ -3985,7 +3985,7 @@ Rules:
 
 - Merging is **per value**, not per mechanism. If `gains.json` on the robot only contains `kP`, every other gain still comes from the deploy file or the code default. This matters because a student who bisects only kG should not accidentally revert kV.
 - Loading happens once, in `TuningRegistry.register(target)`, before the first `gainSink().apply(...)`.
-- A mechanism whose `configHash` (§7.6) differs from the one recorded in a file **ignores that file's values** and raises `Alerts.error("Tuning", ..., MatchImpact.BLOCKS_MATCH)`: `"Elevator gains in /home/lvuser/pumpkin/gains.json were tuned for a different gear ratio (12.0, now 15.0). Ignoring them and using code defaults. Delete the file or re-tune."` `BLOCKS_MATCH`, not `PIT_ONLY`, because the code default the mechanism falls back to may be `Gains.UNTUNED`, and a mechanism holding `UNTUNED` refuses closed-loop control on hardware (D2c) — the robot will not move that mechanism at all. This is the single most valuable line in the whole persistence layer: gains silently surviving a mechanical change is how a robot gets destroyed after a rebuild.
+- A mechanism whose `configHash` (§7.6) differs from the one recorded in a file **ignores that file's values** and raises `Alerts.error("Tuning", ..., MatchImpact.BLOCKS_MATCH)`: `"Elevator gains in /home/lvuser/rootstock/gains.json were tuned for a different gear ratio (12.0, now 15.0). Ignoring them and using code defaults. Delete the file or re-tune."` `BLOCKS_MATCH`, not `PIT_ONLY`, because the code default the mechanism falls back to may be `Gains.UNTUNED`, and a mechanism holding `UNTUNED` refuses closed-loop control on hardware (D2c) — the robot will not move that mechanism at all. This is the single most valuable line in the whole persistence layer: gains silently surviving a mechanical change is how a robot gets destroyed after a rebuild.
 - A malformed or unreadable file raises `Alerts.warning("Tuning", ..., MatchImpact.PIT_ONLY)` and is skipped. **A robot that will not boot because a JSON file has a stray comma is unacceptable** — the same rule design/01 §5.6 applies to config errors.
 - Under FMS, the `DASHBOARD` tier is skipped entirely and the effective values are frozen at boot. The UI states which tier won, per value, so a pit crew can answer "what is the robot actually running?" in one glance.
 
@@ -3993,13 +3993,13 @@ Rules:
 
 Plain JSON, hand-editable, diffable, with metadata that makes it self-explaining. Written with a deterministic key order so a git diff shows only what changed.
 
-`src/main/deploy/pumpkin/gains.json` (checked in, shipped pre-created by `PumpkinTemplate`) and `Platform.persistentDir()/pumpkin/gains.json` (runtime) share one schema.
+`src/main/deploy/rootstock/gains.json` (checked in, shipped pre-created by `RootstockTemplate`) and `Platform.persistentDir()/rootstock/gains.json` (runtime) share one schema.
 
 > **Revision 4 — the `gains` block is exactly the seven doubles of `Gains` (D1a).** Everything revision 3 kept inside it that is not a gain — `iZone`, `iMaxVolts`, `tolerance`, and the whole `profile` object — moves to a sibling `control` block in **user units**, mirroring the `/Tuning` schema of §5.5 and `ControlConfig`'s ownership. `PersistenceSchemaTest` asserts the `gains` keys are exactly `GainId.values()` and the `control` keys are exactly the ten `ControlConfig` tunables.
 
 ```json
 {
-  "schema": "pumpkinlib.gains/1",
+  "schema": "rootstock.gains/1",
   "writtenAt": "2026-08-08T14:12:33Z",
   "writtenBy": "TuningWizard 0.1.0",
   "wpilib": "2026.2.2",
@@ -4063,19 +4063,19 @@ Plain JSON, hand-editable, diffable, with metadata that makes it self-explaining
 `TunedValueStore`:
 
 ```java
-package org.pumpkinlib.tuning.persist;
+package org.rootstock.tuning.persist;
 
 import java.nio.file.Path;
 import java.util.Optional;
-import org.pumpkinlib.control.GainId;
-import org.pumpkinlib.control.Gains;
+import org.rootstock.control.GainId;
+import org.rootstock.control.Gains;
 
 public final class TunedValueStore {
 
-  /** Platform.persistentDir()/pumpkin/gains.json on the roboRIO; ./pumpkin/gains.json in sim. */
+  /** Platform.persistentDir()/rootstock/gains.json on the roboRIO; ./rootstock/gains.json in sim. */
   public static Path robotFile() { /* Platform.persistentDir() */ return null; }
 
-  /** Platform.deployDir()/pumpkin/gains.json; src/main/deploy/pumpkin/gains.json in sim. */
+  /** Platform.deployDir()/rootstock/gains.json; src/main/deploy/rootstock/gains.json in sim. */
   public static Path deployFile() { /* Platform.deployDir() */ return null; }
 
   /**
@@ -4112,7 +4112,7 @@ The runtime file is the safety net. The *committed* file is the goal, because it
 
 Three write-back paths, all one action:
 
-**(a) Update the deploy file.** `ValueExporter.writeDeployBaseline()` writes `src/main/deploy/pumpkin/gains.json` **when running in simulation** (where that path is inside the project) and, on the robot, writes `Platform.persistentDir()/pumpkin/gains-for-commit.json` plus a console line telling the student to copy it. This is the primary path and it produces a git diff a mentor can review:
+**(a) Update the deploy file.** `ValueExporter.writeDeployBaseline()` writes `src/main/deploy/rootstock/gains.json` **when running in simulation** (where that path is inside the project) and, on the robot, writes `Platform.persistentDir()/rootstock/gains-for-commit.json` plus a console line telling the student to copy it. This is the primary path and it produces a git diff a mentor can review:
 
 ```
    "Elevator": {
@@ -4126,7 +4126,7 @@ Three write-back paths, all one action:
 **(b) Paste-ready Java.** `ValueExporter.toJava(mechanism)` returns a block matching the user's stated conventions (`kConstantName` / `UPPER_SNAKE_CASE`, unit in a trailing comment, 4-space indent, no `m_` prefix on constants) so it drops straight into the one-file `RobotConfig.java` the template mandates. **It emits named-field `Gains` construction, never a seven-double constructor**, because D1a's whole point is that `reefscape2025/util/custom/GainConstants.java`'s positional-overload bug must be unrepresentable — including in generated code:
 
 ```java
-// ---- Elevator ---- generated by PumpkinLib ValueExporter 0.1.0 on 2026-08-08T14:12:33Z
+// ---- Elevator ---- generated by Rootstock ValueExporter 0.1.0 on 2026-08-08T14:12:33Z
 // Plant: 2x Kraken X60 FOC, 12:1, 22T #25 sprocket, 2-stage cascade, 24 lb, 55 in of travel.
 // Fit: R2 0.981, RMSE 0.094 V, 4820 samples. Final response: GOOD (rise 0.31 s, 1.4% overshoot).
 public static final Gains ELEVATOR_GAINS =
@@ -4142,7 +4142,7 @@ public static final double ELEVATOR_MAX_ACCELERATION_MPS2 = 6.00;   //   voltage
 public static final double ELEVATOR_TOLERANCE_METERS      = 0.0127; // 0.5 in
 ```
 
-The block is printed to the console, published to `/PumpkinTuner/export/java` (string), and written to `Platform.persistentDir()/pumpkin/Elevator-gains.java.txt`. A student with only a Driver Station can select it out of the console.
+The block is printed to the console, published to `/RootstockTuner/export/java` (string), and written to `Platform.persistentDir()/rootstock/Elevator-gains.java.txt`. A student with only a Driver Station can select it out of the console.
 
 **(c) The tuning report.** `ValueExporter.markdownReport()` produces a full session record — every step, every measurement, every accepted and rejected value, every warning, with the final numbers. This is the artifact a student attaches to a pull request, and it is the closest thing to an answer for "the person who understood this graduated". It is reproduced in full in §11.5c.
 
@@ -4152,7 +4152,7 @@ Every number below is derived from the one plant this document uses throughout (
 
 ```markdown
 # Elevator tuning session - 2026-08-08 14:12
-Recipe: elevator/1   |   Mode: TEACHING   |   PumpkinLib 0.1.0   |   WPILib 2026.2.2
+Recipe: elevator/1   |   Mode: TEACHING   |   Rootstock 0.1.0   |   WPILib 2026.2.2
 Controller: port 2 (dedicated)   |   Test mode: yes   |   Idle mode: BRAKE (verified at pre-flight)
 Sim promotion: PASSED 2026-08-08 13:41
   9/9 perturbed runs contained. Worst case kV x1.0, kA x3.0, position reference +5% of travel:
@@ -4231,12 +4231,12 @@ Nothing is persisted implicitly. When a recipe reaches `DONE` the wizard shows:
   B  Discard                  (revert to the gains this session started with)
 ```
 
-Saving is also available at any time from the dashboard (`/PumpkinTuner/cmd/save`) so a student who hand-tunes with the sliders and gets it right can keep the result without running a recipe at all. That path alone would have solved the whole problem for 8793.
+Saving is also available at any time from the dashboard (`/RootstockTuner/cmd/save`) so a student who hand-tunes with the sliders and gets it right can keep the result without running a recipe at all. That path alone would have solved the whole problem for 8793.
 
 ### 11.7 Rejected alternatives
 
 - **`Preferences` as the primary store.** It persists correctly and it is the documented WPILib answer, but it is a flat key-value namespace shared with everything else on the robot, it carries no provenance, no quality record and no `configHash`, and it is not diffable or reviewable. Its keys also appear in NetworkTables under a path we do not control. We provide `TunedValueStore.mirrorToPreferences(true)` as an opt-in for teams that already build tooling around `Preferences`, and nothing more.
-- **Writing gains into `src/main/deploy` at runtime on the robot.** The deploy directory is the deploy task's territory; writing there invites a silent revert on the next deploy and, depending on GradleRIO's file-artifact configuration, possible deletion. Runtime state goes in `Platform.persistentDir()/pumpkin/`.
+- **Writing gains into `src/main/deploy` at runtime on the robot.** The deploy directory is the deploy task's territory; writing there invites a silent revert on the next deploy and, depending on GradleRIO's file-artifact configuration, possible deletion. Runtime state goes in `Platform.persistentDir()/rootstock/`.
 - **Regenerating `RobotConfig.java` automatically.** Tempting, and wrong: it puts a robot program in the business of rewriting its own source, it fights the team's formatter, and it breaks the reviewability that makes the committed file valuable. We generate a *block to paste* and a *JSON file to commit*, and a human decides.
 
 ---
@@ -4271,48 +4271,48 @@ Everything below is plain NT4. No structs, no protobuf, no AdvantageKit-specific
 
 | Topic | Type | R/W | Meaning |
 |---|---|---|---|
-| `/PumpkinTuner/version` | string | R | `"PumpkinLib 0.1.0 / WPILib 2026.2.2"` |
-| `/PumpkinTuner/mechanisms` | string[] | R | Every registered mechanism name |
-| `/PumpkinTuner/selected` | string | RW | Currently selected mechanism |
-| `/PumpkinTuner/MechanismChooser` | (chooser) | RW | `SendableChooser<String>`-shaped topics so Elastic's ComboBox binds directly |
-| `/PumpkinTuner/state` | string | R | `IDLE`/`READY`/`PREFLIGHT`/`ARMED`/`RUNNING`/`REVIEW`/`ABORTED`/`DONE`/`DISABLED_REPLAY` |
-| `/PumpkinTuner/enableHeld` | boolean | R | Mirror of the trigger, so the student can see the robot agrees |
-| `/PumpkinTuner/step/index` | double | R | 1-based |
-| `/PumpkinTuner/step/count` | double | R | |
-| `/PumpkinTuner/step/title` | string | R | `"Step 3 of 11 - Find kS"` |
-| `/PumpkinTuner/step/explanation` | string | R | The lesson (§13) |
-| `/PumpkinTuner/step/willDo` | string | R | `"I will slowly increase voltage until the carriage starts to move."` |
-| `/PumpkinTuner/step/watchFor` | string | R | `"Watch for the exact moment it breaks loose."` |
-| `/PumpkinTuner/step/progress` | double | R | 0..1 |
-| `/PumpkinTuner/log` | string[] | R | Rolling narration, last 40 lines |
-| `/PumpkinTuner/mode` | string | R | `TEACHING` or `EXPRESS` (§8.12) |
-| `/PumpkinTuner/cmd/setMode` | string | RW | Student writes `TEACHING`/`EXPRESS`; consumed and cleared in the same loop |
-| `/PumpkinTuner/sharedControllerAck` | string | R | The verbatim `acknowledgeSharedController` reason, empty when the wizard has its own port |
-| `/PumpkinTuner/coastRiskAck` | string | R | The verbatim `acknowledgeCoastRisk` reason (§7.3.1), empty when idle mode is BRAKE |
+| `/RootstockTuner/version` | string | R | `"Rootstock 0.1.0 / WPILib 2026.2.2"` |
+| `/RootstockTuner/mechanisms` | string[] | R | Every registered mechanism name |
+| `/RootstockTuner/selected` | string | RW | Currently selected mechanism |
+| `/RootstockTuner/MechanismChooser` | (chooser) | RW | `SendableChooser<String>`-shaped topics so Elastic's ComboBox binds directly |
+| `/RootstockTuner/state` | string | R | `IDLE`/`READY`/`PREFLIGHT`/`ARMED`/`RUNNING`/`REVIEW`/`ABORTED`/`DONE`/`DISABLED_REPLAY` |
+| `/RootstockTuner/enableHeld` | boolean | R | Mirror of the trigger, so the student can see the robot agrees |
+| `/RootstockTuner/step/index` | double | R | 1-based |
+| `/RootstockTuner/step/count` | double | R | |
+| `/RootstockTuner/step/title` | string | R | `"Step 3 of 11 - Find kS"` |
+| `/RootstockTuner/step/explanation` | string | R | The lesson (§13) |
+| `/RootstockTuner/step/willDo` | string | R | `"I will slowly increase voltage until the carriage starts to move."` |
+| `/RootstockTuner/step/watchFor` | string | R | `"Watch for the exact moment it breaks loose."` |
+| `/RootstockTuner/step/progress` | double | R | 0..1 |
+| `/RootstockTuner/log` | string[] | R | Rolling narration, last 40 lines |
+| `/RootstockTuner/mode` | string | R | `TEACHING` or `EXPRESS` (§8.12) |
+| `/RootstockTuner/cmd/setMode` | string | RW | Student writes `TEACHING`/`EXPRESS`; consumed and cleared in the same loop |
+| `/RootstockTuner/sharedControllerAck` | string | R | The verbatim `acknowledgeSharedController` reason, empty when the wizard has its own port |
+| `/RootstockTuner/coastRiskAck` | string | R | The verbatim `acknowledgeCoastRisk` reason (§7.3.1), empty when idle mode is BRAKE |
 
 **Formative assessment** (§8.4) — five topics, bound to an Elastic ComboBox and text displays. No new widget types:
 
 | Topic | Type | R/W | Meaning |
 |---|---|---|---|
-| `/PumpkinTuner/predict/question` | string | R | `"Your kD is 4.93 and your kV is 5.00. What if kD were zero?"` |
-| `/PumpkinTuner/predict/options` | string[] | R | Exactly three plain-language outcomes |
-| `/PumpkinTuner/predict/answer` | double | RW | Index 0/1/2, written by the ComboBox or by the D-pad |
-| `/PumpkinTuner/predict/score` | string | R | `"Predictions: 7 of 9"` |
-| `/PumpkinTuner/predict/feedback` | string | R | The branched `Coach` text, populated after the step runs |
+| `/RootstockTuner/predict/question` | string | R | `"Your kD is 4.93 and your kV is 5.00. What if kD were zero?"` |
+| `/RootstockTuner/predict/options` | string[] | R | Exactly three plain-language outcomes |
+| `/RootstockTuner/predict/answer` | double | RW | Index 0/1/2, written by the ComboBox or by the D-pad |
+| `/RootstockTuner/predict/score` | string | R | `"Predictions: 7 of 9"` |
+| `/RootstockTuner/predict/feedback` | string | R | The branched `Coach` text, populated after the step runs |
 
 **Live plot topics** (the two stacked plots, matching WPILib's tutorial layout):
 
 | Topic | Type | Meaning |
 |---|---|---|
-| `/PumpkinTuner/plot/setpoint` | double | Profile setpoint, SI |
-| `/PumpkinTuner/plot/measurement` | double | Measured position or velocity, SI |
-| `/PumpkinTuner/plot/goal` | double | Final goal (flat line), SI |
-| `/PumpkinTuner/plot/error` | double | setpoint - measurement |
-| `/PumpkinTuner/plot/volts` | double | Total commanded volts |
-| `/PumpkinTuner/plot/ffVolts` | double | Feedforward contribution (NaN when not observable) |
-| `/PumpkinTuner/plot/fbVolts` | double | Feedback contribution (NaN when not observable) |
-| `/PumpkinTuner/plot/velocity` | double | Measured velocity, SI |
-| `/PumpkinTuner/plot/amps` | double | Stator current, when available |
+| `/RootstockTuner/plot/setpoint` | double | Profile setpoint, SI |
+| `/RootstockTuner/plot/measurement` | double | Measured position or velocity, SI |
+| `/RootstockTuner/plot/goal` | double | Final goal (flat line), SI |
+| `/RootstockTuner/plot/error` | double | setpoint - measurement |
+| `/RootstockTuner/plot/volts` | double | Total commanded volts |
+| `/RootstockTuner/plot/ffVolts` | double | Feedforward contribution (NaN when not observable) |
+| `/RootstockTuner/plot/fbVolts` | double | Feedback contribution (NaN when not observable) |
+| `/RootstockTuner/plot/velocity` | double | Measured velocity, SI |
+| `/RootstockTuner/plot/amps` | double | Stator current, when available |
 
 Publishing the feedforward and feedback contributions **separately** is deliberate and is one of the highest-value teaching artefacts in the whole design: a student who can see that the feedforward line carries 95% of the voltage and the feedback line only wobbles around zero has *understood* feedforward-before-feedback in a way no paragraph achieves.
 
@@ -4320,76 +4320,76 @@ Publishing the feedforward and feedback contributions **separately** is delibera
 
 | Topic | Type | Meaning |
 |---|---|---|
-| `/PumpkinTuner/result/gain` | string | `"kS"` |
-| `/PumpkinTuner/result/value` | double | Suggested value |
-| `/PumpkinTuner/result/previous` | double | What it was |
-| `/PumpkinTuner/result/headline` | string | `"kS = 0.220 V"` |
-| `/PumpkinTuner/result/quality` | string | `"Fit R2 0.981, RMSE 0.094 V - good"` |
-| `/PumpkinTuner/result/verdict` | string | Plain-language diagnosis (§10.4) |
-| `/PumpkinTuner/result/recommendation` | string | Plain-language action |
-| `/PumpkinTuner/result/warnings` | string[] | |
-| `/PumpkinTuner/diagnostics/riseTimeSec` | double | |
-| `/PumpkinTuner/diagnostics/overshootPct` | double | |
-| `/PumpkinTuner/diagnostics/settleTimeSec` | double | |
-| `/PumpkinTuner/diagnostics/steadyStateErrorSi` | double | |
-| `/PumpkinTuner/diagnostics/residualVolts` | double | |
-| `/PumpkinTuner/diagnostics/dampingRatio` | double | |
-| `/PumpkinTuner/diagnostics/naturalFrequencyHz` | double | The `fn` of §9.2.2 |
-| `/PumpkinTuner/diagnostics/oscillationHz` | double | |
-| `/PumpkinTuner/diagnostics/classification` | string | `ResponseClass` name |
-| `/PumpkinTuner/diagnostics/saturated` | boolean | |
+| `/RootstockTuner/result/gain` | string | `"kS"` |
+| `/RootstockTuner/result/value` | double | Suggested value |
+| `/RootstockTuner/result/previous` | double | What it was |
+| `/RootstockTuner/result/headline` | string | `"kS = 0.220 V"` |
+| `/RootstockTuner/result/quality` | string | `"Fit R2 0.981, RMSE 0.094 V - good"` |
+| `/RootstockTuner/result/verdict` | string | Plain-language diagnosis (§10.4) |
+| `/RootstockTuner/result/recommendation` | string | Plain-language action |
+| `/RootstockTuner/result/warnings` | string[] | |
+| `/RootstockTuner/diagnostics/riseTimeSec` | double | |
+| `/RootstockTuner/diagnostics/overshootPct` | double | |
+| `/RootstockTuner/diagnostics/settleTimeSec` | double | |
+| `/RootstockTuner/diagnostics/steadyStateErrorSi` | double | |
+| `/RootstockTuner/diagnostics/residualVolts` | double | |
+| `/RootstockTuner/diagnostics/dampingRatio` | double | |
+| `/RootstockTuner/diagnostics/naturalFrequencyHz` | double | The `fn` of §9.2.2 |
+| `/RootstockTuner/diagnostics/oscillationHz` | double | |
+| `/RootstockTuner/diagnostics/classification` | string | `ResponseClass` name |
+| `/RootstockTuner/diagnostics/saturated` | boolean | |
 
 **Safety and identification:**
 
 | Topic | Type | Meaning |
 |---|---|---|
-| `/PumpkinTuner/safety/tripped` | boolean | |
-| `/PumpkinTuner/safety/reason` | string | `AbortReason` name (one of the twelve, §7.2) |
-| `/PumpkinTuner/safety/message` | string | The student-facing sentence from §7.2 — **and the `arm()` precondition message when an arm was refused (§7.3)** |
-| `/PumpkinTuner/safety/envelope` | string | JSON dump of the active `SafetyEnvelope` |
-| `/PumpkinTuner/sysid/r2` | double | `voltageFitR2` |
-| `/PumpkinTuner/sysid/rmseVolts` | double | |
-| `/PumpkinTuner/sysid/samples` | double | |
-| `/PumpkinTuner/lastSysIdLog` | string | Path to the plain WPILog written for SysId |
+| `/RootstockTuner/safety/tripped` | boolean | |
+| `/RootstockTuner/safety/reason` | string | `AbortReason` name (one of the twelve, §7.2) |
+| `/RootstockTuner/safety/message` | string | The student-facing sentence from §7.2 — **and the `arm()` precondition message when an arm was refused (§7.3)** |
+| `/RootstockTuner/safety/envelope` | string | JSON dump of the active `SafetyEnvelope` |
+| `/RootstockTuner/sysid/r2` | double | `voltageFitR2` |
+| `/RootstockTuner/sysid/rmseVolts` | double | |
+| `/RootstockTuner/sysid/samples` | double | |
+| `/RootstockTuner/lastSysIdLog` | string | Path to the plain WPILog written for SysId |
 
 **Secondary (laptop-only) control** — momentary booleans consumed and reset in the same loop:
 
-`/PumpkinTuner/cmd/{start, accept, retry, back, skip, abort, save, saveAndExport, preflight}`
+`/RootstockTuner/cmd/{start, accept, retry, back, skip, abort, save, saveAndExport, preflight}`
 
 **Export:**
 
-`/PumpkinTuner/export/java` (string), `/PumpkinTuner/export/json` (string), `/PumpkinTuner/export/report` (string).
+`/RootstockTuner/export/java` (string), `/RootstockTuner/export/json` (string), `/RootstockTuner/export/report` (string).
 
 ### 12.3 The shipped Elastic layout
 
-`src/main/deploy/elastic-tuning-layout.json`, served by `WebServer.start(5800, Platform.deployDir().getPath())` exactly as the user's template already does for its driver layout — and, under decision 2, **shipped pre-created inside `PumpkinTemplate`** rather than being something a team is told to generate. One tab, `PumpkinTuner`, laid out in a 2-column grid:
+`src/main/deploy/elastic-tuning-layout.json`, served by `WebServer.start(5800, Platform.deployDir().getPath())` exactly as the user's template already does for its driver layout — and, under decision 2, **shipped pre-created inside `RootstockTemplate`** rather than being something a team is told to generate. One tab, `RootstockTuner`, laid out in a 2-column grid:
 
 | Widget | Type | Bound to |
 |---|---|---|
-| Mechanism | ComboBox Chooser | `/PumpkinTuner/MechanismChooser` |
-| State | Large Text Display | `/PumpkinTuner/state` |
-| Step | Large Text Display | `/PumpkinTuner/step/title` |
-| Progress | Number Bar (0-1) | `/PumpkinTuner/step/progress` |
-| **What this step teaches** | Large Text Display (tall) | `/PumpkinTuner/step/explanation` |
-| **What the robot will do** | Large Text Display | `/PumpkinTuner/step/willDo` |
-| Enable held | Boolean Box | `/PumpkinTuner/enableHeld` |
-| Safety | Boolean Box + Large Text Display | `/PumpkinTuner/safety/tripped`, `/safety/message` |
-| **Setpoint vs measured** | Graph (2 series) | `/PumpkinTuner/plot/setpoint`, `/plot/measurement` |
+| Mechanism | ComboBox Chooser | `/RootstockTuner/MechanismChooser` |
+| State | Large Text Display | `/RootstockTuner/state` |
+| Step | Large Text Display | `/RootstockTuner/step/title` |
+| Progress | Number Bar (0-1) | `/RootstockTuner/step/progress` |
+| **What this step teaches** | Large Text Display (tall) | `/RootstockTuner/step/explanation` |
+| **What the robot will do** | Large Text Display | `/RootstockTuner/step/willDo` |
+| Enable held | Boolean Box | `/RootstockTuner/enableHeld` |
+| Safety | Boolean Box + Large Text Display | `/RootstockTuner/safety/tripped`, `/safety/message` |
+| **Setpoint vs measured** | Graph (2 series) | `/RootstockTuner/plot/setpoint`, `/plot/measurement` |
 | **Commanded volts (FF vs FB)** | Graph (3 series) | `/plot/volts`, `/plot/ffVolts`, `/plot/fbVolts` |
-| Result | Large Text Display | `/PumpkinTuner/result/headline` |
-| Diagnosis | Large Text Display (tall) | `/PumpkinTuner/result/verdict` |
-| Recommendation | Large Text Display (tall) | `/PumpkinTuner/result/recommendation` |
-| **Predict: the question** | Large Text Display (tall) | `/PumpkinTuner/predict/question` |
-| **Predict: your answer** | ComboBox | `/PumpkinTuner/predict/options` → `/PumpkinTuner/predict/answer` |
-| **Predict: how you did** | Large Text Display (tall) | `/PumpkinTuner/predict/feedback` |
-| Prediction score | Text Display | `/PumpkinTuner/predict/score` |
+| Result | Large Text Display | `/RootstockTuner/result/headline` |
+| Diagnosis | Large Text Display (tall) | `/RootstockTuner/result/verdict` |
+| Recommendation | Large Text Display (tall) | `/RootstockTuner/result/recommendation` |
+| **Predict: the question** | Large Text Display (tall) | `/RootstockTuner/predict/question` |
+| **Predict: your answer** | ComboBox | `/RootstockTuner/predict/options` → `/RootstockTuner/predict/answer` |
+| **Predict: how you did** | Large Text Display (tall) | `/RootstockTuner/predict/feedback` |
+| Prediction score | Text Display | `/RootstockTuner/predict/score` |
 | **Gains** | **7x** Text Display (editable) | `/Tuning/<Mechanism>/{kS,kV,kA,kG,kP,kI,kD}` |
 | Integrator (collapsed by default) | 2x Text Display (editable) | `/Tuning/<Mechanism>/{iZone,iMaxVolts}` |
 | Motion (collapsed by default) | 3x Text Display (editable) | `/Tuning/<Mechanism>/{maxVelocity,maxAcceleration,jerk}` |
 | Tolerances (collapsed by default) | 3x Text Display (editable) | `/Tuning/<Mechanism>/{tolerance,velocityTolerance,goalDebounceSeconds}` |
-| Max acceptable error | Number Slider | `/PumpkinTuner/<Mechanism>/lqr/maxError` |
-| Max control effort | Number Slider | `/PumpkinTuner/<Mechanism>/lqr/maxVolts` |
-| Mode | ComboBox | `/PumpkinTuner/mode` → `/PumpkinTuner/cmd/setMode` |
+| Max acceptable error | Number Slider | `/RootstockTuner/<Mechanism>/lqr/maxError` |
+| Max control effort | Number Slider | `/RootstockTuner/<Mechanism>/lqr/maxVolts` |
+| Mode | ComboBox | `/RootstockTuner/mode` → `/RootstockTuner/cmd/setMode` |
 | Alerts | Alerts widget | `Alerts` group `Tuning` |
 
 The **seven** gain widgets are exactly `GainId.values()`; revision 3's layout listed seven here while §5.5 declared twelve topics, which is one of the ways the two halves of that revision were visibly out of step.
@@ -4400,7 +4400,7 @@ Because the gain widgets bind to `/Tuning/<Mechanism>/...` and the mechanism nam
 
 ### 12.4 AdvantageScope, for free
 
-No work required. Because values live at `/Tuning/<Mechanism>/<key>` as plain NT4 doubles, AdvantageScope's tuning mode (slider icon right of the search bar; purple when active) shows them under the Tuning table and edits them live, and all the `/PumpkinTuner/plot/*` topics graph directly. Teams that prefer AdvantageScope get the full experience minus the wizard narration, with no extra configuration. *(Revision 2 added "and no AdvantageKit dependency" here; that clause is **withdrawn** — every PumpkinLib team has an AdvantageKit dependency now.)*
+No work required. Because values live at `/Tuning/<Mechanism>/<key>` as plain NT4 doubles, AdvantageScope's tuning mode (slider icon right of the search bar; purple when active) shows them under the Tuning table and edits them live, and all the `/RootstockTuner/plot/*` topics graph directly. Teams that prefer AdvantageScope get the full experience minus the wizard narration, with no extra configuration. *(Revision 2 added "and no AdvantageKit dependency" here; that clause is **withdrawn** — every Rootstock team has an AdvantageKit dependency now.)*
 
 ### 12.5 What the student actually does — the whole loop
 
@@ -4421,7 +4421,7 @@ No laptop file transfer. No redeploy. No SysId GUI. No retyping numbers.
 
 ## 13. The teaching content
 
-This is shipped content, not a placeholder. It lives in `org.pumpkinlib.tuning.wizard.Lessons` as `public static final String` constants, is published to `/PumpkinTuner/step/explanation`, and is rendered verbatim in the docs site so the docs and the robot can never disagree. Every string below is the actual text.
+This is shipped content, not a placeholder. It lives in `org.rootstock.tuning.wizard.Lessons` as `public static final String` constants, is published to `/RootstockTuner/step/explanation`, and is rendered verbatim in the docs site so the docs and the robot can never disagree. Every string below is the actual text.
 
 Writing rules the content follows, and which CI enforces: no equations in the body, no Greek letters, no jargon that has not been defined in an earlier lesson, every gain gets a concrete FRC-scale example number, and every lesson names the *symptom* a student will see when the gain is wrong.
 
@@ -4438,7 +4438,7 @@ Writing rules the content follows, and which CI enforces: no equations in the bo
 > **If kS is too small:** small moves never start. The mechanism sits there humming until the error gets big enough.
 > **If kS is too big:** the mechanism twitches and buzzes when it should be sitting perfectly still, because it is being pushed one way, then the other, forever.
 >
-> *In this step, PumpkinLib will slowly increase the voltage from zero until it sees the mechanism move, in both directions, and average the two answers.*
+> *In this step, Rootstock will slowly increase the voltage from zero until it sees the mechanism move, in both directions, and average the two answers.*
 
 ### 13.2 `Lessons.KV`
 
@@ -4453,7 +4453,7 @@ Writing rules the content follows, and which CI enforces: no equations in the bo
 > **If kV is too small:** the mechanism always runs slower than you asked, and the feedback term has to keep making up the difference.
 > **If kV is too big:** it overshoots your commanded speed and the feedback has to fight it back down.
 >
-> *In this step, PumpkinLib will ramp the voltage up very slowly and watch how fast the mechanism goes at each voltage. Slowly, on purpose: if it ramped quickly, some of the voltage would be going into speeding up rather than into holding speed, and we would not be able to tell the two apart.*
+> *In this step, Rootstock will ramp the voltage up very slowly and watch how fast the mechanism goes at each voltage. Slowly, on purpose: if it ramped quickly, some of the voltage would be going into speeding up rather than into holding speed, and we would not be able to tell the two apart.*
 
 ### 13.3 `Lessons.KA`
 
@@ -4467,7 +4467,7 @@ Writing rules the content follows, and which CI enforces: no equations in the bo
 >
 > **If kA is wrong:** the mechanism lags at the start of every move and overshoots at the end of it, in a way that gets worse the faster you ask it to go.
 >
-> *Do not be alarmed by this step. It will look and sound more violent than the others. PumpkinLib has worked out a step size that uses less than half your remaining travel and will stop it after a second and a half.*
+> *Do not be alarmed by this step. It will look and sound more violent than the others. Rootstock has worked out a step size that uses less than half your remaining travel and will stop it after a second and a half.*
 
 ### 13.4 `Lessons.KG`
 
@@ -4483,11 +4483,11 @@ Writing rules the content follows, and which CI enforces: no equations in the bo
 > **If kG is too big:** it settles a little high, or creeps upward when you leave it alone.
 > **If kG is right but the arm's zero is wrong:** it droops on one side of its travel and creeps up on the other. That asymmetry is the fingerprint.
 >
-> *WPILib's own arm guide says you have to get kG right to about four decimal places. That is why PumpkinLib does not ask you to guess and redeploy. In this step it will first let go for half a second to see which way your mechanism falls, then hold it and narrow in on the exact holding voltage by cutting the range in half ten times — landing within about one part in six hundred of the range your mechanism's own mass and gearing predict, in five seconds. It never lets the mechanism drift more than a thirtieth of its travel while it does this.*
+> *WPILib's own arm guide says you have to get kG right to about four decimal places. That is why Rootstock does not ask you to guess and redeploy. In this step it will first let go for half a second to see which way your mechanism falls, then hold it and narrow in on the exact holding voltage by cutting the range in half ten times — landing within about one part in six hundred of the range your mechanism's own mass and gearing predict, in five seconds. It never lets the mechanism drift more than a thirtieth of its travel while it does this.*
 >
 > *Ten halvings, not more, on purpose. The range it starts from comes from your mechanism's own mass and gearing, so it is already close, and going further would be measuring a number more precisely than the encoder can actually see it — while giving the mechanism more chances to run into something.*
 >
-> *If your mechanism is in brake mode, or its gearbox is stiff enough that it does not move when released, PumpkinLib works out which way gravity pulls a different way: it measures how hard the mechanism is to break loose in each direction. The harder direction is the one gravity is fighting. It will tell you when it does this.*
+> *If your mechanism is in brake mode, or its gearbox is stiff enough that it does not move when released, Rootstock works out which way gravity pulls a different way: it measures how hard the mechanism is to break loose in each direction. The harder direction is the one gravity is fighting. It will tell you when it does this.*
 
 > **Revision 4 — the numeric claim in §13.4 changed, and `LessonsNumericClaimTest` is why.** Revisions 2 and 3 said *"about two thousandths of a volt."* That figure was computed for this document's **arm** (`kGprior ≈ 1.2 V`, bracket width 1.92 V, `1.92 / 2^10 = 0.00188 V`) and is simply wrong for the **elevator** (`kGprior = 0.253323 V`, width 0.405317 V, `0.405317 / 2^10 = 0.000396 V`). A lesson string cannot carry a number that depends on the mechanism. The claim is now *structural* — `1.6 / 2^10 = 1/640`, "about one part in six hundred" — which is true for every mechanism and is exactly what the code computes. This is the same class of failure `LessonsNumericClaimTest` was created to catch when `ITERATIONS` went from 18 to 10 and three places still said "eighteen."
 
@@ -4504,7 +4504,7 @@ Writing rules the content follows, and which CI enforces: no equations in the bo
 > **If kP is too small:** the mechanism is sluggish. It gets there eventually, or stops slightly short and stays there.
 > **If kP is too big:** it overshoots and bounces, exactly like a spring that is too stiff. Turn it up further and the bouncing never stops. Turn it up further still and the bouncing gets *bigger* each time, and that is how mechanisms break.
 >
-> *PumpkinLib does not ask you to guess kP. It already measured kV and kA, which together describe how your mechanism responds to voltage — so it can calculate a starting kP from two questions that actually mean something: how much error can you live with, and how many volts are you willing to spend fixing it. Smaller error, or more volts, gives a bigger kP. In fact, for a position mechanism those two numbers are all kP is: volts divided by error.*
+> *Rootstock does not ask you to guess kP. It already measured kV and kA, which together describe how your mechanism responds to voltage — so it can calculate a starting kP from two questions that actually mean something: how much error can you live with, and how many volts are you willing to spend fixing it. Smaller error, or more volts, gives a bigger kP. In fact, for a position mechanism those two numbers are all kP is: volts divided by error.*
 
 ### 13.5a `Lessons.WHAT_THE_SLIDERS_DO`
 
@@ -4512,7 +4512,7 @@ Shown in the `LqrSuggestStep` panel, directly under the two sliders (§9.2.2). I
 
 > **The two sliders — what you are actually choosing**
 >
-> PumpkinLib is not guessing your kP. It already measured how your mechanism responds to voltage, so there is a real answer — but the answer depends on what *you* want, and these two sliders are how you say it.
+> Rootstock is not guessing your kP. It already measured how your mechanism responds to voltage, so there is a real answer — but the answer depends on what *you* want, and these two sliders are how you say it.
 >
 > **"How much error can I live with"** is how fussy you are. Tell it a millimetre and it will fight hard for that millimetre. Tell it a centimetre and it will relax.
 >
@@ -4539,7 +4539,7 @@ Shown in the `LqrSuggestStep` panel, directly under the two sliders (§9.2.2). I
 > **If kD is too small:** you get the overshoot-and-ring behaviour from the P lesson.
 > **If kD is too big:** the mechanism gets jittery and buzzy, often at a frequency far too fast for the mechanism to actually be moving that quickly. That is D amplifying the noise in your encoder reading and feeding it straight back into the motor.
 >
-> *If PumpkinLib tells you it is halving kD because it saw a 14 Hz buzz, that is what happened.*
+> *If Rootstock tells you it is halving kD because it saw a 14 Hz buzz, that is what happened.*
 
 ### 13.7 `Lessons.I` — and why we make it hard to use
 
@@ -4551,9 +4551,9 @@ Shown in the `LqrSuggestStep` panel, directly under the two sliders (§9.2.2). I
 >
 > And it has a nasty failure mode called windup. While your mechanism is blocked — jammed, or at a hard stop, or waiting for something else to move out of the way — the total keeps growing. When it is finally free, all of that stored-up push comes out at once. That is how arms slam.
 >
-> PumpkinLib will let you use I. It just will not let you use it carelessly: you have to supply an I-zone (the error band outside which the integrator is switched off) and a voltage cap, in the same breath as kI. There is no plain `withI(kI)`, and there never was — the three numbers go together, on `ControlConfig`, in one call.
+> Rootstock will let you use I. It just will not let you use it carelessly: you have to supply an I-zone (the error band outside which the integrator is switched off) and a voltage cap, in the same breath as kI. There is no plain `withI(kI)`, and there never was — the three numbers go together, on `ControlConfig`, in one call.
 >
-> *Before you reach for I, look at the number PumpkinLib shows you called "residual volts." That is exactly how much voltage the feedback term is holding, right now, to keep the mechanism where it is. That voltage is the feedforward term you are missing. Add it to kS or kG instead.*
+> *Before you reach for I, look at the number Rootstock shows you called "residual volts." That is exactly how much voltage the feedback term is holding, right now, to keep the mechanism where it is. That voltage is the feedforward term you are missing. Add it to kS or kG instead.*
 
 ### 13.8 `Lessons.MOTION_PROFILES`
 
@@ -4567,7 +4567,7 @@ Shown in the `LqrSuggestStep` panel, directly under the two sliders (§9.2.2). I
 >
 > That is the whole reason we tune feedforward first. With a good profile and good kS, kV, kA and kG, your P gain has very little left to do — and a P gain with very little to do is a P gain that cannot shake your robot apart.
 >
-> **You do not have to guess the speed limit.** That is the single most common place students put in a physically impossible number. PumpkinLib works out the fastest speed your voltage can actually sustain, straight from the kV it just measured, using WPILib's `ExponentialProfile.Constraints.fromCharacteristics(...)` — so the limit is, by construction, one your mechanism can do. The *acceleration* limit is usually not a voltage question at all: on a well-geared elevator the motor can accelerate far harder than the rigging should be asked to. PumpkinLib will tell you what the motor could do, and how many volts your chosen number actually costs, and then let you choose.
+> **You do not have to guess the speed limit.** That is the single most common place students put in a physically impossible number. Rootstock works out the fastest speed your voltage can actually sustain, straight from the kV it just measured, using WPILib's `ExponentialProfile.Constraints.fromCharacteristics(...)` — so the limit is, by construction, one your mechanism can do. The *acceleration* limit is usually not a voltage question at all: on a well-geared elevator the motor can accelerate far harder than the rigging should be asked to. Rootstock will tell you what the motor could do, and how many volts your chosen number actually costs, and then let you choose.
 
 ### 13.9 `Lessons.WHY_FEEDFORWARD_FIRST`
 
@@ -4579,7 +4579,7 @@ Shown in the `LqrSuggestStep` panel, directly under the two sliders (§9.2.2). I
 >
 > So: kS, then kV, then kA, then kG, then kP, then kD. Prediction first, correction second. Every time.
 >
-> *(One wrinkle for elevators and arms: we measure gravity before we measure friction. You cannot see friction break loose while the mechanism is falling. So PumpkinLib does a quick gravity pass first, uses it to cancel gravity during the friction and speed measurements, and then re-solves gravity properly at the end using all the data at once. The order you learn the numbers in is still the order above.)*
+> *(One wrinkle for elevators and arms: we measure gravity before we measure friction. You cannot see friction break loose while the mechanism is falling. So Rootstock does a quick gravity pass first, uses it to cancel gravity during the friction and speed measurements, and then re-solves gravity properly at the end using all the data at once. The order you learn the numbers in is still the order above.)*
 
 ### 13.10 `Lessons.WHY_UNITS_MATTER`
 
@@ -4589,15 +4589,15 @@ Shown in the `LqrSuggestStep` panel, directly under the two sliders (§9.2.2). I
 >
 > The number "kP = 50" means nothing on its own. It means volts per *something*, and every system measures that something differently:
 >
-> - PumpkinLib and WPILib measure error in metres or radians, and output in volts.
+> - Rootstock and WPILib measure error in metres or radians, and output in volts.
 > - A Kraken running its own loop measures error in *motor-shaft rotations*, and its output might be volts, or a duty cycle, or amps, depending on which kind of request you send it.
 > - A SPARK MAX measures error in rotations and outputs a duty cycle from -1 to 1.
 >
 > That is why the published starting kP for the *same swerve steer motor* is 0.01 on a SPARK MAX and 50 on a TalonFX. Same mechanism, same behaviour, numbers five thousand times apart.
 >
-> PumpkinLib fixes this by having exactly one unit system — volts per SI unit — and converting once, at the boundary, inside the code that talks to your motor controller. Every number you see, save, and paste into `RobotConfig.java` is in those units. The number you learn from the WPILib arm tutorial transfers unchanged to your Kraken and to your NEO.
+> Rootstock fixes this by having exactly one unit system — volts per SI unit — and converting once, at the boundary, inside the code that talks to your motor controller. Every number you see, save, and paste into `RobotConfig.java` is in those units. The number you learn from the WPILib arm tutorial transfers unchanged to your Kraken and to your NEO.
 >
-> *You can see the exact conversion PumpkinLib is doing for your mechanism in the "Conversion" line on the dashboard, and in the log at boot. It shows you the one number the whole conversion hangs on: how far your mechanism moves in one rotation.*
+> *You can see the exact conversion Rootstock is doing for your mechanism in the "Conversion" line on the dashboard, and in the log at boot. It shows you the one number the whole conversion hangs on: how far your mechanism moves in one rotation.*
 
 ### 13.11 `Lessons.PRACTICE_MODE`
 
@@ -4605,7 +4605,7 @@ Shown in the `LqrSuggestStep` panel, directly under the two sliders (§9.2.2). I
 >
 > Everything in this wizard runs in simulation. Type `./gradlew simulateJava`, pick a mechanism, and tune it exactly the same way, with the same plots and the same steps — except that a simulated elevator does not have a real ceiling to hit and a simulated arm does not have real fingers near it.
 >
-> WPILib publishes reference answers for its own simulated mechanisms, and PumpkinLib ships those same plants as practice targets. **Two different kinds of number live in that table, and it matters which is which:**
+> WPILib publishes reference answers for its own simulated mechanisms, and Rootstock ships those same plants as practice targets. **Two different kinds of number live in that table, and it matters which is which:**
 >
 > **Feedforward gains are checkable answers.** kS, kV, kA and kG are properties of the *mechanism*. There is one right answer and your fit should land on it, inside the bands `ElevatorRecipeSimTest` uses:
 >
@@ -4656,7 +4656,7 @@ Documentation rot is a fast abandonment trigger, and an AI-written feedforward p
 
 Everything below is the *complete* code a team writes. This is a real elevator on two Krakens with the loop running on the motor controller — the same mechanism `design/01` §5.4 declares, so the two documents' examples are the same robot.
 
-> **Revision 4 — this section was written against an API that does not exist.** `[SUPERSEDED-NAME]` Revisions 1 through 3 showed `LinearMechanism.builder("Elevator").talonFX(15, "rio").gearing(45.0).drumCircumference(...).stages(2).mass(...)`. `LinearMechanism` appears in **no** PumpkinLib document: `design/01`'s mechanism package is `PositionMechanism` / `VelocityMechanism` / `SimpleMechanism`, its config type is `PositionConfig`, and its geometry is `Reduction` + `LinearAxis`. The old example also seeded `Gains.zero()` as the taught placeholder, which **D2c** replaces with `Gains.UNTUNED`, and resurrected the 45:1 elevator `design/01`'s own revision-2 changelog fixed to 12:1 (45:1 gives 0.62 m/s of free speed at the carriage, against a `maxVelocity` of 2.94 m/s the same example asked for — 4.7× the free speed, physically impossible). A wizard-first reader — the most likely adoption path for exactly the teams this library targets — learned a config language that differed from the README's and `DESIGN.md`'s in builder, type names, geometry and the placeholder contract. The example below is `design/01` §5.4's, unmodified except for the two tuning-facing lines.
+> **Revision 4 — this section was written against an API that does not exist.** `[SUPERSEDED-NAME]` Revisions 1 through 3 showed `LinearMechanism.builder("Elevator").talonFX(15, "rio").gearing(45.0).drumCircumference(...).stages(2).mass(...)`. `LinearMechanism` appears in **no** Rootstock document: `design/01`'s mechanism package is `PositionMechanism` / `VelocityMechanism` / `SimpleMechanism`, its config type is `PositionConfig`, and its geometry is `Reduction` + `LinearAxis`. The old example also seeded `Gains.zero()` as the taught placeholder, which **D2c** replaces with `Gains.UNTUNED`, and resurrected the 45:1 elevator `design/01`'s own revision-2 changelog fixed to 12:1 (45:1 gives 0.62 m/s of free speed at the carriage, against a `maxVelocity` of 2.94 m/s the same example asked for — 4.7× the free speed, physically impossible). A wizard-first reader — the most likely adoption path for exactly the teams this library targets — learned a config language that differed from the README's and `DESIGN.md`'s in builder, type names, geometry and the placeholder contract. The example below is `design/01` §5.4's, unmodified except for the two tuning-facing lines.
 
 ### 14.1 The mechanism (written once)
 
@@ -4664,11 +4664,11 @@ Everything below is the *complete* code a team writes. This is a real elevator o
 package frc.robot;
 
 import static edu.wpi.first.units.Units.*;
-import org.pumpkinlib.config.*;
-import org.pumpkinlib.control.Gains;
-import org.pumpkinlib.mechanism.HomingStrategy;
-import org.pumpkinlib.pure.units.Reduction;
-import org.pumpkinlib.units.LinearAxis;
+import org.rootstock.config.*;
+import org.rootstock.control.Gains;
+import org.rootstock.mechanism.HomingStrategy;
+import org.rootstock.pure.units.Reduction;
+import org.rootstock.units.LinearAxis;
 
 public final class RobotConfig {
 
@@ -4695,7 +4695,7 @@ public final class RobotConfig {
       // the mechanism moves; on REAL HARDWARE the mechanism refuses closed-loop control and raises
       // "Elevator has never been tuned. Run the tuning wizard." Manual control and homing still work.
       // The wizard fills these in, and TunedValueStore loads them from
-      // src/main/deploy/pumpkin/gains.json on the very next boot (section 11.3).
+      // src/main/deploy/rootstock/gains.json on the very next boot (section 11.3).
       .gains(Gains.UNTUNED)
       .constraints(MotionConstraints.of(/* m/s */ 1.6, /* m/s^2 */ 6.0))
       .tolerance(Inches.of(0.5), /* velocity, m/s */ 0.05, /* debounce s */ 0.06)
@@ -4725,14 +4725,14 @@ public final class RobotConfig {
 ```java
 package frc.robot;
 
-import org.pumpkinlib.mechanism.PositionMechanism;
+import org.rootstock.mechanism.PositionMechanism;
 
 public final class Mechanisms {
   public static final PositionMechanism ELEVATOR = new PositionMechanism(RobotConfig.ELEVATOR);
 }
 ```
 
-**There is no tuning-specific line in either file.** `PositionMechanism implements TuningTarget` (`DESIGN.md` §7 package tree), and `PumpkinRegistry.addAll(...)` routes it into `TuningRegistry` because of **D27**'s single-call registration — `instanceof TuningTarget → TuningRegistry`. Revisions 1 through 3 showed a hand-written `TuningRegistry.register(m_mechanism.tuningTarget())` call in the subsystem constructor; **D27 removed `registerAll` from the public API entirely** and replaced it with opt-*out* filters (`.excludeFrom(Registry.TUNING)`), so the register call is not something a team writes.
+**There is no tuning-specific line in either file.** `PositionMechanism implements TuningTarget` (`DESIGN.md` §7 package tree), and `RootstockRegistry.addAll(...)` routes it into `TuningRegistry` because of **D27**'s single-call registration — `instanceof TuningTarget → TuningRegistry`. Revisions 1 through 3 showed a hand-written `TuningRegistry.register(m_mechanism.tuningTarget())` call in the subsystem constructor; **D27 removed `registerAll` from the public API entirely** and replaced it with opt-*out* filters (`.excludeFrom(Registry.TUNING)`), so the register call is not something a team writes.
 
 **Where the tuning types come from, for this config:**
 
@@ -4749,10 +4749,10 @@ public final class Mechanisms {
 
 **The tuning soft margin, and where it comes from.** `TravelLimits.softMargin` is **derived**, not typed: `max(0.02 * range, 2 * toleranceSi)`. On this elevator that is `max(0.02 × 1.397, 2 × 0.0127) = max(0.027940, 0.025400) = 0.027940 m`. Teams that want more room call `PositionConfig.Builder.tuningMargin(Measure<?>)`. **Cross-doc action (§19):** `design/01` must add that optional builder method and the derivation.
 
-**And what happens if the derived margin is illegal.** Nothing throws. `TravelLimits.validate(owner)` returns a FATAL `ConfigError`, `TuningRegistry.register` hands it to `PumpkinRegistry.addAll`, `Validation.printAll` prints it next to every other config error in the robot, and the robot **boots into SAFE_MODE** with a sentence on the driver station:
+**And what happens if the derived margin is illegal.** Nothing throws. `TravelLimits.validate(owner)` returns a FATAL `ConfigError`, `TuningRegistry.register` hands it to `RootstockRegistry.addAll`, `Validation.printAll` prints it next to every other config error in the robot, and the robot **boots into SAFE_MODE** with a sentence on the driver station:
 
 ```
-org.pumpkinlib.pure.ConfigError [FATAL]: PumpkinLib config error in "Elevator"
+org.rootstock.pure.ConfigError [FATAL]: Rootstock config error in "Elevator"
 
   field    travelLimits.softMargin
   value    0.019
@@ -4771,7 +4771,7 @@ Revisions 1 through 3 threw an `IllegalArgumentException` from `TravelLimits`' c
 
 ### 14.2 Robot wiring (written once, for the whole robot)
 
-**The recommended shape — `PumpkinLifecycle`, one registration list (D27), no hand-written periodics:**
+**The recommended shape — `RootstockLifecycle`, one registration list (D27), no hand-written periodics:**
 
 ```java
 package frc.robot;
@@ -4779,20 +4779,20 @@ package frc.robot;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import org.littletonrobotics.junction.LoggedRobot;
-import org.pumpkinlib.core.PumpkinLifecycle;
-import org.pumpkinlib.core.PumpkinRegistry;
-import org.pumpkinlib.core.spi.LogConfig;   // core.spi, NOT telemetry -- ArchUnit rule 9 (2026-08-08).
+import org.rootstock.core.RootstockLifecycle;
+import org.rootstock.core.RootstockRegistry;
+import org.rootstock.core.spi.LogConfig;   // core.spi, NOT telemetry -- ArchUnit rule 9 (2026-08-08).
                                             // `design/04` §2.2b is still the sole DEFINITION site and
                                             // telemetry still owns every field's meaning; only the
-                                            // package moved, because PumpkinLifecycle.create(LogConfig)
+                                            // package moved, because RootstockLifecycle.create(LogConfig)
                                             // is a core signature and rule 9 forbids an arrow out of
                                             // core. Tier and RobotMode moved with it, for the same
                                             // reason one level down. See `design/01` §1.1a.
-import org.pumpkinlib.tuning.wizard.TuningWizard;
+import org.rootstock.tuning.wizard.TuningWizard;
 
 public class Robot extends LoggedRobot {
 
-  private final PumpkinLifecycle m_pumpkin = PumpkinLifecycle.create(LogConfig.defaults());
+  private final RootstockLifecycle m_rootstock = RootstockLifecycle.create(LogConfig.defaults());
 
   private final CommandXboxController m_driver   = new CommandXboxController(0);
   private final CommandXboxController m_operator = new CommandXboxController(1);
@@ -4806,22 +4806,22 @@ public class Robot extends LoggedRobot {
   private final TuningWizard m_tuner = TuningWizard.using(m_tuningController);
 
   public Robot() {
-    // ONE list. PumpkinRegistry inspects each argument once and routes it (D27):
+    // ONE list. RootstockRegistry inspects each argument once and routes it (D27):
     //   instanceof TuningTarget  -> TuningRegistry   (every PositionMechanism is one)
     //   instanceof HealthSource  -> HealthMonitor
     //   instanceof TelemetrySource -> telemetry
     //   instanceof SelfTestable  -> SelfTest
     // The wizard registers as a LifecycleHook. Nothing here calls periodic() by hand.
-    PumpkinRegistry.addAll(Mechanisms.ELEVATOR, Mechanisms.ARM, Mechanisms.SHOOTER, m_tuner);
+    RootstockRegistry.addAll(Mechanisms.ELEVATOR, Mechanisms.ARM, Mechanisms.SHOOTER, m_tuner);
   }
 
   @Override public void robotPeriodic() {
-    m_pumpkin.beforeUserPeriodic();     // priority 30: TuningRegistry.drainPoller() -- ONE readQueue()
+    m_rootstock.beforeUserPeriodic();     // priority 30: TuningRegistry.drainPoller() -- ONE readQueue()
     CommandScheduler.getInstance().run();
-    m_pumpkin.afterUserPeriodic();
+    m_rootstock.afterUserPeriodic();
   }
 
-  @Override public void disabledInit() { m_pumpkin.disabledInit(); }
+  @Override public void disabledInit() { m_rootstock.disabledInit(); }
 }
 ```
 
@@ -4834,12 +4834,12 @@ public class Robot extends LoggedRobot {
 >   m_tuner.periodic();
 > }
 > ```
-> which is a *third* documented minimal integration for the same adoption row: `DESIGN.md` §11c's "Tunables only" and "The tuning wizard" rows both list `PumpkinLifecycle.create(...)` as the minimum code, and `DESIGN.md` §16 item 3 requires `TuningRegistry.periodic()` to stop owning its own rate gate. Two different minimum integrations for one row, only one of which matched the lifecycle-hook architecture, is exactly the drift the adoption matrix exists to prevent.
+> which is a *third* documented minimal integration for the same adoption row: `DESIGN.md` §11c's "Tunables only" and "The tuning wizard" rows both list `RootstockLifecycle.create(...)` as the minimum code, and `DESIGN.md` §16 item 3 requires `TuningRegistry.periodic()` to stop owning its own rate gate. Two different minimum integrations for one row, only one of which matched the lifecycle-hook architecture, is exactly the drift the adoption matrix exists to prevent.
 
 **The standalone, no-lifecycle mode**, for a team that wants the tuning system and nothing else — this is a **documented row in the §11c adoption matrix**, not an undocumented divergence, and `IncrementalAdoptionTest` compiles it:
 
 ```java
-// Standalone mode: no PumpkinLifecycle, no PumpkinRegistry, no health monitors, no MatchContext.
+// Standalone mode: no RootstockLifecycle, no RootstockRegistry, no health monitors, no MatchContext.
 // You give up the platform layer; you keep tunables, the wizard, and gains.json.
 // You are then responsible for the two calls the lifecycle would have made for you, IN THIS ORDER,
 // BEFORE your subsystem periodics:
@@ -4870,20 +4870,20 @@ That string is logged verbatim into every tuning report and shown as a persisten
 ```
 $ ./gradlew simulateJava
   # Elastic opens. Pick "Elevator". Hold RT. Eleven steps, about eight minutes the first time.
-  # Sim promotion recorded. Gains written to src/main/deploy/pumpkin/gains.json.
+  # Sim promotion recorded. Gains written to src/main/deploy/rootstock/gains.json.
 
 $ git diff
-  src/main/deploy/pumpkin/gains.json | 14 +++++++-------
+  src/main/deploy/rootstock/gains.json | 14 +++++++-------
 
 $ ./gradlew deploy
   # On the real robot: Test mode, pick "Elevator", hold RT.
   # Same eleven steps. Same plots. Real numbers this time.
-  # Press A to save -> /home/lvuser/pumpkin/gains.json
+  # Press A to save -> /home/lvuser/rootstock/gains.json
 ```
 
 Total tuning-specific team code written: **two lines.** Total redeploys required to tune: **zero.** Total numbers retyped from a laptop: **zero.**
 
-### 14.4 The same thing without PumpkinLib's mechanism layer
+### 14.4 The same thing without Rootstock's mechanism layer
 
 A team that just wants live sliders, or that has hand-rolled subsystems and does not want `PositionMechanism`, writes an adapter and gets tunability and the diagnostics for free. **This is [`DESIGN.md`](../DESIGN.md) §11b step 4's ~30-line adapter, and it is deliberately the *first* example in `docs/graduation.md`, not a footnote** — burying the escape hatch is exactly the mistake that cost a competing library its users.
 
@@ -4899,9 +4899,9 @@ import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import java.util.Optional;
 import java.util.OptionalDouble;
-import org.pumpkinlib.control.*;
-import org.pumpkinlib.pure.units.Reduction;
-import org.pumpkinlib.units.SiDomain;
+import org.rootstock.control.*;
+import org.rootstock.pure.units.Reduction;
+import org.rootstock.units.SiDomain;
 
 public class Shooter extends SubsystemBase implements TuningTarget {
 
@@ -4975,7 +4975,7 @@ About thirty-five lines, all of them things the subsystem already knew. Three ca
 - **`getFeedbackVolts()` *is* defaulted to empty**, because guessing at that number is worse than not having it (§9.3.1).
 - **`controlLocation()` is not defaulted**, because it decides the measurement-delay row (§9.2.1) and there is no safe default across `RIO_FULL` and the three on-motor variants. It is one line, and it is the line that makes the LQR result trustworthy.
 
-Registration is `PumpkinRegistry.addAll(m_shooter, ...)` — the same one call as §14.2. There is no separate `TuningRegistry.register` for a team to remember (D27).
+Registration is `RootstockRegistry.addAll(m_shooter, ...)` — the same one call as §14.2. There is no separate `TuningRegistry.register` for a team to remember (D27).
 
 ---
 
@@ -4989,16 +4989,16 @@ Every line here names the existing tool that already does the job, because "we i
 | Feedforward maths | WPILib `SimpleMotorFeedforward`, `ElevatorFeedforward`, `ArmFeedforward` | We call `calculateWithVelocities(...)` and mutate gains via the existing `setKs/setKv/setKa/setKg` setters. |
 | Motion profile generation | WPILib `TrapezoidProfile`, `ExponentialProfile` | We call `ExponentialProfile.Constraints.fromCharacteristics(maxInput, kV, kA)`. That one call is the whole "you never guess a max velocity again" feature. |
 | An LQR solver | WPILib `LinearQuadraticRegulator` (+ `latencyCompensate`) | We construct it from `LinearSystemId.identifyPositionSystem/identifyVelocitySystem` and read `getK()`. Twelve lines total. |
-| A least-squares decomposition | WPILib `Matrix.solveFullPivHouseholderQr` (EJML underneath) | We accumulate normal equations in `double[][]` and hand a 3x3 or 4x4 to WPILib to solve, through a one-method `LinearSolver` seam so `org.pumpkinlib.pure` keeps its zero-WPILib-import rule. |
+| A least-squares decomposition | WPILib `Matrix.solveFullPivHouseholderQr` (EJML underneath) | We accumulate normal equations in `double[][]` and hand a 3x3 or 4x4 to WPILib to solve, through a one-method `LinearSolver` seam so `org.rootstock.pure` keeps its zero-WPILib-import rule. |
 | The quasistatic/dynamic characterization motion | WPILib `SysIdRoutine` + `SysIdRoutineLog` | We generate the two callbacks and derive a safe config, then run WPILib's own commands. §6.1. |
 | The SysId analysis GUI | WPILib SysId | Fully supported as an escape hatch. We write a clean single-routine WPILog so it works first try. We just do not *require* the laptop. |
-| A plotting application | AdvantageScope | We publish `/PumpkinTuner/plot/*` as plain NT doubles and get graphing, tuning mode, and log analysis for free. |
+| A plotting application | AdvantageScope | We publish `/RootstockTuner/plot/*` as plain NT doubles and get graphing, tuning mode, and log analysis for free. |
 | A dashboard | Elastic | We ship a generated layout JSON and use only widgets Elastic already has. |
 | An NT listener framework | WPILib `ntcore` | One `NetworkTableListenerPoller`, one `readQueue()` per loop, dispatch by topic name. Nothing custom on the wire. |
-| A logging framework | **AdvantageKit — a REQUIRED dependency** (maintainer decision 3), not one of three options | We publish; we never own the logger. ~~Our types are Epilogue-friendly and our tunables can ride AdvantageKit's `LoggedNetworkNumber` when it is present.~~ **Both clauses withdrawn:** there is no Epilogue compatibility (a team on Epilogue or DogLog cannot adopt PumpkinLib without switching loggers) and the AdvantageKit dependency is unconditional. |
+| A logging framework | **AdvantageKit — a REQUIRED dependency** (maintainer decision 3), not one of three options | We publish; we never own the logger. ~~Our types are Epilogue-friendly and our tunables can ride AdvantageKit's `LoggedNetworkNumber` when it is present.~~ **Both clauses withdrawn:** there is no Epilogue compatibility (a team on Epilogue or DogLog cannot adopt Rootstock without switching loggers) and the AdvantageKit dependency is unconditional. |
 | A replay-safe dashboard-input wrapper | AdvantageKit `LoggedNetworkInput` / `LoggedNetworkNumber` | **Here we do own one thing, and the reason is stated in §5.6:** `LoggedNetworkNumber.periodic()` reads NetworkTables once **per instance**, which contradicts **D11a**'s one-JNI-call-per-loop requirement. We keep AdvantageKit's *mechanism* — one hand-written `LoggableInputs` through `Logger.processInputs` — and supply the single poller ourselves. That is one struct and one drain method, not a framework. |
-| Deterministic log replay | AdvantageKit | We are replay-*safe* (§5.6) and we consume replayed data for offline refits. We do not implement replay. **Under decision 3 that safety is now a guarantee rather than a conditional property**, which is what makes `PumpkinReplayVerify` (M20) meaningful. |
-| Physics simulation models | WPILib `ElevatorSim`, `SingleJointedArmSim`, `FlywheelSim`, `DCMotorSim`, `BatterySim`; maple-sim for the field | The sim-first gate runs the recipe against whatever `PumpkinSim` provides (D18). |
+| Deterministic log replay | AdvantageKit | We are replay-*safe* (§5.6) and we consume replayed data for offline refits. We do not implement replay. **Under decision 3 that safety is now a guarantee rather than a conditional property**, which is what makes `RootstockReplayVerify` (M20) meaningful. |
+| Physics simulation models | WPILib `ElevatorSim`, `SingleJointedArmSim`, `FlywheelSim`, `DCMotorSim`, `BatterySim`; maple-sim for the field | The sim-first gate runs the recipe against whatever `RootstockSim` provides (D18). |
 | A vendor configuration tool | CTRE Phoenix Tuner X, REV Hardware Client | We never touch firmware, device IDs, or CAN configuration. We write gain slots only, through `GainSink`, on the non-blocking `applyFast` path. |
 | Swerve module bring-up (inverts, offsets, direction discovery) | `design/01`'s `HomingStrategy`/`describe()`/identity rules, `design/05`'s `DriveSelfCheck`, CTRE Tuner X Swerve Generator, YAGSL | We *check* that bring-up was done (§7.5, §8.10, §8.11) and refuse to tune a wrong-signed mechanism. We do not do the bring-up. |
 | A declarative state machine for the wizard | WPILib 2027 Commands v3 ships one | Our wizard is a plain enum-driven loop with no `Command` inheritance, so it will port onto v3 without being a competing framework. |
@@ -5025,7 +5025,7 @@ The single most damaging failure mode for a library like this is a doc example t
 | `StepResponseAnalyzerTest` | Synthetic second-order responses at zeta = 0.05 / 0.3 / 0.7 / 1.2 classify as `OSCILLATING` / `OVERSHOOT_RING` / `GOOD` / `SLUGGISH`. A divergent response classifies `UNSTABLE`. A response with a 5% offset classifies `STEADY_STATE_ERROR`. Log-decrement zeta recovery within 0.05 of the true value. |
 | `StepResponseMetricsTest` | Rise time, overshoot, settle time and oscillation frequency computed on an analytic second-order step match closed-form values within 2%. Plus §10.2's worked triangular-profile derivation (0.34925 m at 1.6 / 6.0 → 0.341199 s) to 1e-6. |
 | `GainsTest` | `Gains` has exactly seven components. `with(GainId, v)` round-trips through `get(GainId)` for **every one of the seven ids**, in both directions, and `with` is total (no id throws, no id substitutes). `Gains.UNTUNED.isUntuned()` is true and `Gains.pid(0,0,0).isUntuned()` is false. `Gains.zero()` **does not exist** — asserted by reflection, because its absence is the D2c contract. |
-| `ControlConfigIntegralTest` | `ControlConfig.Builder.integral(kI != 0, iZone, iMaxVolts = 0)` produces a FATAL `ConfigError` naming `iMaxVolts`, and does **not** throw. A live `/Tuning/<M>/kI` edit that would leave `iMaxVolts == 0` is rejected with the same sentence published to `/PumpkinTuner/result/warnings`. |
+| `ControlConfigIntegralTest` | `ControlConfig.Builder.integral(kI != 0, iZone, iMaxVolts = 0)` produces a FATAL `ConfigError` naming `iMaxVolts`, and does **not** throw. A live `/Tuning/<M>/kI` edit that would leave `iMaxVolts == 0` is rejected with the same sentence published to `/RootstockTuner/result/warnings`. |
 | `TravelLimitsTest` | `new TravelLimits(0, 1.397, 0.019).validate("Elevator")` returns one FATAL whose message contains the computed minimum `0.02794`; `softMargin = 0.60 * range` returns one FATAL naming the 40% cap; `TravelLimits.unbounded().validate(...)` returns `List.of()`. **Nothing in this class throws** — asserted by `assertDoesNotThrow` on every illegal combination. |
 | `PredictStepTest` | The answer key is computed, never authored: for a plant with known kV/kA, gains giving `zeta < 0.7` must key option (1) "overshoot and bounce", `zeta > 1.2` must key option (2) "slow and short", and between them option (3) "clean". Boundary cases at exactly 0.7 and 1.2 are pinned. The §8.4 worked question (`kP 128.00, kA 0.060, kD 0, kV 5.000 → zeta 0.9021 → option 3`) is a fixture. Every shipped `Question` has exactly three options and a `whyWrong` entry for each incorrect index. |
 | `LqrPanelMathTest` | `wn = sqrt(kP/kA)` and `zeta = (kD + kV)/(2*sqrt(kP*kA))` as rendered in the §9.2.2 panel match an analytic second-order plant with known `wn`/`zeta` to 1e-9, **and match the numbers printed in §9.2.2's worked block** (36.5148 rad/s, 5.8116 Hz, 2.2662). Monotonicity: `zeta` strictly decreases in kP, strictly increases in kD and in kV. |
@@ -5037,7 +5037,7 @@ The single most damaging failure mode for a library like this is a doc example t
 | `LessonsTest` | Every lesson non-empty, < 1800 chars, free of forbidden jargon tokens. |
 | `LessonsNumericClaimTest` | Every numeric claim in §13.12's table matches the constant in the code that produces it. Owns the iteration count, the `1.6 / 2^ITERATIONS == 1/640` bracket identity, the 3%-of-travel guard, the 0.7 damping threshold, `sqrt(3) = 1.732`, `ln(9) * tau`, and the `(kS+kG) - abs(kS-kG) == 2*min(kS,kG)` breakaway identity. |
 | `RefinementRuleTest` | Every `ResponseClass` maps to exactly one update rule; every rule respects its cap; six iterations from a deliberately bad starting kP converge or terminate without exceeding `8 * kP_lqr`. Both `getFeedbackVolts()` branches — present and empty — are covered, and the empty branch's message names **only** `ControlLocation.RIO_FULL`. |
-| `TuningSupervisorCallerTest` | An ArchUnit rule: no class outside `org.pumpkinlib.control.TuningSupervisor` calls `TuningTarget.setVoltage`. Release-blocking. |
+| `TuningSupervisorCallerTest` | An ArchUnit rule: no class outside `org.rootstock.control.TuningSupervisor` calls `TuningTarget.setVoltage`. Release-blocking. |
 
 ### 16.2 Sim-integration tests (HAL, `SimHooks`-stepped, run in CI)
 
@@ -5053,15 +5053,15 @@ Run against WPILib's own plants so the answers are checkable:
 | `SafetyEnvelopeTest` | The strict-inequality sweep of §7.1, over four ranges **× five margin fractions {0.02, 0.05, 0.10, 0.20, 0.40}**, per position archetype. Revision 2's version used only `0.02 * range`, which is why the 5%-and-above degeneracy survived a full revision. Also asserts `positionMax > positionMin` and that an over-constrained short axis yields a FATAL `ConfigError` rather than an inverted band. |
 | `RefinementBandTest` | For the same range × margin sweep, the refinement start `softMin + 0.35*range` and end `+ 0.25*range` both lie strictly inside `[positionMin, positionMax]`, or the recipe refuses with the "not enough safe travel" message. |
 | `SimPromotionGateTest` | The wizard refuses to arm a real-flagged target with no promotion record; accepts after **all nine** perturbed runs contain the mechanism; refuses again after `configHash` changes. `runsCompleted` must equal 9 or the promotion is void. Asserts the `worstMarginToHardStopSi == worstMarginToLimitSi + guard` identity. **And the failing case, which is the point:** a plant with 6x kA inside a 20-degree safe band reaches a hard stop in at least one run, and the gate must **refuse** and publish `worstCaseDescription`. A gate with no failing test case is a gate nobody has checked. |
-| `WizardTestModeTest` | With `MatchContext` simulated into teleop-enabled, `TuningSupervisor.arm()` throws and `commandVolts` is never reached, **while every wizard button is being held**. Repeated for autonomous and for disabled. Then in diagnostics-enabled, the same sequence arms and moves. **And the containment assertion:** no `IllegalStateException` escapes `wizard.periodic()` in any of those cases, and `/PumpkinTuner/safety/message` carries the precondition text. This is the test that proves §7.4.1's and §7.3's claims rather than asserting them in prose. |
+| `WizardTestModeTest` | With `MatchContext` simulated into teleop-enabled, `TuningSupervisor.arm()` throws and `commandVolts` is never reached, **while every wizard button is being held**. Repeated for autonomous and for disabled. Then in diagnostics-enabled, the same sequence arms and moves. **And the containment assertion:** no `IllegalStateException` escapes `wizard.periodic()` in any of those cases, and `/RootstockTuner/safety/message` carries the precondition text. This is the test that proves §7.4.1's and §7.3's claims rather than asserting them in prose. |
 | `SharedControllerTest` | Constructing `TuningWizard.using(controller on a ControlMap-registered port)` without `acknowledgeSharedController` raises an `Alerts.error(..., MatchImpact.PIT_ONLY)` whose text names the port number, and the wizard never leaves `IDLE`. With the acknowledgement, it proceeds and the reason string appears verbatim in `report()`. |
-| `CoastRiskTest` | Arming a `hasGravity()` target whose `neutralMode()` is `COAST`, or empty, throws from `arm()` with the §7.3.1 message; with `acknowledgeCoastRisk("...")` it proceeds and the reason appears verbatim in `report()` and on `/PumpkinTuner/coastRiskAck`. |
+| `CoastRiskTest` | Arming a `hasGravity()` target whose `neutralMode()` is `COAST`, or empty, throws from `arm()` with the §7.3.1 message; with `acknowledgeCoastRisk("...")` it proceeds and the reason appears verbatim in `report()` and on `/RootstockTuner/coastRiskAck`. |
 | `HoldBisectionSafetyTest` | Against `SingleJointedArmSim` with a **deliberately 3x-wrong `PlantPrior` mass**: the arm never leaves a 3% band around its start position across all 10 iterations, no probe exceeds `PROBE_SECONDS`, an aborted probe still narrows the bracket (assert `hi - lo` strictly decreases every iteration regardless of outcome), and `recentre` returns the arm to within the settle band. **Four revision-4 cases:** (a) a **two-motor** `SingleJointedArmSim` asserting the `[0.2, 1.8] × kGprior` bracket **contains** the true kG — the factor-of-n regression; (b) an inverted-sign case (a wrist whose positive direction is downward) asserting `gSign == -1` and a negative kG within 5% of truth; (c) a **brake-mode** case where `overrideNeutralMode` returns false, asserting the step takes the `SIGN_BREAKAWAY` path, recovers the correct `gSign`, and **does not** set kG = 0; (d) an injected stiction band larger than `kP * toleranceSi`, asserting `recentre` terminates within `m_recentreBudget` and the step ends `RETRY_SUGGESTED` holding `kGbest`. |
 | `PollerDrainTest` | With 12 mechanisms × 17 topics registered, one loop of `TuningRegistry.drainPoller()` performs exactly **one** `readQueue()` call (asserted with a counting `NetworkTableInstance` fake) regardless of tunable count, and exactly one `Logger.processInputs("Tuning", …)`. Pins D11a(b). |
 | `TunableFlagTest` | `design/03` contract **C8**. `TuningRegistry.tunableFlag("Vision", "camera0Enabled", true)` publishes a **boolean** topic at `/Tuning/Vision/camera0Enabled`; the handle satisfies `BooleanSupplier` and is accepted by `VisionFilters.enabledWhen(...)` without a cast; a dashboard write is picked up by the **same** `drainPoller()` that carries doubles (the `readQueue()` count from `PollerDrainTest` is unchanged by adding flags); the value round-trips through `TuningInputs.flagKeys`/`flagValues` in replay; with tuning disabled, `get()` returns the compile-time default and the topic is never read; and `tunableFlag("Elevator", …)` against a registered mechanism name is refused with a FATAL `ConfigError` rather than publishing an eighteenth key under `/Tuning/Elevator/`. |
 | `PersistencePrecedenceTest` | All four tiers, per-value merge, `configHash` mismatch rejection with `MatchImpact.BLOCKS_MATCH`, malformed JSON degrades to a `PIT_ONLY` warning rather than a crash, atomic write survives a simulated interrupt. |
 | `PersistenceSchemaTest` | `gains.json`'s `gains` keys are exactly `GainId.values()` and its `control` keys are exactly the ten `ControlConfig` tunables of §5.5. A file carrying `profile` or `tolerance` inside `gains` is migrated with a named warning, not silently accepted. |
-| `ReplaySafetyTest` | Scans `org.pumpkinlib.tuning` and `org.pumpkinlib.control` for `Timer.getFPGATimestamp`, `Timer.getTimestamp`, `Math.random`, `new Thread`, direct `DriverStation`/`Filesystem`/`Alert` references, and raw `HashMap` iteration in output paths. Fails the build on a hit. |
+| `ReplaySafetyTest` | Scans `org.rootstock.tuning` and `org.rootstock.control` for `Timer.getFPGATimestamp`, `Timer.getTimestamp`, `Math.random`, `new Thread`, direct `DriverStation`/`Filesystem`/`Alert` references, and raw `HashMap` iteration in output paths. Fails the build on a hit. |
 | `TuningAllocationTest` | 1000 loops with tuning disabled: **zero** allocations attributable to the tunable path. 1000 loops with tuning enabled and nothing changing: allocation is **bounded and constant** in tunable count (one `NetworkTableEvent[]` per loop), which is the honest claim §5.8 makes. |
 | `NtSchemaTest` | Boots the registry with three mechanisms and asserts every topic named in §5.5 and §12.2 exists with the documented type. **Cross-document:** the `/Tuning/<Mechanism>/` topic list must be byte-identical to the one `design/01` §9.6 documents. This is what keeps the shipped Elastic layout from silently breaking and the two specifications from drifting again. |
 
@@ -5073,7 +5073,7 @@ Three constraints the extraction enforces, all of which this document has violat
 
 - **Java 17, `--release 17`, no preview features.** `HoldBisectionStep.bisect` originally dispatched on `ProbeOutcome` with a pattern-matching `switch`, which is preview in 17 and would not have compiled. It now uses `instanceof` patterns (final since Java 16). Sealed interfaces and records are fine. This matters beyond style: §17 promises the 2027 port is an import rewrite, and a preview feature is the one thing that would make that false.
 - **Every example must reference types that exist.** `[SUPERSEDED-NAME]` §14.1 was written against `LinearMechanism.builder(...).gearing(...).drumCircumference(...)`, which is in no document. The extraction compiles §14 against the real `PositionConfig`/`PositionMechanism`/`Reduction`/`LinearAxis`, so a class that exists only in prose fails the build.
-- **Every example must produce zero FATAL `ConfigError`s.** Revision 3's rule was *"every example must construct legally"*, which policed the symptom of a design that threw from compact constructors. The rule is now the right one: `DocExampleValidationTest` builds every `PositionConfig` in this document, runs `PumpkinRegistry.addAll`, and asserts the collected error list is empty. §14.1's old `softMargin(0.03)` on 1.60 m of travel would fail that assertion — and, critically, would fail it as a *test failure* rather than as a dead robot.
+- **Every example must produce zero FATAL `ConfigError`s.** Revision 3's rule was *"every example must construct legally"*, which policed the symptom of a design that threw from compact constructors. The rule is now the right one: `DocExampleValidationTest` builds every `PositionConfig` in this document, runs `RootstockRegistry.addAll`, and asserts the collected error list is empty. §14.1's old `softMargin(0.03)` on 1.60 m of travel would fail that assertion — and, critically, would fail it as a *test failure* rather than as a dead robot.
 
 ### 16.4 What CI cannot test
 
@@ -5099,11 +5099,11 @@ The port is designed to be mechanical. Concretely:
 | `SysIdRoutine` may move/change | `SysIdSweep` | One class, ~200 lines, isolated. Worst case we own the sweep motion outright — the regression, LQR, diagnostics and wizard are unaffected. |
 | Field origin / kinematics changes | None | Nothing in this domain touches field frames, poses, or kinematics. Deliberately. |
 | Units: mutable `Measure` removed | None | We use immutable `Measure` at the boundary and plain doubles internally. |
-| AdvantageKit must publish for 2027 | **Existential** | If AdvantageKit does not ship for WPILib 2027, **PumpkinLib does not ship** — R18, now High and ACCEPTED, with the three-tier contingency in [`ROADMAP.md`](../ROADMAP.md) §4.2. Nothing in this document can mitigate that; it is a dependency, not a design choice. |
+| AdvantageKit must publish for 2027 | **Existential** | If AdvantageKit does not ship for WPILib 2027, **Rootstock does not ship** — R18, now High and ACCEPTED, with the three-tier contingency in [`ROADMAP.md`](../ROADMAP.md) §4.2. Nothing in this document can mitigate that; it is a dependency, not a design choice. |
 
-**Two source-set halves, one jar.** The HAL-free half — `FeedforwardRegression`, `LqrDesign`, the `StepResponseAnalyzer` metric core, `Reduction` — lives in **`org.pumpkinlib.pure`** inside the single `dev.pumpkinlib:pumpkinlib` jar (**D28**), with the zero-`edu.wpi.first`-import rule enforced by **bytecode scan at the package level**, not by a Maven coordinate. It ports with an import rewrite because it has no imports to rewrite. The year-specific half — `TuningRegistry`, the NT publisher, `TuningSupervisor`, the wizard loop, persistence — is `org.pumpkinlib.tuning.*` and `org.pumpkinlib.control`.
+**Two source-set halves, one jar.** The HAL-free half — `FeedforwardRegression`, `LqrDesign`, the `StepResponseAnalyzer` metric core, `Reduction` — lives in **`org.rootstock.pure`** inside the single `dev.rootstock:rootstock` jar (**D28**), with the zero-`edu.wpi.first`-import rule enforced by **bytecode scan at the package level**, not by a Maven coordinate. It ports with an import rewrite because it has no imports to rewrite. The year-specific half — `TuningRegistry`, the NT publisher, `TuningSupervisor`, the wizard loop, persistence — is `org.rootstock.tuning.*` and `org.rootstock.control`.
 
-> **Revision 3 corrections, retained.** (1) These are **source sets inside one jar**, not published artifacts; revision 1 described `pumpkin-tuning-core` and `pumpkin-tuning-runtime` as separately publishable, which D28 deleted. (2) The port is **M12**, the only date-triggered milestone. It arms at the first *confirmed* WPILib 2027 alpha (~Oct 2027), must complete inside the beta window, and at solo pace **preempts M11**. Development stays on 2026.2.2 / Java 17 through M11 and does not chase alphas. **There is no long-lived 2027 branch:** the generated-source variant and the dual-compile CI exist only inside M12 and are **deleted at its end**, because there are no external users on the 2026 line to protect ([`ROADMAP.md`](../ROADMAP.md) §7.2).
+> **Revision 3 corrections, retained.** (1) These are **source sets inside one jar**, not published artifacts; revision 1 described `rootstock-tuning-core` and `rootstock-tuning-runtime` as separately publishable, which D28 deleted. (2) The port is **M12**, the only date-triggered milestone. It arms at the first *confirmed* WPILib 2027 alpha (~Oct 2027), must complete inside the beta window, and at solo pace **preempts M11**. Development stays on 2026.2.2 / Java 17 through M11 and does not chase alphas. **There is no long-lived 2027 branch:** the generated-source variant and the dual-compile CI exist only inside M12 and are **deleted at its end**, because there are no external users on the 2026 line to protect ([`ROADMAP.md`](../ROADMAP.md) §7.2).
 
 ---
 
@@ -5111,9 +5111,9 @@ The port is designed to be mechanical. Concretely:
 
 > **Numbering is stable.** [`DESIGN.md`](../DESIGN.md) §5.6 item 6 and §16 both cite *"design/02 OQ#12"* by number, so questions answered by the binding decisions are marked **ANSWERED** in place — the same supersession discipline [`DECISIONS.md`](../DECISIONS.md) uses — rather than deleted and the rest renumbered.
 
-1. ~~**Who owns `Gains`?**~~ **ANSWERED by D1 and D1a (2026-08-07).** `org.pumpkinlib.control.Gains`, shipped in the `pumpkinlib` jar so mechanisms depend on it without depending on the tuning package, and it is **exactly seven doubles** — `(kP, kI, kD, kS, kV, kA, kG)`, all volts-per-SI, named-field construction only. `design/01`'s `org.pumpkinlib.config.Gains` is deleted; `Gains.realOrSim(real, sim)` survives as a static. Everything revision 3's record also carried — gravity mode, profile constraints, tolerance, `iZone`, `iMaxVolts` — lives on `ControlConfig`. *(The original text read: "I have specified `org.pumpkinlib.control.Gains` here because the tuning domain is what produces gain values and needs the canonical unit contract. The mechanism domain is equally plausible as the owner. This must be reconciled with domain 03 before either of us writes a line; a duplicated or divergent gain type would be fatal to the whole 'one unit system' argument." It was right about the stakes: the two documents shipped incompatible `Gains` types for two revisions, and §5.5's NT schema, `TunedValueStore`'s file format and the Elastic layout were all built on the wrong one.)*
+1. ~~**Who owns `Gains`?**~~ **ANSWERED by D1 and D1a (2026-08-07).** `org.rootstock.control.Gains`, shipped in the `rootstock` jar so mechanisms depend on it without depending on the tuning package, and it is **exactly seven doubles** — `(kP, kI, kD, kS, kV, kA, kG)`, all volts-per-SI, named-field construction only. `design/01`'s `org.rootstock.config.Gains` is deleted; `Gains.realOrSim(real, sim)` survives as a static. Everything revision 3's record also carried — gravity mode, profile constraints, tolerance, `iZone`, `iMaxVolts` — lives on `ControlConfig`. *(The original text read: "I have specified `org.rootstock.control.Gains` here because the tuning domain is what produces gain values and needs the canonical unit contract. The mechanism domain is equally plausible as the owner. This must be reconciled with domain 03 before either of us writes a line; a duplicated or divergent gain type would be fatal to the whole 'one unit system' argument." It was right about the stakes: the two documents shipped incompatible `Gains` types for two revisions, and §5.5's NT schema, `TunedValueStore`'s file format and the Elastic layout were all built on the wrong one.)*
 
-2. ~~**Does `TuningTarget` belong in the tuning domain or the mechanism domain?**~~ **ANSWERED by D8 (2026-08-07): neither — it moves to `org.pumpkinlib.control` in core,** together with `MechanismArchetype`, `TravelLimits`, `PlantPrior`, `GainSink`, `Controllers`, `SafetyEnvelope` and `TuningSupervisor`. That gives the property the original question was reaching for (a team implements the seam in ~30 lines without adopting the mechanism layer *or* the wizard) without inverting the dependency in either direction. `DESIGN.md` §11b step 4 and `docs/graduation.md` lead with it.
+2. ~~**Does `TuningTarget` belong in the tuning domain or the mechanism domain?**~~ **ANSWERED by D8 (2026-08-07): neither — it moves to `org.rootstock.control` in core,** together with `MechanismArchetype`, `TravelLimits`, `PlantPrior`, `GainSink`, `Controllers`, `SafetyEnvelope` and `TuningSupervisor`. That gives the property the original question was reaching for (a team implements the seam in ~30 lines without adopting the mechanism layer *or* the wizard) without inverting the dependency in either direction. `DESIGN.md` §11b step 4 and `docs/graduation.md` lead with it.
 
 3. **The `kD` conversion to REVLib is approximate.** Phoenix's derivative time base is per-rps; REV's is per-second. The row is marked **[UNVERIFIED]** in §4.2 and `describeConversion()` must say so. Someone with a NEO on a bench needs to measure whether the scalar conversion is close enough to be useful, or whether the REV sink should refuse to convert kD at all and require it to be tuned natively.
 
@@ -5137,7 +5137,7 @@ The port is designed to be mechanical. Concretely:
 
 13. ~~**`LoopLocation` versus `ControlLocation`.**~~ `[SUPERSEDED-NAME]` **ANSWERED by D5 (2026-08-07): `ControlLocation` is canonical and `LoopLocation` is deleted.** Four values carry strictly more information than two, `RIO_PROFILE_MOTOR_LOOP` genuinely differs from both of the old ones, and it is **defaulted from the leader's `MotorSpec`** so a rookie never answers an expert question on line five of their first config. Tuning asks it exactly one question, `runsOnMotor()` (§9.2.1). *(§9.3.1 of revision 3 recorded a contrary decision — "`LoopLocation` is the tuning-domain SPI type and `ControlLocation` is the builder-facing type, and domain 03 owns a one-line total mapping between them" — and even taught the student both names inside one error message. `DESIGN.md` §5's preamble states that the integration decisions are binding and that no domain may re-litigate one; that note is deleted and this question is closed.)*
 
-14. **Should `TuningRegistry`'s slice register a `PumpkinTracer` budget of its own?** `design/06` gives every domain a per-slice loop-time budget. §5.8 states this domain's numbers, but the *enforcement* currently lives in `LoopTimingTest` on the CI container rather than in a runtime budget that fires an alert at an event. Cheap to add; needs a number that is not guessed.
+14. **Should `TuningRegistry`'s slice register a `RootstockTracer` budget of its own?** `design/06` gives every domain a per-slice loop-time budget. §5.8 states this domain's numbers, but the *enforcement* currently lives in `LoopTimingTest` on the CI container rather than in a runtime budget that fires an alert at an event. Cheap to add; needs a number that is not guessed.
 
 ---
 
@@ -5149,8 +5149,8 @@ Revision 4 applied every binding decision to this document. Five things it found
 |---|---|---|
 | 1 | [`DESIGN.md`](../DESIGN.md) §16 item 4 | The sweep record claims the four decisions were applied "to all ten documents" and its own document list is `design/01, 03, 04, 05, 06` — `design/02` is omitted, and it showed. Item 4 must admit the omission and record that revision 4 of this document closed it. |
 | 2 | [`DESIGN.md`](../DESIGN.md) §11b step 4 | The ~30-line adapter needs three edits to compile against §3.1: `FeedbackSpec feedbackSpec()` → **`PositionReference positionReference()`** (design/01's `FeedbackSpec` answers a different question and lives in a package `control` cannot import); add **`ControlLocation controlLocation()`**; and `PlantPrior.flywheel(Reduction.of(1.0), MOI)` → **`PlantPrior.flywheel(DCMotor motor, Reduction reduction, double moiKgM2)`** — every prior in §6.5 is read off the motor curve, so the motor is required. |
-| 3 | [`DESIGN.md`](../DESIGN.md) §11c | Add a **`tuning-standalone`** row to the adoption matrix (`pumpkinlib`; `TuningRegistry.drainPoller()` + `TuningRegistry.slice()` + `wizard.periodic()` by hand; no `PumpkinLifecycle`) and a fifth fixture to `IncrementalAdoptionTest`, so §14.2's standalone shape is compiled in CI. |
-| 4 | [`design/01`](01-core-mechanisms.md) | (a) `SiDomain`'s constants are `LINEAR` / `ANGULAR`; **D3** names them **`LINEAR_METERS` / `ROTATIONAL_RADIANS`**, and `DESIGN.md` §11b uses the latter. (b) `Reduction` is declared in `org.pumpkinlib.units`; **D7** and `DESIGN.md` line 792 put it in **`org.pumpkinlib.pure.units`**. (c) `ControlLocation` is declared in `org.pumpkinlib.hardware`; `DESIGN.md` §7's package tree puts it in **`org.pumpkinlib.control`**, and it needs a **`runsOnMotor()`** accessor returning true for `ON_MOTOR_PROFILED`, `ON_MOTOR_DIRECT` and `RIO_PROFILE_MOTOR_LOOP`. (d) `ConfigError` and `Severity` must move to **`org.pumpkinlib.pure`** so `org.pumpkinlib.control`'s value types can return them without inverting the layering; `org.pumpkinlib.config` keeps using them unchanged, and `ConfigError` needs a `callerFrame()` static. (e) `NeutralMode` must be reachable from `org.pumpkinlib.control` — hoist it out of `MotorIO` to **`org.pumpkinlib.control.NeutralMode {BRAKE, COAST}`**, imported by `MotorIO` and `ControlConfig`. (f) `LinearAxis.sprocket` should compute travel as **`teeth × pitch × stages` (0.279400 m)**, the exact chain advance, not `2π·r_pitch·stages` (0.280293 m, 0.32% high); `DescribeSnapshotTest`'s expected block regenerates. (g) `ControlConfig` needs the two integral topics (`iZone`, `iMaxVolts`) in §9.6's `/Tuning` list, and `PositionConfig.Builder` needs an optional **`tuningMargin(Measure<?>)`** plus the derived default `max(0.02 * range, 2 * tolerance)`. (h) The Phoenix backend passes **`MotionMagicJerk = constraints().jerk()` unconverted** while cruise and acceleration on the adjacent lines are converted — add `MechanismUnits.toOutputRps3(double)`, use it at both sites, and add a jerk row to `UnitsContractTest`. |
+| 3 | [`DESIGN.md`](../DESIGN.md) §11c | Add a **`tuning-standalone`** row to the adoption matrix (`rootstock`; `TuningRegistry.drainPoller()` + `TuningRegistry.slice()` + `wizard.periodic()` by hand; no `RootstockLifecycle`) and a fifth fixture to `IncrementalAdoptionTest`, so §14.2's standalone shape is compiled in CI. |
+| 4 | [`design/01`](01-core-mechanisms.md) | (a) `SiDomain`'s constants are `LINEAR` / `ANGULAR`; **D3** names them **`LINEAR_METERS` / `ROTATIONAL_RADIANS`**, and `DESIGN.md` §11b uses the latter. (b) `Reduction` is declared in `org.rootstock.units`; **D7** and `DESIGN.md` line 792 put it in **`org.rootstock.pure.units`**. (c) `ControlLocation` is declared in `org.rootstock.hardware`; `DESIGN.md` §7's package tree puts it in **`org.rootstock.control`**, and it needs a **`runsOnMotor()`** accessor returning true for `ON_MOTOR_PROFILED`, `ON_MOTOR_DIRECT` and `RIO_PROFILE_MOTOR_LOOP`. (d) `ConfigError` and `Severity` must move to **`org.rootstock.pure`** so `org.rootstock.control`'s value types can return them without inverting the layering; `org.rootstock.config` keeps using them unchanged, and `ConfigError` needs a `callerFrame()` static. (e) `NeutralMode` must be reachable from `org.rootstock.control` — hoist it out of `MotorIO` to **`org.rootstock.control.NeutralMode {BRAKE, COAST}`**, imported by `MotorIO` and `ControlConfig`. (f) `LinearAxis.sprocket` should compute travel as **`teeth × pitch × stages` (0.279400 m)**, the exact chain advance, not `2π·r_pitch·stages` (0.280293 m, 0.32% high); `DescribeSnapshotTest`'s expected block regenerates. (g) `ControlConfig` needs the two integral topics (`iZone`, `iMaxVolts`) in §9.6's `/Tuning` list, and `PositionConfig.Builder` needs an optional **`tuningMargin(Measure<?>)`** plus the derived default `max(0.02 * range, 2 * tolerance)`. (h) The Phoenix backend passes **`MotionMagicJerk = constraints().jerk()` unconverted** while cruise and acceleration on the adjacent lines are converted — add `MechanismUnits.toOutputRps3(double)`, use it at both sites, and add a jerk row to `UnitsContractTest`. |
 | 5 | [`DESIGN.md`](../DESIGN.md) §14 row 26 | The row still sells the sim-first promotion gate as the primary safety property of this domain. §7.6 demoted it two revisions ago: the two properties that carry the safety case are `MechanicalHealthCheck`'s `BLOCK` verdict and `arm()`'s position-reference preconditions, with the sim gate third and bounded ("it proves the envelope holds under plant error"). |
 
 Two further items are **verification tasks**, not corrections, and both are already tracked: the Phoenix `getClosedLoopOutput()` units question (§18 q12, ten-minute bench procedure written) and the REVLib kD time-base question (§18 q3).
@@ -5160,7 +5160,7 @@ Two further items are **verification tasks**, not corrections, and both are alre
 ## Appendix A — File and class inventory
 
 ```
-org.pumpkinlib.control                      THE canonical control vocabulary (D8), in the pumpkinlib jar
+org.rootstock.control                      THE canonical control vocabulary (D8), in the rootstock jar
     Gains                       record: SEVEN doubles, volts-per-SI, named-field construction only (D1a)
                                 + Gains.UNTUNED (D2c); Gains.zero() does NOT exist
     GainId                      enum: seven ids, one per Gains component; generates the NT schema
@@ -5182,7 +5182,7 @@ org.pumpkinlib.control                      THE canonical control vocabulary (D8
     TuningSupervisor            the ONLY raw-voltage choke point; arm() / commandVolts() / check() / abort()
     AbortReason                 enum: exactly TWELVE values (section 7.2)
 
-org.pumpkinlib.pure.solvers                 HAL-free; zero edu.wpi.first imports, bytecode-scanned
+org.rootstock.pure.solvers                 HAL-free; zero edu.wpi.first imports, bytecode-scanned
     FeedforwardRegression       streaming OLS, O(1) memory
     FitFailure                  enum: INSUFFICIENT_DATA | RANK_DEFICIENT
     IdentificationException
@@ -5190,11 +5190,11 @@ org.pumpkinlib.pure.solvers                 HAL-free; zero edu.wpi.first imports
     StepResponseAnalyzer core   the metric computations of section 10.2
     LinearSolver                one-method seam; wpimath supplies the implementation
 
-org.pumpkinlib.pure
+org.rootstock.pure
     ConfigError, Severity       collected-not-thrown validation values (see section 19 item 4d)
     units/Reduction             positive-only, self-describing gearbox (D7)
 
-org.pumpkinlib.tuning
+org.rootstock.tuning
     TuningRegistry              tunables, targets, tuning mode; ONE NetworkTableListenerPoller;
                                 drainPoller() (LifecycleHook 30) + slice() (SliceScheduler)
     TunableDouble               NT-backed double, cached field, no NT on the hot path
@@ -5209,13 +5209,13 @@ org.pumpkinlib.tuning
     HealthReport                record
     SimPromotion                record
 
-org.pumpkinlib.tuning.sysid
+org.rootstock.tuning.sysid
     SysIdSweep                  generated SysIdRoutine + envelope-derived config
     FeedforwardFit              record
     SampleBuffer                fixed-capacity ring buffer
     CentralDifferenceAccel      velocity -> acceleration filter for targets with no accel signal
 
-org.pumpkinlib.tuning.wizard
+org.rootstock.tuning.wizard
     TuningWizard                the state machine; the SOLE caller of TuningSupervisor.arm()
     WizardState                 enum
     WizardInputs                interface (gamepad-free path)
@@ -5235,24 +5235,24 @@ org.pumpkinlib.tuning.wizard
     Lessons                     the teaching text
     Coach                       verdict -> plain language; branches on prediction right/wrong
 
-org.pumpkinlib.tuning.diagnostics
+org.rootstock.tuning.diagnostics
     StepResponseAnalyzer        typed wrapper over the pure metric core
     ResponseClass               enum
     ResponseVerdict             record
     TuningHealth                pit-time "still tuned?" check; registered as a HealthSource (D23)
 
-org.pumpkinlib.tuning.persist
+org.rootstock.tuning.persist
     TunedValueStore             4-tier precedence, per-value merge, atomic write, setpoints by RobotId
     ValueExporter               Java block, JSON baseline, markdown report
     QualityRecord               record
 
-org.pumpkinlib.tuning.ui
+org.rootstock.tuning.ui
     TunerPublisher              every NT topic in section 12.2
     ElasticLayoutGenerator      writes elastic-tuning-layout.json from the registry
 ```
 
 **Deleted, and deliberately listed so a reader of an older revision knows they are gone:**
-`[SUPERSEDED-NAME]` `GainStore` (→ `TunedValueStore`), `GainsExporter` (→ `ValueExporter`), `MechanismUnits`-the-enum (→ `org.pumpkinlib.units.SiDomain`, D3), `LoopLocation` (→ `ControlLocation.runsOnMotor()`, D5), `Gains.GravityType` (→ `GravityMode`, D2a), `Gains.ProfileConstraints` (→ `MotionConstraints` on `ControlConfig`, D2), `Gains.zero()` (→ `Gains.UNTUNED`, D2c), `Gains.withIntegral/withGravity/withProfile/withTolerance` (→ `ControlConfig`, D1a/D1b), `org.pumpkinlib.tuning.FeedbackSpec` (→ `org.pumpkinlib.control.PositionReference`), and `Nt4TunableTransport` (deleted by maintainer decision 3 — there is no classpath without AdvantageKit).
+`[SUPERSEDED-NAME]` `GainStore` (→ `TunedValueStore`), `GainsExporter` (→ `ValueExporter`), `MechanismUnits`-the-enum (→ `org.rootstock.units.SiDomain`, D3), `LoopLocation` (→ `ControlLocation.runsOnMotor()`, D5), `Gains.GravityType` (→ `GravityMode`, D2a), `Gains.ProfileConstraints` (→ `MotionConstraints` on `ControlConfig`, D2), `Gains.zero()` (→ `Gains.UNTUNED`, D2c), `Gains.withIntegral/withGravity/withProfile/withTolerance` (→ `ControlConfig`, D1a/D1b), `org.rootstock.tuning.FeedbackSpec` (→ `org.rootstock.control.PositionReference`), and `Nt4TunableTransport` (deleted by maintainer decision 3 — there is no classpath without AdvantageKit).
 
 ## Appendix B — Verified API reference
 
@@ -5386,7 +5386,7 @@ SparkClosedLoopController.setSetpoint(double setpoint, ControlType, ClosedLoopSl
 
 1. The exact Q/R construction inside SysId's Feedback Analysis (§9.2) — inferred from WPILib prose plus the public `LinearQuadraticRegulator` API, not read from `sysid` source.
 2. §9.2.0's `kP = uMax / eMax` identity holds for the **continuous** ARE with Bryson weights; WPILib's `LinearQuadraticRegulator` **discretizes** at `dtSeconds`, so the returned value departs from it as the desired bandwidth approaches Nyquist. Tests assert monotonicity against the WPILib path and the identity only against the pure continuous solver.
-3. Our `voltageFitR2` is not comparable to SysId's simulated-velocity or acceleration r-squared (§6.3); the thresholds in §6.4 are PumpkinLib's own.
+3. Our `voltageFitR2` is not comparable to SysId's simulated-velocity or acceleration r-squared (§6.3); the thresholds in §6.4 are Rootstock's own.
 4. The REVLib `kD` scalar conversion (§4.2) — the derivative time base differs between vendors. Open question 3.
 5. Whether GradleRIO's deploy task deletes files under `/home/lvuser/deploy` that are absent from the source tree (§11.2). Our design does not depend on the answer.
 6. Ports 5800-5810 being open for team use on the field (§12.1) — must be verified against the 2027 game manual at kickoff.

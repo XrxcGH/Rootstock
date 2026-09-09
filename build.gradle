@@ -1,4 +1,4 @@
-// PumpkinLib root build.
+// Rootstock root build.
 //
 // This is a LIBRARY build, not a GradleRIO robot build. It depends on WPILib's published
 // maven artifacts directly so the library can be compiled and unit-tested on a desktop with
@@ -7,7 +7,7 @@
 // Version scheme is year-anchored (DESIGN.md section 8): <frcYear>.<major>.<patch>.
 // The 2026 line targets WPILib 2026.x; the 2027 line is a separate branch (principle 10).
 ext {
-    pumpkinVersion   = '2026.0.0-SNAPSHOT'
+    rootstockVersion   = '2026.0.0-SNAPSHOT'
     wpilibVersion    = '2026.2.2'
     akitVersion      = '26.0.2'
     // Vendor adapters. Each lives in its own artifact behind its own vendordep.
@@ -27,8 +27,8 @@ ext {
 subprojects {
     apply plugin: 'java-library'
 
-    group = 'dev.pumpkinlib'
-    version = rootProject.ext.pumpkinVersion
+    group = 'dev.rootstock'
+    version = rootProject.ext.rootstockVersion
 
     repositories {
         mavenCentral()

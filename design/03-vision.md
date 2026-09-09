@@ -1,10 +1,10 @@
-# PumpkinLib Domain 03 — Vision
+# Rootstock Domain 03 — Vision
 
 **Status:** design complete, ready to implement — **revision 4, after the synthesized independent expert review of 2026-08-07 ([`REVIEW.md`](../REVIEW.md)).**
 **Target:** WPILib 2026.2.2 · Java 17 · Phoenix 6 26.x · REVLib 2026 · PathPlannerLib 2026.1.2 · PhotonVision 2026.3.4 · Limelight OS 2026.1 / LimelightLib-WPIJava 1.14 · **AdvantageKit 26.0.2 (REQUIRED — maintainer decision 3)**
 **License:** BSD-3-Clause ([`LICENSE`](../LICENSE)).
-**Root package:** `org.pumpkinlib.vision`
-**Author's stance:** PumpkinLib does not reimplement PhotonVision, Limelight, or WPILib pose estimation. It supplies the *seam* that makes them interchangeable, the *filter chain* that explains itself, and the *simulation* that Limelight never shipped.
+**Root package:** `org.rootstock.vision`
+**Author's stance:** Rootstock does not reimplement PhotonVision, Limelight, or WPILib pose estimation. It supplies the *seam* that makes them interchangeable, the *filter chain* that explains itself, and the *simulation* that Limelight never shipped.
 
 **Revision 2 (2026-08-07), after adversarial review.** Six findings applied. In dependency order, so a reader who knows the first draft can jump straight to what changed:
 
@@ -24,9 +24,9 @@ One finding (§6.2, minor) was recorded as "already correct in the draft." **Rev
 | # | Decision | Effect on this document |
 |---|---|---|
 | A | **1 — everything ships in one release, v0.1** | The v0.1 / v0.2 / v0.3 / v0.4 phase table in §19 is **deleted as a release plan** and survives only as build **order**, remapped onto milestones **M10, M16, M17, M18** in [`ROADMAP.md` §5](../ROADMAP.md). Every "ships in v0.2" / "deferred to v0.4" phrase in this document now means "built at milestone M<n> of the single v0.1 release." No vision capability is deferred out of the release. |
-| B | **2 — `PumpkinTemplate` is the front door** | Vision is not in the template's worked example, but `PumpkinLib-PhotonVision.json` is one of the vendordeps a team adds via `pumpkin update`/`pumpkin doctor`; there is no separate vision vendordep to install (see C). |
-| C | **3 — AdvantageKit is REQUIRED** | `PumpkinInputs` / `LogSink` / `LogSource` **do not exist**; `VisionCameraIOInputs` implements AdvantageKit's `LoggableInputs` and writes `LogTable` directly. `AdvantageKitCompat` as an *optional* bridge is gone — the bridge is unconditional. Replay of `VisionFrame` is a **guarantee**, not a backend-dependent property. **The "installs on kickoff morning before any vendor has published" argument used in §2.6 is withdrawn** — it is no longer true of any PumpkinLib artifact. |
-| D | **1 + D28 — one core jar** | §2.6's **three vision Maven coordinates are reduced to two, and the group is `dev.pumpkinlib`, not `com.pumpkinlib`.** `pumpkinlib-vision` and `pumpkinlib-vision-sim` do not exist as published artifacts. See §2.6 as rewritten. |
+| B | **2 — `RootstockTemplate` is the front door** | Vision is not in the template's worked example, but `Rootstock-PhotonVision.json` is one of the vendordeps a team adds via `rootstock update`/`rootstock doctor`; there is no separate vision vendordep to install (see C). |
+| C | **3 — AdvantageKit is REQUIRED** | `RootstockInputs` / `LogSink` / `LogSource` **do not exist**; `VisionCameraIOInputs` implements AdvantageKit's `LoggableInputs` and writes `LogTable` directly. `AdvantageKitCompat` as an *optional* bridge is gone — the bridge is unconditional. Replay of `VisionFrame` is a **guarantee**, not a backend-dependent property. **The "installs on kickoff morning before any vendor has published" argument used in §2.6 is withdrawn** — it is no longer true of any Rootstock artifact. |
+| D | **1 + D28 — one core jar** | §2.6's **three vision Maven coordinates are reduced to two, and the group is `dev.rootstock`, not `com.rootstock`.** `rootstock-vision` and `rootstock-vision-sim` do not exist as published artifacts. See §2.6 as rewritten. |
 | E | **4 — BSD-3-Clause** | The licence is decided; no "TBD" anywhere. The AGPL question in §2.6 concerns *PhotonVision's own model licensing*, not ours, and is unaffected. |
 
 **Revision 4 (2026-08-08), after [`REVIEW.md`](../REVIEW.md).** Six findings were routed to this document (two blocking, one major, three minor). All six are applied, plus the binding-decision conformance sweep those findings exposed. The vision *architecture* is unchanged; two controllers, one vendor-API verification note, and four facade seams were wrong.
@@ -36,19 +36,19 @@ One finding (§6.2, minor) was recorded as "already correct in the draft." **Rev
 | 1 | **blocking** | §13.4, §13.5, §13.4.1 | **Both terminal controllers commanded velocity away from the target.** A negative profiled scalar was paired with a robot→goal direction vector — the exact pairing [`design/05` §9.1](05-drivetrain-auto.md) names as fatal and pins with regression tests. Both are rewritten to design/05 §9.1's audited convention: direction is **goal→robot**, `ffScale` multiplies the **profile feedforward only** (it used to multiply the feedback, creating a dead zone exactly equal to each command's own tolerance), and the translation channel is a declared, seeded `ProfiledPIDController` instead of an undeclared `m_translationProfileVelocity` field. New §13.4.1 explains why the two channels legitimately look different. Four direction/dead-zone/seeding tests added to §16. |
 | 2 | **blocking** | §2.2 (rewritten as an executable contract) | The gyro→field-offset machinery and binding **D17** were specified here and never applied in `design/05`. This document does not edit design/05 — a later contract-reconciliation pass owns that — so §2.2 is restated as an exact, mechanical change list: full signatures, the line to delete, the MegaTag2 orientation convention spelled out, and `DriveSelfCheck` check **nine** (design/05 already has eight; the earlier text said "eighth"). |
 | 3 | **blocking (self-found)** | §6.2 | **Revision 2's PhotonVision verification note was false.** It asserted the 3-argument `PhotonPoseEstimator` constructor was *removed* and that "the class lists no deprecated members at all." Verified against the **v2026.3.4 source tag**: the 3-arg constructor is `@Deprecated(forRemoval = true, since = "2026")`, `update()` exists in three deprecated overloads, and `getPrimaryStrategy`/`setPrimaryStrategy`/`setMultiTagFallbackStrategy`/`getReferencePose`/`setReferencePose`/`setLastPose` are all deprecated-but-present. Root cause: the note cited `javadocs.photonvision.org/release/`, which **now serves v2027.0.0-alpha-2**, not 2026.3.4. Every vendor citation in this document is re-pinned to an immutable git tag. |
-| 4 | major | §2.4, and every alert call site | Binding **D10** requires `MatchImpact` at every alert site with no default and no single-argument overload. This document used a two-argument `PumpkinAlerts.error(group, text)`. `[SUPERSEDED-NAME]` Replaced with `Alerts.error/warning/info(group, text, MatchImpact)` in `org.pumpkinlib.core.alert`, every site annotated, and §11.3a added so vision cannot blow the `AlertBudgetTest` ceiling. |
-| 5 | minor | §2.3, §7.2, §11.1 | Binding **D11/D12** made `TuningRegistry.tunable(namespace, key, default, unit)` the single tunable entry point and replaced `TUNING_MODE` with `TuningRegistry.isTuningEnabled()`. The `Tunable` / `PumpkinLibConfig` declarations are deleted. |
+| 4 | major | §2.4, and every alert call site | Binding **D10** requires `MatchImpact` at every alert site with no default and no single-argument overload. This document used a two-argument `RootstockAlerts.error(group, text)`. `[SUPERSEDED-NAME]` Replaced with `Alerts.error/warning/info(group, text, MatchImpact)` in `org.rootstock.core.alert`, every site annotated, and §11.3a added so vision cannot blow the `AlertBudgetTest` ceiling. |
+| 5 | minor | §2.3, §7.2, §11.1 | Binding **D11/D12** made `TuningRegistry.tunable(namespace, key, default, unit)` the single tunable entry point and replaced `TUNING_MODE` with `TuningRegistry.isTuningEnabled()`. The `Tunable` / `RootstockConfig` declarations are deleted. |
 | 6 | minor | §19 | The effort table's rows summed to 13.7 pw against a stated total of 12.2. The total row is now **13.7 with the addition written out**, and 12.2 is retired with an explanation of what it was. |
 | 7 | minor | §9.7, §11.4, §9.3, §14.4 | ArchUnit rule 10 (`MatchContext` is the only `DriverStation` reader) and the volatile-API confinement rules. `DriverStation.isEnabled()` → `MatchContext.isDisabled()`, `DriverStation.isFMSAttached()` → `MatchContext.isFMSAttached()`, `RobotBase.isSimulation()` → `Platform.isSimulation()`, `Timer.getFPGATimestamp()` → `Clock.now()`. |
-| 8 | conformance | §2.1, §7.3, everywhere | Binding **D9/D22**: `org.pumpkinlib.telemetry.PumpkinLog` (doc 04) is the facade, with `critical()/log()/debug()/processInputs()/timestamp()/isReplay()` — not a `log`-package `output(...)`. `PumpkinTracer` is doc 04's `budget/scope/record/reset`. The vision key namespace moves under `Pumpkin/Vision/<camera>/`, which doc 04 §3.3 owns. |
+| 8 | conformance | §2.1, §7.3, everywhere | Binding **D9/D22**: `org.rootstock.telemetry.RootstockLog` (doc 04) is the facade, with `critical()/log()/debug()/processInputs()/timestamp()/isReplay()` — not a `log`-package `output(...)`. `RootstockTracer` is doc 04's `budget/scope/record/reset`. The vision key namespace moves under `Rootstock/Vision/<camera>/`, which doc 04 §3.3 owns. |
 | 9 | correctness (self-found) | §5.2a (new), §6.1, §16, §21 | `LimelightCameraIO` reads `targetpose_cameraspace` to populate `bestCameraToTarget`, which `alignToTag` closes the loop on — but **Limelight camera space is X-right / Y-down / Z-out-of-lens**, not WPILib's X-forward / Y-left / Z-up, and revision 3 specified no basis change. The conversion is now written out, its rotation half is marked `[UNVERIFIED]`, and a runtime cross-check against `targetpose_robotspace` names the failure if we got it wrong. |
-| 10 | correctness (self-found) | §13.3, §13.4, §15 | `driveToPose`/`alignToNearest`'s freshness gate read `m_vision`/`m_cameraIndex`, neither of which was a parameter. Both factories now take the `PumpkinVision` they gate on, and `PumpkinVision` gains `acceptedFramesInWindow(double)` so `VisionFreshness.minAcceptedFramesInWindow` is implementable. |
+| 10 | correctness (self-found) | §13.3, §13.4, §15 | `driveToPose`/`alignToNearest`'s freshness gate read `m_vision`/`m_cameraIndex`, neither of which was a parameter. Both factories now take the `RootstockVision` they gate on, and `RootstockVision` gains `acceptedFramesInWindow(double)` so `VisionFreshness.minAcceptedFramesInWindow` is implementable. |
 
-> **The `[SUPERSEDED-NAME]` marker — why three deleted names still appear in this document (added 2026-08-08).** [`DESIGN.md`](../DESIGN.md) §16 items **6** and **7** carve the names `getGyroHeading`, `VisionObservation` and `PumpkinAlerts.` out of their gates using the **same literal marker** [`design/02`](02-tuning.md) §0 defines for its own five-name set. **Marker scope is identical and is defined there, not re-defined here:** the same line; or — where an inline marker would corrupt sample output or a table row — any line of the same **fenced code block**, the same **block-quote**, or the same **markdown table**, plus the block-quote immediately preceding a fence. Every surviving mention of those three names at a **correction site** carries the marker **on the same line** — the strictest reading of scope. **The only place this document leans on a block-level clause is this definition block itself**, whose following two paragraphs name all three literals under the single marker on this line; that is the block-quote clause working as designed, and it is stated rather than left for a reader to discover. `[SUPERSEDED-NAME]`
+> **The `[SUPERSEDED-NAME]` marker — why three deleted names still appear in this document (added 2026-08-08).** [`DESIGN.md`](../DESIGN.md) §16 items **6** and **7** carve the names `getGyroHeading`, `VisionObservation` and `RootstockAlerts.` out of their gates using the **same literal marker** [`design/02`](02-tuning.md) §0 defines for its own five-name set. **Marker scope is identical and is defined there, not re-defined here:** the same line; or — where an inline marker would corrupt sample output or a table row — any line of the same **fenced code block**, the same **block-quote**, or the same **markdown table**, plus the block-quote immediately preceding a fence. Every surviving mention of those three names at a **correction site** carries the marker **on the same line** — the strictest reading of scope. **The only place this document leans on a block-level clause is this definition block itself**, whose following two paragraphs name all three literals under the single marker on this line; that is the block-quote clause working as designed, and it is stated rather than left for a reader to discover. `[SUPERSEDED-NAME]`
 >
-> **This document's seven carved lines**, so the reverse gate has something to check against: §0 row 4 (`PumpkinAlerts.error(group, text)`), §2.2a(1)'s HISTORY fence (`getGyroHeading`), §2.2a(4)'s **two** D17 paragraphs (`VisionObservation`, one each), §2.4's revision-4 correction (`PumpkinAlerts.`), and §2.7 rows **C1** (`getGyroHeading`) and **C4** (`VisionObservation`). **The gate is stated as a relation between counts, not as a literal**, because a note that quotes its own grep changes the number it quotes — which is how a marker block becomes its own tenth hit. The relation, verified by hand 2026-08-08: **every line matching one of the three carved names also matches the marker on the same line, except the two paragraphs of this definition block that follow the marker — this enumeration and the union clause below — both of which the block-quote clause carves; and every line matching the marker has a carved name in its scope, with no exceptions.** Forward and reverse both clean. **Deleting any of the seven correction sites would delete the record of the correction**, which is the thing the marker mechanism exists to prevent.
+> **This document's seven carved lines**, so the reverse gate has something to check against: §0 row 4 (`RootstockAlerts.error(group, text)`), §2.2a(1)'s HISTORY fence (`getGyroHeading`), §2.2a(4)'s **two** D17 paragraphs (`VisionObservation`, one each), §2.4's revision-4 correction (`RootstockAlerts.`), and §2.7 rows **C1** (`getGyroHeading`) and **C4** (`VisionObservation`). **The gate is stated as a relation between counts, not as a literal**, because a note that quotes its own grep changes the number it quotes — which is how a marker block becomes its own tenth hit. The relation, verified by hand 2026-08-08: **every line matching one of the three carved names also matches the marker on the same line, except the two paragraphs of this definition block that follow the marker — this enumeration and the union clause below — both of which the block-quote clause carves; and every line matching the marker has a carved name in its scope, with no exceptions.** Forward and reverse both clean. **Deleting any of the seven correction sites would delete the record of the correction**, which is the thing the marker mechanism exists to prevent.
 >
-> **The reverse gate must be defined over the *union* of every carved name set**, not over `design/02`'s five — `design/02` §0 states this as its fourth clause and `DESIGN.md` §16 item 4(f) adopts it. A marker standing over `getGyroHeading`, `VisionObservation` or `PumpkinAlerts.` is **correct** and must not be reported as an orphan. One marker literal, one union of carved names, one reverse gate over that union.
+> **The reverse gate must be defined over the *union* of every carved name set**, not over `design/02`'s five — `design/02` §0 states this as its fourth clause and `DESIGN.md` §16 item 4(f) adopts it. A marker standing over `getGyroHeading`, `VisionObservation` or `RootstockAlerts.` is **correct** and must not be reported as an orphan. One marker literal, one union of carved names, one reverse gate over that union.
 
 **Verification refresh (2026-08-08).** Every vendor claim in §5.2, §6.1, §6.2, §10.1, §12.3 and §14 was re-checked against a primary source on this date; the sources are cited inline at the point of use, pinned to immutable git tags or to the vendor's own reference page rather than to a floating `/release/` URL. Where a claim could not be confirmed it is marked **[UNVERIFIED]** and carries an open question in §21.
 
@@ -74,27 +74,27 @@ One finding (§6.2, minor) was recorded as "already correct in the draft." **Rev
 ### 1.2 We explicitly do NOT own
 
 - The drivetrain, the pose estimator instance, or odometry. We consume a `PoseProvider` and push measurements through a `VisionConsumer` (binding **D17**).
-- The logging transport. We call the `PumpkinLog` facade owned by the telemetry domain (binding **D9**).
-- The alert registry. We call `Alerts` in `org.pumpkinlib.core.alert`, owned by the platform domain (binding **D10**).
+- The logging transport. We call the `RootstockLog` facade owned by the telemetry domain (binding **D9**).
+- The alert registry. We call `Alerts` in `org.rootstock.core.alert`, owned by the platform domain (binding **D10**).
 - The tunable type and its NT plumbing. We call `TuningRegistry` (binding **D11**).
 - Shooter lookup tables, hood angles, flywheel RPM. We supply the *virtual target* math (`MovingTargetSolver`); the mechanism domain supplies the numbers.
 - Path generation. We compose PathPlanner's `AutoBuilder.pathfindToPose`.
 
 ---
 
-## 2. Integration Points (what I need from other PumpkinLib domains)
+## 2. Integration Points (what I need from other Rootstock domains)
 
 Every item below is a hard dependency. Signatures are what Vision calls; the owning domain may add more. **Where this section states a signature that another document currently spells differently, this document does not edit that document** — §2.2a and the summary at the end of §2 list the exact mechanical changes the reconciliation pass must apply, with full signatures, so nothing has to be re-derived.
 
-### 2.1 From the **Telemetry** domain — `org.pumpkinlib.telemetry` (binding D9, D22)
+### 2.1 From the **Telemetry** domain — `org.rootstock.telemetry` (binding D9, D22)
 
 ```java
-package org.pumpkinlib.telemetry;
+package org.rootstock.telemetry;
 
 /** Tiered facade over AdvantageKit's Logger. AdvantageKit is a REQUIRED dependency
  *  (maintainer decision 3) -- there is no LogBackend SPI and no NT4/DataLog fallback.
- *  Domain 04 owns this class, the tiering, the byte governor and the Pumpkin/** schema. */
-public final class PumpkinLog {
+ *  Domain 04 owns this class, the tiering, the byte governor and the Rootstock/** schema. */
+public final class RootstockLog {
   /** Replay-aware, unconditionally. In REPLAY mode this OVERWRITES the fields of `inputs`
    *  from the log. Replay is a GUARANTEE, not a backend-dependent property. */
   public static void processInputs(String key, LoggableInputs inputs);
@@ -124,27 +124,27 @@ public final class PumpkinLog {
   public static double timestamp();
 }
 
-// DELETED by maintainer decision 3: the PumpkinInputs mirror interface and the PumpkinLogTable
+// DELETED by maintainer decision 3: the RootstockInputs mirror interface and the RootstockLogTable
 // surface. They existed so an inputs class could work identically with and without AdvantageKit.
 // AdvantageKit is now required, so every *IOInputs class implements AdvantageKit's own
 // org.littletonrobotics.junction.inputs.LoggableInputs and writes
 // org.littletonrobotics.junction.LogTable directly. toLog/fromLog stay HAND-WRITTEN (D24 --
-// PumpkinLib uses neither @AutoLog nor @AutoLogOutput; see design/04 §2.4.1 for the
+// Rootstock uses neither @AutoLog nor @AutoLogOutput; see design/04 §2.4.1 for the
 // re-verification of that decision under decision 3).
 ```
 
-**Revision-4 correction.** Revision 3 declared this facade as `org.pumpkinlib.log.PumpkinLog` with an `output(String, Struct<T>, T[])` overload set. Both were wrong against binding **D9**: the package is `org.pumpkinlib.telemetry`, the tier is part of the method name, and **the value comes before the struct** (`critical(String key, T[] v, Struct<T> struct)`). Every call site in this document is rewritten. Vision never imports `org.littletonrobotics.*` except for `LoggableInputs`/`LogTable` in `..io..`, which [`design/04` §2.7](04-telemetry-replay-viz.md) explicitly legalises.
+**Revision-4 correction.** Revision 3 declared this facade as `org.rootstock.log.RootstockLog` with an `output(String, Struct<T>, T[])` overload set. Both were wrong against binding **D9**: the package is `org.rootstock.telemetry`, the tier is part of the method name, and **the value comes before the struct** (`critical(String key, T[] v, Struct<T> struct)`). Every call site in this document is rewritten. Vision never imports `org.littletonrobotics.*` except for `LoggableInputs`/`LogTable` in `..io..`, which [`design/04` §2.7](04-telemetry-replay-viz.md) explicitly legalises.
 
 ```java
-package org.pumpkinlib.telemetry;
+package org.rootstock.telemetry;
 
 /** Loop-time accounting. Vision declares one budget and one scope; domain 04 owns the rest. */
-public final class PumpkinTracer {
+public final class RootstockTracer {
   public static void reset();
   public static void record(String epoch);
-  /** try-with-resources. Emits Pumpkin/Perf/<epoch>Ms. */
+  /** try-with-resources. Emits Rootstock/Perf/<epoch>Ms. */
   public static AutoCloseable scope(String epoch);
-  /** Alerts.warning("Pumpkin/Perf", "PERF_<epoch> ...", MatchImpact.PIT_ONLY) on breach. */
+  /** Alerts.warning("Rootstock/Perf", "PERF_<epoch> ...", MatchImpact.PIT_ONLY) on breach. */
   public static void budget(String epoch, Time limit);
 }
 ```
@@ -152,24 +152,24 @@ public final class PumpkinTracer {
 Vision declares exactly one budget, at construction:
 
 ```java
-PumpkinTracer.budget("Vision/Consume", Milliseconds.of(2.0));   // section 9.6
+RootstockTracer.budget("Vision/Consume", Milliseconds.of(2.0));   // section 9.6
 ```
 
-`Vision/Consume` wraps step 7 of the loop (§9.4) — every `consumer.accept(...)` call this loop, across every camera. That is the one span whose cost is superlinear in frame count and therefore the one span that needs a declared ceiling. It surfaces as `Pumpkin/Perf/Vision/ConsumeMs`.
+`Vision/Consume` wraps step 7 of the loop (§9.4) — every `consumer.accept(...)` call this loop, across every camera. That is the one span whose cost is superlinear in frame count and therefore the one span that needs a declared ceiling. It surfaces as `Rootstock/Perf/Vision/ConsumeMs`.
 
-**Why this shape, restated honestly under decision 3.** Revision 3's justification was *"the user's stack spans AdvantageKit (template, 9143) and CTRE SignalLogger with no AdvantageKit at all (8793); vision must be identical in both, and `PumpkinLog` is the only thing that knows the difference."* **That argument is withdrawn.** Under maintainer decision 3 there is no no-AdvantageKit configuration; a team running CTRE `SignalLogger` runs it *in addition to* AdvantageKit, not instead of it. The facade survives for the reasons that are still true: three explicit tiers, the byte governor, the `/Pumpkin/Driver` mirror, and one schema to keep stable across the 2027 rename.
+**Why this shape, restated honestly under decision 3.** Revision 3's justification was *"the user's stack spans AdvantageKit (template, 9143) and CTRE SignalLogger with no AdvantageKit at all (8793); vision must be identical in both, and `RootstockLog` is the only thing that knows the difference."* **That argument is withdrawn.** Under maintainer decision 3 there is no no-AdvantageKit configuration; a team running CTRE `SignalLogger` runs it *in addition to* AdvantageKit, not instead of it. The facade survives for the reasons that are still true: three explicit tiers, the byte governor, the `/Rootstock/Driver` mirror, and one schema to keep stable across the 2027 rename.
 
-### 2.2 From the **Drive / Pose** domain — `org.pumpkinlib.drive` (binding D16, D16a, D17)
+### 2.2 From the **Drive / Pose** domain — `org.rootstock.drive` (binding D16, D16a, D17)
 
-**Declared by Drive, not here.** Binding **D16** gives Drive all four drive-facing interfaces in `org.pumpkinlib.drive`, and since 2026-08-08 they are declared in [`design/05` §3.3.2](05-drivetrain-auto.md) and **nowhere else in the design**. The block below is the surface this domain *consumes*, mirrored for readability — the same convention `design/04` §1.2 uses for `DriveTelemetry`. **If it disagrees with `design/05`, `design/05` wins.**
+**Declared by Drive, not here.** Binding **D16** gives Drive all four drive-facing interfaces in `org.rootstock.drive`, and since 2026-08-08 they are declared in [`design/05` §3.3.2](05-drivetrain-auto.md) and **nowhere else in the design**. The block below is the surface this domain *consumes*, mirrored for readability — the same convention `design/04` §1.2 uses for `DriveTelemetry`. **If it disagrees with `design/05`, `design/05` wins.**
 
 > **consumed-surface mirror — `design/05` §3.3.2 wins.** This is the banner the duplicate-declaration gate looks for, and it is a **literal string, not a paraphrase**, for a reason worth stating: the four D16 interfaces occur **eight** times across the design — **four canonical declarations in `design/05` §3.3.2**, plus **four labelled mirrors** (`PoseProvider`, `VisionConsumer` and `AlignableDrive` in this document; `DriveTelemetry` in `design/04` §1.2). A mirror is **legal if and only if it carries this banner**. The gate therefore counts canonical declarations plus banner-carrying mirrors and **fails only on an unbannered duplicate** — which is the shape that catches a genuine second declaration while not punishing a document for correctly restating a surface it consumes.
 
 ```java
-package org.pumpkinlib.drive;   // MIRROR of design/05 §3.3.2 — not a second declaration
+package org.rootstock.drive;   // MIRROR of design/05 §3.3.2 — not a second declaration
 
 /** consumed-surface mirror — design/05 §3.3.2 wins.
- *  Everything Vision needs to know about robot state. Implemented by PumpkinDrive, or hand-written in 6 lines. */
+ *  Everything Vision needs to know about robot state. Implemented by RootstockDrive, or hand-written in 6 lines. */
 public interface PoseProvider {
   Pose2d getPose();                                   // blue-origin, ALWAYS
   Optional<Pose2d> sampleAt(double timestampSeconds); // delegates to PoseEstimator.sampleAt
@@ -202,11 +202,11 @@ public interface VisionConsumer {
 
 #### The gyro→field offset contract — **owned by `design/05` §3.3.3**
 
-> **Where the offset lives, stated once so nobody re-derives it.** The gyro→field offset — the constant that separates the raw IMU yaw from the blue-origin field heading — is **owned by `design/05` §3.3.3**, which declares the field, its exactly-two named writers (`PumpkinDrive.resetPose` and the disabled multi-tag seed, the second reaching it only by calling the first), the conversion in both directions, and the prohibition that the vision sink never writes it. **This document does not restate that arithmetic**, and it did until 2026-08-08, which is precisely the drift this note exists to end. What this document owns and `design/05` references is the paragraph immediately below: the *frame convention* — what the number written to `robot_orientation_set` has to mean. Two disjoint responsibilities, one arithmetic site.
+> **Where the offset lives, stated once so nobody re-derives it.** The gyro→field offset — the constant that separates the raw IMU yaw from the blue-origin field heading — is **owned by `design/05` §3.3.3**, which declares the field, its exactly-two named writers (`RootstockDrive.resetPose` and the disabled multi-tag seed, the second reaching it only by calling the first), the conversion in both directions, and the prohibition that the vision sink never writes it. **This document does not restate that arithmetic**, and it did until 2026-08-08, which is precisely the drift this note exists to end. What this document owns and `design/05` references is the paragraph immediately below: the *frame convention* — what the number written to `robot_orientation_set` has to mean. Two disjoint responsibilities, one arithmetic site.
 
 The earlier draft of this document declared `Rotation2d getGyroRotation(); // RAW GYRO ONLY` and then, in §5.2, required the value written to `robot_orientation_set` to be *"blue-origin, CCW-positive, 0 deg faces the RED wall."* Those two statements are contradictory. A raw IMU yaw is referenced to wherever the gyro happened to be zeroed at power-on — the underside of a cart, a pit table, the wrong alliance wall. MegaTag2 fed a raw gyro yaw produces a confidently wrong translation, and nothing in the system notices. **No component owned the offset.** `design/05` §3.3.3 does now.
 
-**The MegaTag2 orientation convention, spelled out so it cannot be re-derived wrong.** The number written to `robot_orientation_set[0]` is the robot's yaw **in the WPILib blue-origin field frame**, in **degrees**, **CCW-positive**, where **0° means the robot's +x (forward) axis points at the RED alliance wall** — i.e. along the +x axis of the blue-origin field coordinate system, whose origin is the corner of the blue alliance wall and whose +x runs down the long axis of the field toward red. This is the same frame `PoseProvider.getPose().getRotation()` reports, and it is **not** the raw IMU frame and **not** an alliance-relative frame. Red-alliance robots use the identical convention; PumpkinLib never flips a measured pose (§9.3).
+**The MegaTag2 orientation convention, spelled out so it cannot be re-derived wrong.** The number written to `robot_orientation_set[0]` is the robot's yaw **in the WPILib blue-origin field frame**, in **degrees**, **CCW-positive**, where **0° means the robot's +x (forward) axis points at the RED alliance wall** — i.e. along the +x axis of the blue-origin field coordinate system, whose origin is the corner of the blue alliance wall and whose +x runs down the long axis of the field toward red. This is the same frame `PoseProvider.getPose().getRotation()` reports, and it is **not** the raw IMU frame and **not** an alliance-relative frame. Red-alliance robots use the identical convention; Rootstock never flips a measured pose (§9.3).
 
 ### 2.2a Hard requirement on the Drive domain — the exact change list for `design/05` (**APPLIED 2026-08-08**)
 
@@ -227,15 +227,15 @@ The earlier draft of this document declared `Rotation2d getGyroRotation(); // RA
   /**
    * The UNMODIFIED IMU yaw. CCW-positive, referenced to wherever the gyro was zeroed at
    * power-on. This is explicitly NOT the blue-origin field frame, and this is the only
-   * place in PumpkinLib where the raw value is legal. Everything else calls
-   * PumpkinDrive.getGyroFieldHeading().
+   * place in Rootstock where the raw value is legal. Everything else calls
+   * RootstockDrive.getGyroFieldHeading().
    */
   Rotation2d getRawGyro();
 ```
 
 The deleted line is a contradiction inside a single line: a raw gyro is by definition not in the blue-origin frame.
 
-**(2) `PumpkinDrive` — the offset itself. APPLIED at [`design/05` §3.3.3](05-drivetrain-auto.md), which is now its single owner.**
+**(2) `RootstockDrive` — the offset itself. APPLIED at [`design/05` §3.3.3](05-drivetrain-auto.md), which is now its single owner.**
 
 The fields, the two named writers, the conversion and the never-writes prohibition all live there, in one place, written out in full. **This document deliberately no longer reproduces them.** There was exactly one place in the library where that arithmetic could drift into a second, disagreeing copy, and this was it — the same argument §8.0 Rule 1 makes for the sentinel, applied to the one constant whose being wrong is undetectable at runtime.
 
@@ -261,35 +261,35 @@ if (anyConfiguredCameraIsGyroFused && !drive.gyroFieldOffsetSeeded()) {
 }
 ```
 
-`anyConfiguredCameraIsGyroFused` is true when any configured camera reports a `PoseSource` of `MEGATAG_2`, `PNP_DISTANCE_TRIG` or `CONSTRAINED_SOLVEPNP`. `PumpkinVision` mirrors the same condition as a `VisionDiagnostics` finding (`GYRO_OFFSET_UNSEEDED`, §11.3) so it is visible from either domain.
+`anyConfiguredCameraIsGyroFused` is true when any configured camera reports a `PoseSource` of `MEGATAG_2`, `PNP_DISTANCE_TRIG` or `CONSTRAINED_SOLVEPNP`. `RootstockVision` mirrors the same condition as a `VisionDiagnostics` finding (`GYRO_OFFSET_UNSEEDED`, §11.3) so it is visible from either domain.
 
 **(4) Binding D17 — delete `VisionObservation`. APPLIED, in both documents that declared it.** `[SUPERSEDED-NAME]` `design/05` §1.3 declared the record `VisionObservation(Pose2d bluePose, double fpgaTimestampSeconds, Matrix<N3,N1> stdDevs, int tagCount, double avgTagDistanceMeters)` together with a `drive.addVisionMeasurement(obs)` push, and `design/04` §1.3 declared a second copy. **Both are deleted by D17, and both are now gone.** The replacement is the `@FunctionalInterface VisionConsumer`, whose single method is `void accept(Pose2d visionRobotPoseMeters, double timestampSeconds, Matrix<N3,N1> stdDevs)` — **declared in `design/05` §3.3.2** and mirrored, once, in §2.2 above. It is not re-declared here; one mirror per document is already one more than the ideal.
 
-`DriveBackend.addVisionMeasurement(Pose2d bluePose, double fpgaTimestampSeconds, Matrix<N3,N1> stdDevs)` (`design/05` §3.2) **already matched this shape** and did not change; only the `VisionObservation`-shaped wrapper on `PumpkinDrive` went away, replaced by `PumpkinDrive.accept(...)`. `[SUPERSEDED-NAME]`
+`DriveBackend.addVisionMeasurement(Pose2d bluePose, double fpgaTimestampSeconds, Matrix<N3,N1> stdDevs)` (`design/05` §3.2) **already matched this shape** and did not change; only the `VisionObservation`-shaped wrapper on `RootstockDrive` went away, replaced by `RootstockDrive.accept(...)`. `[SUPERSEDED-NAME]`
 
-`tagCount` and `avgTagDistanceMeters` do not move to the consumer. They are already folded into the std-dev matrix by the model this domain owns (§8.2), and a drive-side consumer that wants the raw numbers for skid-aware trust arbitration reads them from `PumpkinVision.latestAcceptedFrame(int cameraIndex)`, which returns the whole `VisionFrame`. **Pull, not push** — which also removes `design/05`'s own recycled-buffer concern, because `VisionFrame` is an immutable record.
+`tagCount` and `avgTagDistanceMeters` do not move to the consumer. They are already folded into the std-dev matrix by the model this domain owns (§8.2), and a drive-side consumer that wants the raw numbers for skid-aware trust arbitration reads them from `RootstockVision.latestAcceptedFrame(int cameraIndex)`, which returns the whole `VisionFrame`. **Pull, not push** — which also removes `design/05`'s own recycled-buffer concern, because `VisionFrame` is an immutable record.
 
 `design/05` §8.3 owns the drive-side spelling of that side channel, `OdometryTrust.withFrameMetadata(IntSupplier tagCount, DoubleSupplier avgTagDistanceMeters)`, and the two are the same mechanism rather than two competing ones: the suppliers are wired to this document's accessor, e.g. `() -> vision.latestAcceptedFrame(i).tagCount()`, so the *evaluation* stays a pull and only the *plumbing* looks like a push. Neither side is part of D17's seam, and `design/05` §8.3 is authoritative for the drive-side signature.
 
-**(5) `AlignableDrive` gains one method, and moves. APPLIED.** This document's §13.1 requires `ChassisSpeeds getRobotRelativeSpeeds();` so `alignToTag` can seed its profiled controller from measured closing velocity (§13.5). `DriveBackend` already had it; it is now also on `AlignableDrive`, which `PumpkinDrive` implements. Under D16 the interface itself moved: it is declared in `org.pumpkinlib.drive` at **`design/05` §3.3.2**, and §13.1 of this document keeps a consumed-surface mirror that says so.
+**(5) `AlignableDrive` gains one method, and moves. APPLIED.** This document's §13.1 requires `ChassisSpeeds getRobotRelativeSpeeds();` so `alignToTag` can seed its profiled controller from measured closing velocity (§13.5). `DriveBackend` already had it; it is now also on `AlignableDrive`, which `RootstockDrive` implements. Under D16 the interface itself moved: it is declared in `org.rootstock.drive` at **`design/05` §3.3.2**, and §13.1 of this document keeps a consumed-surface mirror that says so.
 
-**(6) `PumpkinDriveToPose` tolerance default. APPLIED at `design/05` revision 3.1** (its §9 builder, its §10 worked example, and `kDefaultTolerance`/`kDefaultAngularTolerance` as named constants); `DESIGN.md` §10B is the one site still outstanding and belongs to that document. `design/05` §9 read `tolerance(Distance linear, Angle angular); // default 0.02 m, 1.5 deg`. It had to become `// default 0.05 m, 2.0 deg`, carrying the Javadoc reason in §13.2 of this document. A 2 cm tolerance on a fused-pose controller is a tolerance the sensor cannot satisfy (§13.2), and the only thing it produces is a timeout alert on every alignment. `DESIGN.md` §10B line 1112 and `design/05` §10's worked example carry the same literal and change with it.
+**(6) `RootstockDriveToPose` tolerance default. APPLIED at `design/05` revision 3.1** (its §9 builder, its §10 worked example, and `kDefaultTolerance`/`kDefaultAngularTolerance` as named constants); `DESIGN.md` §10B is the one site still outstanding and belongs to that document. `design/05` §9 read `tolerance(Distance linear, Angle angular); // default 0.02 m, 1.5 deg`. It had to become `// default 0.05 m, 2.0 deg`, carrying the Javadoc reason in §13.2 of this document. A 2 cm tolerance on a fused-pose controller is a tolerance the sensor cannot satisfy (§13.2), and the only thing it produces is a timeout alert on every alignment. `DESIGN.md` §10B line 1112 and `design/05` §10's worked example carry the same literal and change with it.
 
 **(7) `UNTRUSTED_SIGMA`. APPLIED at `design/05` revision 3.1**, at all four sites (its §3.4.4, §8.2, §8.3 ×2). `design/05` used a raw `9_999_999` literal where §8.0 Rule 1 of this document mandates `StdDevModels.UNTRUSTED_SIGMA` (`1.0e6`). One constant, one place.
 
 Limelight's own MegaTag2 sample feeds the *fused estimate* back into `SetRobotOrientation`, which is a latent feedback loop the moment anyone lowers the rotation std dev (deep-elite pitfall). We close that loop three ways, all structural: the heading comes from an accessor that is defined as never seeing a vision measurement; the offset has exactly two named writers; and every gyro-fused source gets `sigmaTheta = StdDevModels.UNTRUSTED_SIGMA` (§8), so vision rotation from those sources cannot move the estimate no matter what model a team plugs in.
 
-### 2.3 From the **Tuning** domain — `org.pumpkinlib.tuning` (binding D11, D11a, D12)
+### 2.3 From the **Tuning** domain — `org.rootstock.tuning` (binding D11, D11a, D12)
 
 ```java
-package org.pumpkinlib.tuning;
+package org.rootstock.tuning;
 
 public final class TuningRegistry {
   /** THE tunable entry point for every domain. Publishes at /Tuning/<namespace>/<key>. */
   public static TunableDouble tunable(String namespace, String key, double defaultValue, String unit);
   public static TunableDouble tunable(String namespace, String key, double defaultValue, String unit,
                                       double min, double max);
-  /** Replaces the deleted PumpkinLibConfig.TUNING_MODE (D12). FMS-gated internally. */
+  /** Replaces the deleted RootstockConfig.TUNING_MODE (D12). FMS-gated internally. */
   public static boolean isTuningEnabled();
 }
 
@@ -297,7 +297,7 @@ public final class TuningRegistry {
 public final class TunableDouble implements DoubleSupplier { /* design/02 §5.3 */ }
 ```
 
-**Revision-4 correction.** Revision 3 declared `org.pumpkinlib.config.Tunable.number(key, default)` and `PumpkinLibConfig.TUNING_MODE`. Binding **D11** made `TuningRegistry.tunable(namespace, key, default, unit)` the single tunable entry point with publication at `/Tuning/<namespace>/<key>` and **one** `NetworkTableListenerPoller` for the whole robot; binding **D12** deleted `TUNING_MODE` in favour of `TuningRegistry.isTuningEnabled()`. Both `Tunable` and `PumpkinLibConfig` are deleted from this document. Vision's namespace is `"Vision"`:
+**Revision-4 correction.** Revision 3 declared `org.rootstock.config.Tunable.number(key, default)` and `RootstockConfig.TUNING_MODE`. Binding **D11** made `TuningRegistry.tunable(namespace, key, default, unit)` the single tunable entry point with publication at `/Tuning/<namespace>/<key>` and **one** `NetworkTableListenerPoller` for the whole robot; binding **D12** deleted `TUNING_MODE` in favour of `TuningRegistry.isTuningEnabled()`. Both `Tunable` and `RootstockConfig` are deleted from this document. Vision's namespace is `"Vision"`:
 
 ```java
 private final TunableDouble m_maxTagDistance =
@@ -306,32 +306,32 @@ private final TunableDouble m_maxAmbiguity =
     TuningRegistry.tunable("Vision", "maxAmbiguitySingleTag", 0.3, "", 0.0, 1.0);
 ```
 
-All filter thresholds and std-dev coefficients are `TuningRegistry.tunable(...)`. When tuning is disabled they are a cached primitive read with zero NT traffic and zero allocation. (Both 4738 and the template built tunable stacks and then commented them out; that must not be the choice PumpkinLib forces.)
+All filter thresholds and std-dev coefficients are `TuningRegistry.tunable(...)`. When tuning is disabled they are a cached primitive read with zero NT traffic and zero allocation. (Both 4738 and the template built tunable stacks and then commented them out; that must not be the choice Rootstock forces.)
 
 **Two things this domain needs from `design/02` that it does not currently declare** — both listed as contracts at the end of §2:
 
 1. **A boolean tunable.** `VisionFilters.enabledWhen(BooleanSupplier)` (§7.2) is the per-camera kill switch a team flips in the pit. `design/02` §5 declares `TunableDouble` and no boolean analogue. Required: `TuningRegistry.tunableFlag(String namespace, String key, boolean defaultValue)` returning `TunableBoolean implements BooleanSupplier`, published as a plain boolean topic at `/Tuning/<namespace>/<key>`.
 2. **One named exception to D11's "geometry is not tunable" rule.** `CameraMount.pitchFudgeDegrees` (§11.1) is a *measured calibration correction* — 6328 run one camera at −4.5° against its CAD value — and it is the one geometric quantity that cannot be authored and must be measured on the assembled robot. It is published at `/Tuning/Vision/<camera>/pitchFudgeDeg` and persisted through `TunedValueStore` exactly like a gain. Either D11's exclusion list names this exception, or the fudge becomes config-only and the field procedure becomes "edit and redeploy," which is the thing this library exists to stop. **Vision's position: name the exception.**
 
-### 2.4 From the **Platform** domain — `org.pumpkinlib.core.alert` (binding D10) and `org.pumpkinlib.core.match`
+### 2.4 From the **Platform** domain — `org.rootstock.core.alert` (binding D10) and `org.rootstock.core.match`
 
 ```java
-package org.pumpkinlib.core.alert;
+package org.rootstock.core.alert;
 
 /** MatchImpact is REQUIRED at every call site. No default. No single-argument overload. (D10) */
 public enum MatchImpact { BLOCKS_MATCH, PIT_ONLY }
 
 public final class Alerts {
-  public static PumpkinAlert error(String group, String text, MatchImpact impact);
-  public static PumpkinAlert warning(String group, String text, MatchImpact impact);
-  public static PumpkinAlert info(String group, String text);   // INFO is PIT_ONLY by definition
+  public static RootstockAlert error(String group, String text, MatchImpact impact);
+  public static RootstockAlert warning(String group, String text, MatchImpact impact);
+  public static RootstockAlert info(String group, String text);   // INFO is PIT_ONLY by definition
 }
 ```
 
 ```java
-package org.pumpkinlib.core.match;
+package org.rootstock.core.match;
 
-/** THE single DriverStation reader in PumpkinLib (ArchUnit rule 10). Vision names it, never DriverStation. */
+/** THE single DriverStation reader in Rootstock (ArchUnit rule 10). Vision names it, never DriverStation. */
 public final class MatchContext {
   public static boolean isDisabled();
   public static boolean isEnabled();
@@ -343,11 +343,11 @@ public final class MatchContext {
 }
 ```
 
-**Revision-4 correction, and it is the one this document dodged hardest.** `[SUPERSEDED-NAME]` Revision 3 declared a two-argument `PumpkinAlerts.error(String group, String text)` and used it in roughly ten places. Binding **D10** requires `MatchImpact` at every alert call site *with no default and no single-argument overload*, precisely so that every alert answers the question "does this mean do not take the field." Every alert in this document now answers it. §11.3a states the resulting budget discipline, because a domain that can raise eight `BLOCKS_MATCH` alerts at once has not answered the question either — it has just moved it.
+**Revision-4 correction, and it is the one this document dodged hardest.** `[SUPERSEDED-NAME]` Revision 3 declared a two-argument `RootstockAlerts.error(String group, String text)` and used it in roughly ten places. Binding **D10** requires `MatchImpact` at every alert call site *with no default and no single-argument overload*, precisely so that every alert answers the question "does this mean do not take the field." Every alert in this document now answers it. §11.3a states the resulting budget discipline, because a domain that can raise eight `BLOCKS_MATCH` alerts at once has not answered the question either — it has just moved it.
 
 Vision raises alerts for: camera disconnected, timestamps outside the odometry buffer, MegaTag2 configured but `robot_orientation_set` never written, camera transform still `(0,0,0)`, suspected layout mismatch, calibration resolution mismatch, and the Limelight camera-space convention cross-check (§5.2a).
 
-### 2.5 From the **Auto / Field** domain — `org.pumpkinlib.field` (binding D14, D15)
+### 2.5 From the **Auto / Field** domain — `org.rootstock.field` (binding D14, D15)
 
 ```java
 public final class AllianceFlip {
@@ -362,37 +362,37 @@ Vision **never flips a measured pose**. It only calls `AllianceFlip` when resolv
 
 The earlier draft listed `photonlib` as **Required**, with the note *"Nothing works. It is also our simulation engine even for Limelight."* That is a straight violation of two of our own principles: DESIGN.md Principle 5 (*no vendor lock-in, in either direction; Limelight, PhotonVision and custom NT coprocessors are first-class*) and Principle 12 (*a missing vendor is a named Alert, not a `NoClassDefFoundError`*). It also made our ship date hostage to PhotonVision's. A Limelight-only team must never be forced to install PhotonVision.
 
-> **Revision 3 correction, and it is a real one.** The earlier draft also cited *"installs as one vendordep with zero vendor `requires` — a team installs on kickoff morning"* as a third principle being violated. **That argument is withdrawn.** Maintainer decision 3 makes AdvantageKit a required dependency of `pumpkinlib` itself, so no PumpkinLib artifact is installable before a third-party vendor has published for the season. The vendor-neutrality argument for keeping **photonlib** off the vision path is untouched and still correct; the kickoff-morning argument is not available to us any more and must not be repeated. See [`ROADMAP.md` §4.2](../ROADMAP.md).
+> **Revision 3 correction, and it is a real one.** The earlier draft also cited *"installs as one vendordep with zero vendor `requires` — a team installs on kickoff morning"* as a third principle being violated. **That argument is withdrawn.** Maintainer decision 3 makes AdvantageKit a required dependency of `rootstock` itself, so no Rootstock artifact is installable before a third-party vendor has published for the season. The vendor-neutrality argument for keeping **photonlib** off the vision path is untouched and still correct; the kickoff-morning argument is not available to us any more and must not be repeated. See [`ROADMAP.md` §4.2](../ROADMAP.md).
 
-**Revision 3 also collapses the packaging.** The earlier draft proposed three vision Maven coordinates under a `com.pumpkinlib` group. Under **D28** (one core jar) and maintainer decisions 1 and 3 there are **two**, under `dev.pumpkinlib`, and they are the same two that appear in [`DESIGN.md` §8](../DESIGN.md) and [`design/06` §3.3](06-platform-compday.md). `pumpkinlib-vision` and `pumpkinlib-vision-sim` **do not exist as published artifacts.** The source-set and package boundaries below are unchanged and are still enforced by ArchUnit at the *package* level — only the publish granularity changed.
+**Revision 3 also collapses the packaging.** The earlier draft proposed three vision Maven coordinates under a `com.rootstock` group. Under **D28** (one core jar) and maintainer decisions 1 and 3 there are **two**, under `dev.rootstock`, and they are the same two that appear in [`DESIGN.md` §8](../DESIGN.md) and [`design/06` §3.3](06-platform-compday.md). `rootstock-vision` and `rootstock-vision-sim` **do not exist as published artifacts.** The source-set and package boundaries below are unchanged and are still enforced by ArchUnit at the *package* level — only the publish granularity changed.
 
 | Artifact | Depends on | Contains |
 |---|---|---|
-| `dev.pumpkinlib:pumpkinlib` (**the core jar** — the vision packages inside it) | WPILib + **AdvantageKit**; **no camera vendor** | `VisionFrame`, `VisionFrameHeader`, `TargetObservation`, `PoseSource`, `CameraMount`, `CameraSimProfile` + `CameraSimProfiles`, `VisionCameraIO`, `ReplayCameraIO`, the whole `filter` package, the whole `stddev` package, `field` (`FieldLayouts`, `LayoutFingerprint`, `TagResidualMonitor`), `objects`, `commands` (including `alignToTag` and `CameraArbiter`), `diag`, `compat`, `CustomNTCameraIO` + schemas, and the **vendored** `LimelightHelpers` + `LimelightCameraIO`. |
-| `dev.pumpkinlib:pumpkinlib-photonvision` | `pumpkinlib` + photonlib vendordep | `org.pumpkinlib.vision.photon.PhotonCameraIO`, `PhotonStrategy` — **and** `org.pumpkinlib.vision.sim.*` (`PumpkinVisionSim`, `PumpkinCameraProps`, `SimulatedLimelight`), which wrap `VisionSystemSim` / `PhotonCameraSim` / `SimCameraProperties`. The former `pumpkinlib-vision-sim` artifact is folded in here: both halves need photonlib and nothing else does, so a second coordinate bought nothing. |
-| ~~`pumpkinlib-vision`~~ | — | **Does not exist.** Folded into `pumpkinlib` by D28. |
-| ~~`pumpkinlib-vision-sim`~~ | — | **Does not exist.** Folded into `pumpkinlib-photonvision`. |
+| `dev.rootstock:rootstock` (**the core jar** — the vision packages inside it) | WPILib + **AdvantageKit**; **no camera vendor** | `VisionFrame`, `VisionFrameHeader`, `TargetObservation`, `PoseSource`, `CameraMount`, `CameraSimProfile` + `CameraSimProfiles`, `VisionCameraIO`, `ReplayCameraIO`, the whole `filter` package, the whole `stddev` package, `field` (`FieldLayouts`, `LayoutFingerprint`, `TagResidualMonitor`), `objects`, `commands` (including `alignToTag` and `CameraArbiter`), `diag`, `compat`, `CustomNTCameraIO` + schemas, and the **vendored** `LimelightHelpers` + `LimelightCameraIO`. |
+| `dev.rootstock:rootstock-photonvision` | `rootstock` + photonlib vendordep | `org.rootstock.vision.photon.PhotonCameraIO`, `PhotonStrategy` — **and** `org.rootstock.vision.sim.*` (`RootstockVisionSim`, `RootstockCameraProps`, `SimulatedLimelight`), which wrap `VisionSystemSim` / `PhotonCameraSim` / `SimCameraProperties`. The former `rootstock-vision-sim` artifact is folded in here: both halves need photonlib and nothing else does, so a second coordinate bought nothing. |
+| ~~`rootstock-vision`~~ | — | **Does not exist.** Folded into `rootstock` by D28. |
+| ~~`rootstock-vision-sim`~~ | — | **Does not exist.** Folded into `rootstock-photonvision`. |
 
 Consequences, all of them deliberate:
 
-- A Limelight-only team installs **`PumpkinLib.json`** (which itself pulls `WPILibNewCommands.json` and `AdvantageKit.json`) and gets the filter chain, std-dev models, diagnostics, layout management, object projection, and every command. No photonlib. No PhotonVision install on their coprocessor. No AGPL model licensing question. It does **not** get them out of installing AdvantageKit — nothing does.
+- A Limelight-only team installs **`Rootstock.json`** (which itself pulls `WPILibNewCommands.json` and `AdvantageKit.json`) and gets the filter chain, std-dev models, diagnostics, layout management, object projection, and every command. No photonlib. No PhotonVision install on their coprocessor. No AGPL model licensing question. It does **not** get them out of installing AdvantageKit — nothing does.
 - The vision packages compile against WPILib and AdvantageKit alone, so vision ships on our schedule, not PhotonVision's.
-- Camera **simulation** for a Limelight-only team costs one extra vendordep (`PumpkinLib-PhotonVision.json`) and zero code changes — `.simulated(...)` is already on `LimelightCameraIO` in the core jar. **This is the same statement `DESIGN.md` §8 and `README.md` make: `SimulatedLimelight` lives in `pumpkinlib-photonvision`, and that is said up front rather than discovered at runtime.**
+- Camera **simulation** for a Limelight-only team costs one extra vendordep (`Rootstock-PhotonVision.json`) and zero code changes — `.simulated(...)` is already on `LimelightCameraIO` in the core jar. **This is the same statement `DESIGN.md` §8 and `README.md` make: `SimulatedLimelight` lives in `rootstock-photonvision`, and that is said up front rather than discovered at runtime.**
 
-  > **This is the constraint that makes the split real, so it gets stated as a rule.** `SimCameraProperties` is a photonlib type. If `LimelightCameraIO.simulated(...)` took one, the core artifact would import `org.photonvision.*` and the whole split would be theatre — the ArchUnit test in §3 would go red on day one. So `.simulated(...)` takes **`CameraSimProfile`**, a plain core-owned record of sensor numbers (§14.2). `pumpkinlib-photonvision` converts it to a `SimCameraProperties` at sim-construction time. A Limelight-only team therefore writes `.simulated(CameraSimProfiles.OV9281_1280_800_82DEG())` in `RobotContainer` and that line compiles with **no photonlib on the classpath at all**; it simply does nothing at runtime until `pumpkinlib-photonvision` is present.
-- `PhotonCameraIO` moving to its own artifact means the `PhotonStrategy` enum, the `withCalibration` helper and the `estimate*Pose` call sites are the *only* code in PumpkinLib that imports `org.photonvision.*`. That is one small module to re-verify against each PhotonVision release — and §6.2 documents what happens when that re-verification is done against a floating URL instead of a pinned tag.
+  > **This is the constraint that makes the split real, so it gets stated as a rule.** `SimCameraProperties` is a photonlib type. If `LimelightCameraIO.simulated(...)` took one, the core artifact would import `org.photonvision.*` and the whole split would be theatre — the ArchUnit test in §3 would go red on day one. So `.simulated(...)` takes **`CameraSimProfile`**, a plain core-owned record of sensor numbers (§14.2). `rootstock-photonvision` converts it to a `SimCameraProperties` at sim-construction time. A Limelight-only team therefore writes `.simulated(CameraSimProfiles.OV9281_1280_800_82DEG())` in `RobotContainer` and that line compiles with **no photonlib on the classpath at all**; it simply does nothing at runtime until `rootstock-photonvision` is present.
+- `PhotonCameraIO` moving to its own artifact means the `PhotonStrategy` enum, the `withCalibration` helper and the `estimate*Pose` call sites are the *only* code in Rootstock that imports `org.photonvision.*`. That is one small module to re-verify against each PhotonVision release — and §6.2 documents what happens when that re-verification is done against a floating URL instead of a pinned tag.
 
-**Principle-12 behavior when a module is missing.** `PumpkinVision.build()` probes with `Class.forName` and degrades with a named Alert — never a `NoClassDefFoundError`:
+**Principle-12 behavior when a module is missing.** `RootstockVision.build()` probes with `Class.forName` and degrades with a named Alert — never a `NoClassDefFoundError`:
 
 ```java
 private static final boolean SIM_AVAILABLE =
-    classExists("org.pumpkinlib.vision.sim.PumpkinVisionSim")
+    classExists("org.rootstock.vision.sim.RootstockVisionSim")
         && classExists("org.photonvision.simulation.VisionSystemSim");
 
 // in Builder.build():
 if (m_simEnabled && !SIM_AVAILABLE) {
   Alerts.warning("Vision",
-      "Camera simulation needs pumpkinlib-photonvision (PhotonVision). "
+      "Camera simulation needs rootstock-photonvision (PhotonVision). "
     + "Running with no simulated cameras.",
       MatchImpact.PIT_ONLY).set(true);        // sim-only; cannot affect a match
   m_simEnabled = false;   // everything else still works; poses simply never arrive in sim
@@ -400,7 +400,7 @@ if (m_simEnabled && !SIM_AVAILABLE) {
 if (m_hasPhotonCamera && !classExists("org.photonvision.PhotonCamera")) {
   Alerts.error("Vision",
       "A PhotonCameraIO was configured but photonlib is not on the classpath. "
-    + "Add the pumpkinlib-photonvision vendordep. This camera is disabled.",
+    + "Add the rootstock-photonvision vendordep. This camera is disabled.",
       MatchImpact.BLOCKS_MATCH).set(true);    // a configured camera is silently dead
 }
 ```
@@ -412,9 +412,9 @@ if (m_hasPhotonCamera && !classExists("org.photonvision.PhotonCamera")) {
 | Dependency | Required? | If absent |
 |---|---|---|
 | WPILib 2026.2.x | **Required** | This is the floor. The vision packages need no camera vendor beyond it. |
-| **AdvantageKit 26.0.2** | **REQUIRED (maintainer decision 3)** | **PumpkinLib does not install.** `AdvantageKit.json` is a `requires` entry on `PumpkinLib.json`. `PumpkinLog` writes to `Logger` directly; there is no NT4/DataLog fallback and no `LogBackend` SPI. The upside is that replay of `VisionFrame` is a **guarantee**, not a configuration. The cost is that vision — like every other domain — cannot be installed until AdvantageKit has published for the season (R18). |
-| `photonlib` (PhotonVision 2026.3.4) | **Required only for PhotonVision cameras and camera simulation** | The vision packages in the core jar are fully functional without it: Limelight, custom NT coprocessors, filters, std devs, diagnostics, commands. `PhotonCameraIO` and `PumpkinVisionSim` are simply not on the classpath, and asking for either raises a named `Alert` (above), never a linkage error. |
-| `LimelightHelpers` | Vendored inside the core jar | n/a — we ship it verbatim as `org.pumpkinlib.vision.limelight.LimelightHelpers` (BSD-3, single file). No vendordep, no version skew. |
+| **AdvantageKit 26.0.2** | **REQUIRED (maintainer decision 3)** | **Rootstock does not install.** `AdvantageKit.json` is a `requires` entry on `Rootstock.json`. `RootstockLog` writes to `Logger` directly; there is no NT4/DataLog fallback and no `LogBackend` SPI. The upside is that replay of `VisionFrame` is a **guarantee**, not a configuration. The cost is that vision — like every other domain — cannot be installed until AdvantageKit has published for the season (R18). |
+| `photonlib` (PhotonVision 2026.3.4) | **Required only for PhotonVision cameras and camera simulation** | The vision packages in the core jar are fully functional without it: Limelight, custom NT coprocessors, filters, std devs, diagnostics, commands. `PhotonCameraIO` and `RootstockVisionSim` are simply not on the classpath, and asking for either raises a named `Alert` (above), never a linkage error. |
+| `LimelightHelpers` | Vendored inside the core jar | n/a — we ship it verbatim as `org.rootstock.vision.limelight.LimelightHelpers` (BSD-3, single file). No vendordep, no version skew. |
 | PathPlannerLib 2026.1.2 | Optional | `VisionCommands.driveToPose` degrades to pure terminal control (no obstacle-avoiding approach phase) and logs a warning once. `alignToTag` (§13.5) never needed it. |
 | Phoenix 6 26.x | Optional | Only used for `Utils.fpgaToCurrentTime()` when the consumer is a CTRE `SwerveDrivetrain`. Detected reflectively; see §9.2. |
 
@@ -430,14 +430,14 @@ Collected here so the reconciliation pass has one list. Every item is stated in 
 | C2 | `design/05` §3.3.3 | Add `m_gyroFieldOffset` / `m_gyroFieldOffsetSeeded`, the two writers, `getGyroFieldHeading()`, `gyroFieldOffsetSeeded()`. `design/05` §3.3.3 is now the **single owner** of the offset and this document no longer restates the arithmetic — see §2.2a(2). | **APPLIED** 2026-08-08 |
 | C3 | `design/05` §3.8 | Add `DriveSelfCheck` check **9** = `GYRO_OFFSET_UNSEEDED` — §2.2a(3) verbatim. Checks 1–8 are unchanged. | **APPLIED** 2026-08-08 |
 | C4 | `design/05` §1.3, `design/04` §1.3 | Delete `VisionObservation` `[SUPERSEDED-NAME]` and `addVisionMeasurement(obs)`; the sink is `VisionConsumer.accept(Pose2d, double, Matrix<N3,N1>)` (D17), declared once at `design/05` §3.3.2. `DriveBackend.addVisionMeasurement(Pose2d, double, Matrix<N3,N1>)` already matches and does not change. | **APPLIED** — `design/04` at its own revision, `design/05` 2026-08-08 |
-| C5 | `design/05` §3.3.2 / D16 | `AlignableDrive` adds `ChassisSpeeds getRobotRelativeSpeeds();`, and moves to `org.pumpkinlib.drive`; §13.1 of this document keeps a labelled mirror. | **APPLIED** 2026-08-08 |
-| C6 | `design/05` §9, `design/05` §10, `DESIGN.md` §10B line 1112 | `tolerance` default `0.02 m / 1.5 deg` → `0.05 m / 2.0 deg`. | **APPLIED in `design/05`** (rev 3.1, both sites, plus named constants). ~~**`DESIGN.md` §10B: OPEN**~~ ~~**§10B reads `.tolerance(Meters.of(0.05), Degrees.of(2.0))`**~~ **`DESIGN.md` §10B: APPLIED, and this cell's own quotation of §10B was one revision stale — corrected 2026-08-08.** §10B no longer spells the tolerance as a literal at all: it reads **`.tolerance(PumpkinDriveToPose.kDefaultTolerance, PumpkinDriveToPose.kDefaultAngularTolerance)`**, with a comment naming `design/05` §9 as the single declaration site. **Verified by grep 2026-08-08:** `grep -c 'PumpkinDriveToPose\.kDefaultTolerance' DESIGN.md` = **3** (§10B's call site, §10B's comment, and §16 item 2's own quotation), and `grep -n 'tolerance(Meters\.of(0\.05)' DESIGN.md` returns **1** line — §16 item 2's correction text, quoting the superseded literal form in order to name it, not a call site. The struck-through quotation above is kept as the record of what this cell used to assert. `DESIGN.md` §16 item 2 records this row's *earlier* "OPEN" as a stale report; this correction records the *literal* quotation as the second staleness in the same cell. |
+| C5 | `design/05` §3.3.2 / D16 | `AlignableDrive` adds `ChassisSpeeds getRobotRelativeSpeeds();`, and moves to `org.rootstock.drive`; §13.1 of this document keeps a labelled mirror. | **APPLIED** 2026-08-08 |
+| C6 | `design/05` §9, `design/05` §10, `DESIGN.md` §10B line 1112 | `tolerance` default `0.02 m / 1.5 deg` → `0.05 m / 2.0 deg`. | **APPLIED in `design/05`** (rev 3.1, both sites, plus named constants). ~~**`DESIGN.md` §10B: OPEN**~~ ~~**§10B reads `.tolerance(Meters.of(0.05), Degrees.of(2.0))`**~~ **`DESIGN.md` §10B: APPLIED, and this cell's own quotation of §10B was one revision stale — corrected 2026-08-08.** §10B no longer spells the tolerance as a literal at all: it reads **`.tolerance(RootstockDriveToPose.kDefaultTolerance, RootstockDriveToPose.kDefaultAngularTolerance)`**, with a comment naming `design/05` §9 as the single declaration site. **Verified by grep 2026-08-08:** `grep -c 'RootstockDriveToPose\.kDefaultTolerance' DESIGN.md` = **3** (§10B's call site, §10B's comment, and §16 item 2's own quotation), and `grep -n 'tolerance(Meters\.of(0\.05)' DESIGN.md` returns **1** line — §16 item 2's correction text, quoting the superseded literal form in order to name it, not a call site. The struck-through quotation above is kept as the record of what this cell used to assert. `DESIGN.md` §16 item 2 records this row's *earlier* "OPEN" as a stale report; this correction records the *literal* quotation as the second staleness in the same cell. |
 | C7 | `design/05` | Replace the raw `9_999_999` literal with `StdDevModels.UNTRUSTED_SIGMA` (`1.0e6`). | **APPLIED** (rev 3.1, all four sites) |
 | C8 | `design/02` §5.2 | Add `TuningRegistry.tunableFlag(String namespace, String key, boolean defaultValue)` → `TunableBoolean implements BooleanSupplier`. | **APPLIED** 2026-08-08 — `grep -c tunableFlag design/02-tuning.md` = **9** (was 0). `design/02` §5.2 declares `public static TunableBoolean tunableFlag(String namespace, String key, boolean defaultValue)`; §5.3 declares `public final class TunableBoolean implements BooleanSupplier`. It shares the single `NetworkTableListenerPoller` and the one `readQueue()` per loop (**D11a**), is off under FMS by the same default-deny rule (**D11**), round-trips through `TuningInputs.flagKeys`/`flagValues` in replay, and is refused with a FATAL `ConfigError` if its namespace collides with a registered mechanism (which would otherwise put an eighteenth key under `/Tuning/<Mechanism>/` and break `NtSchemaTest`). Regression: `TunableFlagTest`, `design/02` §16.2. |
 | C9 | `DESIGN.md` D11 | Name `CameraMount.pitchFudgeDegrees` as the one geometric exception to "geometry is deliberately not tunable," or move it to config-only. | ~~**OPEN** — `grep -c pitchFudgeDegrees DESIGN.md` = 0~~ **APPLIED 2026-08-08 — closed by running the condition, not by declaring it.** `grep -c pitchFudgeDegrees DESIGN.md` now returns **2**. **The load-bearing hit is the `D11` cell in `DESIGN.md` §5.1**, which names `CameraMount.pitchFudgeDegrees` as *"one named geometric exception, and exactly one"* to "geometry is deliberately not tunable," gives the reason (camera pitch is the one geometry value re-trimmed at an event without re-measuring the robot — 6328 run one camera at −4.5° against CAD), states that it publishes at `/Tuning/Vision/<camera>/pitchFudgeDeg` and persists through `TunedValueStore` like a gain, and adds the clause this row did not ask for but wanted: **"No other geometric quantity may claim the exception"** — a second one is a design change, not a config change. The second hit is `DESIGN.md` §16's self-report of that edit; **a §16 self-report cannot satisfy a contract**, which is why the count of 2 is broken out rather than quoted bare. The struck-through original is kept as the record of the state that made the contract necessary. |
-| C10 | `design/06` (the `org.pumpkinlib.core.alert` block declaring `MatchImpact` / `PumpkinAlert`) vs `DESIGN.md` D10 | The alert factory is spelled `PumpkinAlert.error(String group, String text, MatchImpact impact)` in `design/06` and `Alerts.error(String group, String text, MatchImpact impact)` in `DESIGN.md` D10. Both return a `PumpkinAlert` handle and both require the `MatchImpact` argument, so the *contract* is agreed and only the class name differs. This document calls `Alerts.*` because `DESIGN.md` §5 is authoritative. One of the two spellings must move; vision does not care which, only that there is one. | **APPLIED** 2026-08-08 — and the closing move was `design/06`'s, not this document's. **The row's premise is now stale: `design/06` no longer spells the factory `PumpkinAlert.error(...)`.** It carries an explicit correction — *"The facade class is `Alerts`; the handle type is `PumpkinAlert`… An earlier draft of this section hung the statics off `PumpkinAlert` itself, which is a fourth spelling of a thing D10 already named once. Corrected"* — and declares `public final class Alerts { public static PumpkinAlert error(String group, String text, MatchImpact impact); … }`. **Verified by grep 2026-08-08:** `grep -rn 'PumpkinAlert\.\(error\|warning\|info\|of\|when\)(' design/ DESIGN.md README.md ROADMAP.md` returns **1** hit and it is *this cell*, quoting the dead spelling in order to name it — zero declarations and zero call sites anywhere else. All four documents that declare the facade (`design/01` §1.x, `design/03` §2.4, `design/05` §1.4, `design/06` §13.x) hang the statics off `Alerts` and return `PumpkinAlert`. **There is one spelling, which is all this row ever asked for.** |
-| C13 | `design/05` §1.4 (its labelled `Alerts` mirror) | **(new, 2026-08-08 — surfaced by C10's grep, and deliberately *not* folded into C10, which is about the class name and is closed.)** The `info` factory is declared with **two different arities**: `design/01`, `design/03` §2.4 and `design/06` all declare `public static PumpkinAlert info(String group, String text);` with the comment *"INFO is PIT_ONLY by definition — an informational alert cannot stop a match"*; `design/05` §1.4 declares `public static PumpkinAlert info (String group, String text, MatchImpact impact);`. `design/06` owns alerts under **D10** and three of four documents agree with it, so the two-argument form is almost certainly right — but `DESIGN.md` §16 item 7's correction text spells the sweep target as `Alerts.error/warning/info(String group, String text, MatchImpact impact)`, i.e. three-argument `info`, so the master and the owning domain disagree in writing and this must be adjudicated rather than guessed. | ~~**OPEN**~~ **APPLIED / CLOSED 2026-08-08 — adjudicated in the master and then applied in the outlier, in that order.** **The adjudication:** `DESIGN.md` §5.2 **D32** (revision 8) rules that **the two-argument `Alerts.info(String group, String text)` wins**, on the ground this row guessed at — `Severity.INFO` is `MatchImpact.PIT_ONLY` **by construction**, so the parameter has one legal value, and *"a parameter with one legal value is noise that trains callers to stop reading the argument, which is the opposite of what D10 exists to buy."* D32 **narrows D10 rather than weakening it**, in exact words: D10's *"required at every call site, no default, no single-argument overload"* **binds `error` and `warning`**, both of which keep the third argument everywhere; **the exemption is `info`'s alone and does not generalise**, `Alerts` may not add a two-argument `error`/`warning`, and a future `Severity` whose impact is not constant takes the three-argument form. **The application:** `design/05` §1.4's mirror now declares `public static PumpkinAlert info (String group, String text);` with the same `// INFO is PIT_ONLY by definition` comment as `design/01`, this document §2.4 and `design/06`, and §0's sweep line — which had written the target as `error/warning/info(group, text, MatchImpact)` — is corrected to `error/warning(group, text, MatchImpact)`. **All four documents now declare one arity.** **Verified 2026-08-08 with a *call-shaped* grep, because the bare-string one is not a gate:** `grep -rn 'Alerts\.info([^)]*)[[:space:]]*;' design/ DESIGN.md README.md` returns **zero** — no call site existed then and none exists now, so this closed at zero compile risk. *(The bare `Alerts\.info(` grep returns 4 and rises every time another document correctly describes the signature — D10's cell, D32's cell, `DESIGN.md` §16 item 7 and `design/04` §2 — the same unsatisfiable-gate defect `DESIGN.md` §16 records for items 1, 4(f), 6 and 7.)* **`DESIGN.md` §16 item 7's owed sentence is discharged by D32.** Vision still never calls `info`. |
-| C11 | `design/04` §3.3 | Extend the `Pumpkin/Vision/<Camera>/` key table with the rows §7.3 of this document publishes (reject taxonomy, coalescing counters, arbiter, seed, align). Doc 04 owns the schema; these are the keys this domain publishes into it. **This document's side of the contract is now EXACT: the twelve outstanding rows are enumerated with key, type, tier and meaning in §2.7a below, and §7.3 is the single source they are read from.** | **PARTIAL, and deliberately left so** — `RejectReason` (the 20-constant enum, §7.1) **is** in `design/04` §3.3; the **twelve** coalescing/arbiter/seed/align rows named in §2.7a are **not**. **The remaining work is `design/04`'s alone and is now mechanically applicable** — copy §2.7a's twelve rows verbatim into `design/04` §3.3's `Pumpkin/Vision/` table. **This document cannot close this row**, because a contract is discharged in the receiving document, not in the requesting one; a self-report here would be a false done-claim of exactly the kind `DESIGN.md` §16 exists to catch. |
+| C10 | `design/06` (the `org.rootstock.core.alert` block declaring `MatchImpact` / `RootstockAlert`) vs `DESIGN.md` D10 | The alert factory is spelled `RootstockAlert.error(String group, String text, MatchImpact impact)` in `design/06` and `Alerts.error(String group, String text, MatchImpact impact)` in `DESIGN.md` D10. Both return a `RootstockAlert` handle and both require the `MatchImpact` argument, so the *contract* is agreed and only the class name differs. This document calls `Alerts.*` because `DESIGN.md` §5 is authoritative. One of the two spellings must move; vision does not care which, only that there is one. | **APPLIED** 2026-08-08 — and the closing move was `design/06`'s, not this document's. **The row's premise is now stale: `design/06` no longer spells the factory `RootstockAlert.error(...)`.** It carries an explicit correction — *"The facade class is `Alerts`; the handle type is `RootstockAlert`… An earlier draft of this section hung the statics off `RootstockAlert` itself, which is a fourth spelling of a thing D10 already named once. Corrected"* — and declares `public final class Alerts { public static RootstockAlert error(String group, String text, MatchImpact impact); … }`. **Verified by grep 2026-08-08:** `grep -rn 'RootstockAlert\.\(error\|warning\|info\|of\|when\)(' design/ DESIGN.md README.md ROADMAP.md` returns **1** hit and it is *this cell*, quoting the dead spelling in order to name it — zero declarations and zero call sites anywhere else. All four documents that declare the facade (`design/01` §1.x, `design/03` §2.4, `design/05` §1.4, `design/06` §13.x) hang the statics off `Alerts` and return `RootstockAlert`. **There is one spelling, which is all this row ever asked for.** |
+| C13 | `design/05` §1.4 (its labelled `Alerts` mirror) | **(new, 2026-08-08 — surfaced by C10's grep, and deliberately *not* folded into C10, which is about the class name and is closed.)** The `info` factory is declared with **two different arities**: `design/01`, `design/03` §2.4 and `design/06` all declare `public static RootstockAlert info(String group, String text);` with the comment *"INFO is PIT_ONLY by definition — an informational alert cannot stop a match"*; `design/05` §1.4 declares `public static RootstockAlert info (String group, String text, MatchImpact impact);`. `design/06` owns alerts under **D10** and three of four documents agree with it, so the two-argument form is almost certainly right — but `DESIGN.md` §16 item 7's correction text spells the sweep target as `Alerts.error/warning/info(String group, String text, MatchImpact impact)`, i.e. three-argument `info`, so the master and the owning domain disagree in writing and this must be adjudicated rather than guessed. | ~~**OPEN**~~ **APPLIED / CLOSED 2026-08-08 — adjudicated in the master and then applied in the outlier, in that order.** **The adjudication:** `DESIGN.md` §5.2 **D32** (revision 8) rules that **the two-argument `Alerts.info(String group, String text)` wins**, on the ground this row guessed at — `Severity.INFO` is `MatchImpact.PIT_ONLY` **by construction**, so the parameter has one legal value, and *"a parameter with one legal value is noise that trains callers to stop reading the argument, which is the opposite of what D10 exists to buy."* D32 **narrows D10 rather than weakening it**, in exact words: D10's *"required at every call site, no default, no single-argument overload"* **binds `error` and `warning`**, both of which keep the third argument everywhere; **the exemption is `info`'s alone and does not generalise**, `Alerts` may not add a two-argument `error`/`warning`, and a future `Severity` whose impact is not constant takes the three-argument form. **The application:** `design/05` §1.4's mirror now declares `public static RootstockAlert info (String group, String text);` with the same `// INFO is PIT_ONLY by definition` comment as `design/01`, this document §2.4 and `design/06`, and §0's sweep line — which had written the target as `error/warning/info(group, text, MatchImpact)` — is corrected to `error/warning(group, text, MatchImpact)`. **All four documents now declare one arity.** **Verified 2026-08-08 with a *call-shaped* grep, because the bare-string one is not a gate:** `grep -rn 'Alerts\.info([^)]*)[[:space:]]*;' design/ DESIGN.md README.md` returns **zero** — no call site existed then and none exists now, so this closed at zero compile risk. *(The bare `Alerts\.info(` grep returns 4 and rises every time another document correctly describes the signature — D10's cell, D32's cell, `DESIGN.md` §16 item 7 and `design/04` §2 — the same unsatisfiable-gate defect `DESIGN.md` §16 records for items 1, 4(f), 6 and 7.)* **`DESIGN.md` §16 item 7's owed sentence is discharged by D32.** Vision still never calls `info`. |
+| C11 | `design/04` §3.3 | Extend the `Rootstock/Vision/<Camera>/` key table with the rows §7.3 of this document publishes (reject taxonomy, coalescing counters, arbiter, seed, align). Doc 04 owns the schema; these are the keys this domain publishes into it. **This document's side of the contract is now EXACT: the twelve outstanding rows are enumerated with key, type, tier and meaning in §2.7a below, and §7.3 is the single source they are read from.** | **PARTIAL, and deliberately left so** — `RejectReason` (the 20-constant enum, §7.1) **is** in `design/04` §3.3; the **twelve** coalescing/arbiter/seed/align rows named in §2.7a are **not**. **The remaining work is `design/04`'s alone and is now mechanically applicable** — copy §2.7a's twelve rows verbatim into `design/04` §3.3's `Rootstock/Vision/` table. **This document cannot close this row**, because a contract is discharged in the receiving document, not in the requesting one; a self-report here would be a false done-claim of exactly the kind `DESIGN.md` §16 exists to catch. |
 | C12 | `DESIGN.md` §16 item 3 | Add `design/03` to the list of documents whose `DriverStation` / `RobotBase` / `Timer` call sites are being migrated (this revision migrates them; the item exists so the ArchUnit rules can be turned on without a surprise). | **APPLIED** — `DESIGN.md` §16 item 3 names `design/03` |
 
 #### 2.7a C11's exact remaining shape — the twelve rows `design/04` §3.3 still owes
@@ -450,36 +450,36 @@ Collected here so the reconciliation pass has one list. Every item is stated in 
 
 | # | Key | Type | Tier | Meaning (what `design/04` §3.3's table column needs) |
 |---|---|---|---|---|
-| 1 | `Pumpkin/Vision/<name>/CoalescedCount` | `long` | STANDARD | Accepted frames merged away this loop by `maxAcceptedPerLoop` (§9.6). Cumulative since boot. |
-| 2 | `Pumpkin/Vision/<name>/DecodeDroppedCount` | `long` | STANDARD | Frames left undecoded by `maxFramesPerLoop` (§9.6). Cumulative since boot. **Distinct from row 1**: dropped-before-decode, not merged-after-accept. |
-| 3 | `Pumpkin/Vision/Summary/CoalescedCount` | `long` | STANDARD | Robot-wide sum of row 1 across cameras. Not per-camera; **not** under `<name>/`. |
-| 4 | `Pumpkin/Vision/Arbiter/SelectedCameras` | `long[]` | STANDARD | Camera **indices** that relocalized this loop (§13.6). Index↔name resolves through `Pumpkin/Vision/CameraIndex/<name>`. |
-| 5 | `Pumpkin/Vision/Arbiter/Scores` | `double[]` | STANDARD | Per-camera geometry score (§13.6). **Parallel to the camera index space, not to row 4** — length is the camera count, not the selected count. |
-| 6 | `Pumpkin/Vision/Arbiter/SuppressedCount` | `long` | STANDARD | Frames the arbiter suppressed this loop. |
-| 7 | `Pumpkin/Vision/Seed/Count` | `long` | CRITICAL | Disabled multi-tag pose seeds issued (§9.7). Cumulative since boot. |
-| 8 | `Pumpkin/Vision/Seed/LastSeedPose` | `Pose2d` | CRITICAL | The pose most recently seeded. Blue-origin, like every pose in this document. |
-| 9 | `Pumpkin/Vision/Seed/LastSeedSource` | `String` | CRITICAL | Which camera/source produced the last seed. |
-| 10 | `Pumpkin/Vision/Seed/RejectedNoAgree` | `long` | STANDARD | Seed attempts refused because the multi-tag solutions did not agree (§9.7). |
-| 11 | `Pumpkin/Vision/Align/*` — **eight leaf keys, one group** | see below | see below | The active `alignToTag` lock (§13.5). Enumerated in full below because a `*` in a schema table is not a schema. |
-| 12 | `Pumpkin/Perf/Vision/ConsumeMs` | `double` | STANDARD | `PumpkinTracer` budget, **2.0 ms** (§9.6). **Note the namespace: `Pumpkin/Perf/`, not `Pumpkin/Vision/`** — it belongs to the perf table, and applying it into the vision table would be wrong. |
+| 1 | `Rootstock/Vision/<name>/CoalescedCount` | `long` | STANDARD | Accepted frames merged away this loop by `maxAcceptedPerLoop` (§9.6). Cumulative since boot. |
+| 2 | `Rootstock/Vision/<name>/DecodeDroppedCount` | `long` | STANDARD | Frames left undecoded by `maxFramesPerLoop` (§9.6). Cumulative since boot. **Distinct from row 1**: dropped-before-decode, not merged-after-accept. |
+| 3 | `Rootstock/Vision/Summary/CoalescedCount` | `long` | STANDARD | Robot-wide sum of row 1 across cameras. Not per-camera; **not** under `<name>/`. |
+| 4 | `Rootstock/Vision/Arbiter/SelectedCameras` | `long[]` | STANDARD | Camera **indices** that relocalized this loop (§13.6). Index↔name resolves through `Rootstock/Vision/CameraIndex/<name>`. |
+| 5 | `Rootstock/Vision/Arbiter/Scores` | `double[]` | STANDARD | Per-camera geometry score (§13.6). **Parallel to the camera index space, not to row 4** — length is the camera count, not the selected count. |
+| 6 | `Rootstock/Vision/Arbiter/SuppressedCount` | `long` | STANDARD | Frames the arbiter suppressed this loop. |
+| 7 | `Rootstock/Vision/Seed/Count` | `long` | CRITICAL | Disabled multi-tag pose seeds issued (§9.7). Cumulative since boot. |
+| 8 | `Rootstock/Vision/Seed/LastSeedPose` | `Pose2d` | CRITICAL | The pose most recently seeded. Blue-origin, like every pose in this document. |
+| 9 | `Rootstock/Vision/Seed/LastSeedSource` | `String` | CRITICAL | Which camera/source produced the last seed. |
+| 10 | `Rootstock/Vision/Seed/RejectedNoAgree` | `long` | STANDARD | Seed attempts refused because the multi-tag solutions did not agree (§9.7). |
+| 11 | `Rootstock/Vision/Align/*` — **eight leaf keys, one group** | see below | see below | The active `alignToTag` lock (§13.5). Enumerated in full below because a `*` in a schema table is not a schema. |
+| 12 | `Rootstock/Perf/Vision/ConsumeMs` | `double` | STANDARD | `RootstockTracer` budget, **2.0 ms** (§9.6). **Note the namespace: `Rootstock/Perf/`, not `Rootstock/Vision/`** — it belongs to the perf table, and applying it into the vision table would be wrong. |
 
 **Row 11 expanded — the eight `Align` leaves, since the group is one contract row but eight schema entries:**
 
 ```
-Pumpkin/Vision/Align/TagId                 long           CRITICAL   active alignToTag lock (§13.5)
-Pumpkin/Vision/Align/ErrorMeters           double         CRITICAL   TAG-RELATIVE error, NOT fused-pose error
-Pumpkin/Vision/Align/ErrorDegrees          double         CRITICAL   tag-relative, same frame as ErrorMeters
-Pumpkin/Vision/Align/CommandedRobotSpeeds  ChassisSpeeds  CRITICAL   what we actually sent (§13.4.1)
-Pumpkin/Vision/Align/ProfileVelocity       double         STANDARD   ProfiledPIDController.getSetpoint().velocity
-Pumpkin/Vision/Align/ObservationAgeSecs    double         STANDARD   now - frame.timestampSeconds at solve time
-Pumpkin/Vision/Align/NoSolveLoops          long           STANDARD   consecutive loops with no usable solution
+Rootstock/Vision/Align/TagId                 long           CRITICAL   active alignToTag lock (§13.5)
+Rootstock/Vision/Align/ErrorMeters           double         CRITICAL   TAG-RELATIVE error, NOT fused-pose error
+Rootstock/Vision/Align/ErrorDegrees          double         CRITICAL   tag-relative, same frame as ErrorMeters
+Rootstock/Vision/Align/CommandedRobotSpeeds  ChassisSpeeds  CRITICAL   what we actually sent (§13.4.1)
+Rootstock/Vision/Align/ProfileVelocity       double         STANDARD   ProfiledPIDController.getSetpoint().velocity
+Rootstock/Vision/Align/ObservationAgeSecs    double         STANDARD   now - frame.timestampSeconds at solve time
+Rootstock/Vision/Align/NoSolveLoops          long           STANDARD   consecutive loops with no usable solution
 ```
 
 *(`NoSolveLoops` is a **counter**, not a boolean — §13.5's stall detection reads the count, so a `boolean NoSolve` would not satisfy this row.)*
 
 **Two shapes a mechanical applier would otherwise get wrong, stated so it cannot.**
 1. **`Arbiter/Scores` is not parallel to `Arbiter/SelectedCameras`.** `SelectedCameras` is a *selection* (length ≤ camera count); `Scores` is indexed by *camera index* (length = camera count). Writing them as a parallel pair is the obvious mistake and it makes the AdvantageScope join silently wrong.
-2. **`Pumpkin/Perf/Vision/ConsumeMs` is not a vision-table key.** It is listed in §7.3 because this domain publishes it, but its namespace is `Pumpkin/Perf/`. If `design/04` §3.3's table is scoped to `Pumpkin/Vision/`, row 12 belongs in the perf table instead — and that is a placement decision `design/04` owns, which is the one row of the twelve that is not purely mechanical.
+2. **`Rootstock/Perf/Vision/ConsumeMs` is not a vision-table key.** It is listed in §7.3 because this domain publishes it, but its namespace is `Rootstock/Perf/`. If `design/04` §3.3's table is scoped to `Rootstock/Vision/`, row 12 belongs in the perf table instead — and that is a placement decision `design/04` owns, which is the one row of the twelve that is not purely mechanical.
 
 **Verification condition for whoever closes C11** (run it in `design/04`, not here): every one of the twelve rows above, with rows 11 and 12 expanded to their eight and one leaf keys respectively, appears in `design/04` §3.3 with the same type and the same tier. **Nineteen leaf keys in total: ten from rows 1–10, eight from row 11, one from row 12.** Until that holds, C11 is PARTIAL and this cell says so.
 
@@ -488,36 +488,36 @@ Pumpkin/Vision/Align/NoSolveLoops          long           STANDARD   consecutive
 ## 3. Package layout
 
 ```
---- inside artifact: pumpkinlib   (the core jar: WPILib + AdvantageKit; NO photonlib) -----------
-org.pumpkinlib.vision              PumpkinVision, VisionFrame, VisionFrameHeader, TargetObservation,
+--- inside artifact: rootstock   (the core jar: WPILib + AdvantageKit; NO photonlib) -----------
+org.rootstock.vision              RootstockVision, VisionFrame, VisionFrameHeader, TargetObservation,
                                    PoseSource, CameraMount, CameraSimProfile, CameraSimProfiles
-org.pumpkinlib.vision.io           VisionCameraIO, VisionCameraIOInputs, ReplayCameraIO
-org.pumpkinlib.vision.limelight    LimelightHelpers (vendored), LimelightCameraIO, LimelightKeys,
+org.rootstock.vision.io           VisionCameraIO, VisionCameraIOInputs, ReplayCameraIO
+org.rootstock.vision.limelight    LimelightHelpers (vendored), LimelightCameraIO, LimelightKeys,
                                    LimelightCameraSpace, SnapScriptChannel
-org.pumpkinlib.vision.custom       CustomNTCameraIO, VisionWireSchema, PumpkinV1Schema, NorthstarSchema
-org.pumpkinlib.vision.filter       VisionFilter, VisionFilters, RejectReason, VisionContext, FilterResult
-org.pumpkinlib.vision.stddev       StdDevModel, StdDevModels
-org.pumpkinlib.vision.field        FieldLayouts, LayoutFingerprint, TagResidualMonitor
-org.pumpkinlib.vision.objects      DetectedObject, ObjectProjection, ObjectTracker
-org.pumpkinlib.vision.commands     VisionCommands, AlignGains, MovingTargetSolver, CameraArbiter
-org.pumpkinlib.vision.diag         VisionDiagnostics, VisionHealth, Finding
-org.pumpkinlib.vision.compat       AdvantageKitCompat  (PoseObservation-shaped views for template porting)
+org.rootstock.vision.custom       CustomNTCameraIO, VisionWireSchema, RootstockV1Schema, NorthstarSchema
+org.rootstock.vision.filter       VisionFilter, VisionFilters, RejectReason, VisionContext, FilterResult
+org.rootstock.vision.stddev       StdDevModel, StdDevModels
+org.rootstock.vision.field        FieldLayouts, LayoutFingerprint, TagResidualMonitor
+org.rootstock.vision.objects      DetectedObject, ObjectProjection, ObjectTracker
+org.rootstock.vision.commands     VisionCommands, AlignGains, MovingTargetSolver, CameraArbiter
+org.rootstock.vision.diag         VisionDiagnostics, VisionHealth, Finding
+org.rootstock.vision.compat       AdvantageKitCompat  (PoseObservation-shaped views for template porting)
 
---- artifact: pumpkinlib-photonvision      (+ photonlib vendordep) ----------------------------
-org.pumpkinlib.vision.photon       PhotonCameraIO, PhotonStrategy
-org.pumpkinlib.vision.sim          PumpkinVisionSim, PumpkinCameraProps, SimulatedLimelight
+--- artifact: rootstock-photonvision      (+ photonlib vendordep) ----------------------------
+org.rootstock.vision.photon       PhotonCameraIO, PhotonStrategy
+org.rootstock.vision.sim          RootstockVisionSim, RootstockCameraProps, SimulatedLimelight
 ```
 
-**Enforced by CI, not by intent.** A Gradle check compiles the core jar against a classpath with photonlib deliberately absent, and an ArchUnit-style test asserts that no class outside `org.pumpkinlib.vision.photon` / `org.pumpkinlib.vision.sim` imports `org.photonvision.*`. If that test ever goes red, the vendor-neutrality claim in §2.6 is a lie and the build says so. **Note that the two `org.photonvision`-bearing packages now live in the same published artifact; the package boundary is what the test checks, and it is unchanged.**
+**Enforced by CI, not by intent.** A Gradle check compiles the core jar against a classpath with photonlib deliberately absent, and an ArchUnit-style test asserts that no class outside `org.rootstock.vision.photon` / `org.rootstock.vision.sim` imports `org.photonvision.*`. If that test ever goes red, the vendor-neutrality claim in §2.6 is a lie and the build says so. **Note that the two `org.photonvision`-bearing packages now live in the same published artifact; the package boundary is what the test checks, and it is unchanged.**
 
 **Other ArchUnit rules this domain must satisfy**, all owned by `design/06` §5.3 and listed here so the vision implementer sees them before writing code rather than after CI does:
 
-- **Rule 10** — only `org.pumpkinlib.core.match` may name `edu.wpi.first.wpilibj.DriverStation`. Vision calls `MatchContext` (§9.7, §11.4, §9.3).
+- **Rule 10** — only `org.rootstock.core.match` may name `edu.wpi.first.wpilibj.DriverStation`. Vision calls `MatchContext` (§9.7, §11.4, §9.3).
 - **Rules 2 and 12** — volatile-API confinement. Vision calls `Platform.isSimulation()`, never `RobotBase.isSimulation()` (§14.4).
 - **Rule 3 / guarantee G2** — all time comes from `compat.Clock.now()` (== `Timer.getTimestamp()`), never `Timer.getFPGATimestamp()` (§14.3).
 - **Rule 1 with the D13 exception** — `org.littletonrobotics.*` is legal inside core, and `LogTable`/`LoggableInputs` are additionally legal in any `..io..` package (`design/04` §2.7), which is what makes `VisionCameraIOInputs` legal.
 
-**Java-17-safe subset only.** Records, sealed-free interfaces, `var`, arrow switch — yes. Pattern matching for `switch`, record patterns — no (they are preview in 17 and PumpkinLib must compile unchanged on the 2027 Java-25 branch).
+**Java-17-safe subset only.** Records, sealed-free interfaces, `var`, arrow switch — yes. Pattern matching for `switch`, record patterns — no (they are preview in 17 and Rootstock must compile unchanged on the 2027 Java-25 branch).
 
 ---
 
@@ -526,7 +526,7 @@ org.pumpkinlib.vision.sim          PumpkinVisionSim, PumpkinCameraProps, Simulat
 ### 4.1 `PoseSource`
 
 ```java
-package org.pumpkinlib.vision;
+package org.rootstock.vision;
 
 /** How a robot pose in a VisionFrame was produced. Drives the std-dev model and the filter chain. */
 public enum PoseSource {
@@ -545,7 +545,7 @@ public enum PoseSource {
   CONSTRAINED_SOLVEPNP(true),
   /** A custom coprocessor over NT. Trust model is whatever the schema declares. */
   CUSTOM(false),
-  /** Produced by PumpkinVisionSim. Behaves as MULTI_TAG_COPROC for std-dev purposes. */
+  /** Produced by RootstockVisionSim. Behaves as MULTI_TAG_COPROC for std-dev purposes. */
   SIM(false);
 
   private final boolean gyroFused;
@@ -561,7 +561,7 @@ public enum PoseSource {
 One target seen in one frame. A fiducial **or** a detected object — never both, but one record type so the logging, struct schema, and dashboard are written once.
 
 ```java
-package org.pumpkinlib.vision;
+package org.rootstock.vision;
 
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform3d;
@@ -649,7 +649,7 @@ public record TargetObservation(
 }
 ```
 
-**Why `boolean hasBest` + a zeroed `Transform3d` instead of a nullable field.** `Struct<T>` calls `pack(ByteBuffer, T)` unconditionally on every component; a `null` `Transform3d` NPEs inside `pack()` on the first object-detection frame, in the logging thread, at an event. Optionality on the wire is a flag byte, never a null — and the `pumpkinV1` wire schema in §6.3 already encoded it exactly this way (`uint8 hasBestCameraToTarget`). The in-library record now matches the wire schema field for field, so `TargetObservationStruct` is a mechanical transcription rather than a translation with a hole in it.
+**Why `boolean hasBest` + a zeroed `Transform3d` instead of a nullable field.** `Struct<T>` calls `pack(ByteBuffer, T)` unconditionally on every component; a `null` `Transform3d` NPEs inside `pack()` on the first object-detection frame, in the logging thread, at an event. Optionality on the wire is a flag byte, never a null — and the `rootstockV1` wire schema in §6.3 already encoded it exactly this way (`uint8 hasBestCameraToTarget`). The in-library record now matches the wire schema field for field, so `TargetObservationStruct` is a mechanical transcription rather than a translation with a hole in it.
 
 `TargetObservation` **is** fixed-size and therefore legitimately `StructSerializable`: every component is a scalar, a `Rotation2d`, a `Transform3d`, or a fixed-length `double[4]` (WPILib's struct schema supports fixed-length arrays, `double cornerTxRad[4]`). `getSize()` is a compile-time constant. Contrast §4.3.
 
@@ -657,10 +657,10 @@ public record TargetObservation(
 
 Strict superset of AdvantageKit's `PoseObservation` (dossier: adopt and generalize — this record adds `cameraIndex`, `targets`, `tagSpanMeters`, `tagIds`, and an `Optional` pose so an object-detection-only frame is representable).
 
-> **`VisionFrame` is NOT `StructSerializable`, and this is not an oversight.** WPILib's `Struct<T>` contract requires a fixed `int getSize()`. `Optional<Pose3d>`, `int[] tagIds` and `List<TargetObservation>` are all variable-length; no `getSize()` can exist. The earlier draft declared `implements StructSerializable` with a `public static final VisionFrameStruct struct` on this record, which is simply impossible — even though §6.3 of the same document had already stated the rule (*"WPILib structs cannot be variable-length, so the target list lives on its own topic"*) and had already solved it for the `pumpkinV1` wire format. We now apply that same fix to the in-library type, and the in-library header mirrors the wire schema **field for field**, in the same order, so there is exactly one layout to get right. `DESIGN.md` §5.6 records the same conclusion.
+> **`VisionFrame` is NOT `StructSerializable`, and this is not an oversight.** WPILib's `Struct<T>` contract requires a fixed `int getSize()`. `Optional<Pose3d>`, `int[] tagIds` and `List<TargetObservation>` are all variable-length; no `getSize()` can exist. The earlier draft declared `implements StructSerializable` with a `public static final VisionFrameStruct struct` on this record, which is simply impossible — even though §6.3 of the same document had already stated the rule (*"WPILib structs cannot be variable-length, so the target list lives on its own topic"*) and had already solved it for the `rootstockV1` wire format. We now apply that same fix to the in-library type, and the in-library header mirrors the wire schema **field for field**, in the same order, so there is exactly one layout to get right. `DESIGN.md` §5.6 records the same conclusion.
 
 ```java
-package org.pumpkinlib.vision;
+package org.rootstock.vision;
 
 /**
  * One frame from one camera, already transformed to the ROBOT frame, blue-origin.
@@ -709,7 +709,7 @@ public record VisionFrame(
 ```
 
 ```java
-package org.pumpkinlib.vision;
+package org.rootstock.vision;
 
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.util.struct.StructSerializable;
@@ -718,8 +718,8 @@ import edu.wpi.first.util.struct.StructSerializable;
  * The fixed-size sibling of VisionFrame. This is what actually goes on a NetworkTables topic,
  * into a DataLog, or into an AdvantageKit LogTable.
  *
- * Layout is IDENTICAL to the `PumpkinVisionFrame` wire schema in section 6.3 — same fields, same
- * order, same types — so a pumpkinV1 coprocessor's bytes and the robot's own log entries share one
+ * Layout is IDENTICAL to the `RootstockVisionFrame` wire schema in section 6.3 — same fields, same
+ * order, same types — so a rootstockV1 coprocessor's bytes and the robot's own log entries share one
  * schema string and AdvantageScope shows them in the same table.
  *
  * getSize() = 8 + 8 + 1 + Pose3d.struct.getSize() + 1 + 4 + 8 + 8 + 8 — a compile-time constant.
@@ -748,27 +748,27 @@ public record VisionFrameHeader(
 **How a loop of frames is logged.** Two topics per camera, joined by `frameSequence`:
 
 ```java
-// PumpkinVision.periodic(), after filtering camera `name`'s frames this loop:
+// RootstockVision.periodic(), after filtering camera `name`'s frames this loop:
 VisionFrameHeader[] headers = frames.stream().map(VisionFrame::header)
                                     .toArray(VisionFrameHeader[]::new);
 TargetObservation[] targets = frames.stream().flatMap(f -> f.targets().stream())
                                     .toArray(TargetObservation[]::new);
 
 // NOTE the argument order: (key, value, struct). design/04 §2.3 owns this facade.
-PumpkinLog.critical("Pumpkin/Vision/" + name + "/Frames",  headers, VisionFrameHeader.struct);
-PumpkinLog.log     ("Pumpkin/Vision/" + name + "/Targets", targets, TargetObservation.struct);
+RootstockLog.critical("Rootstock/Vision/" + name + "/Frames",  headers, VisionFrameHeader.struct);
+RootstockLog.log     ("Rootstock/Vision/" + name + "/Targets", targets, TargetObservation.struct);
 ```
 
-Both are `Struct<T>[]`, which `PumpkinLog`'s `<T> void critical(String, T[], Struct<T>)` (§2.1) already supports and which NT4 and AdvantageKit both handle natively as variable-length arrays *of fixed-size elements* — the one shape the struct system is designed for. `tagIds` is not in the header; it is recoverable from the `Targets` topic (`fiducialId` of every target with the matching `frameSequence`) and is additionally logged as a plain `long[]` on `Pumpkin/Vision/<name>/TagIds` for AdvantageScope convenience, which is also the key `design/04` §3.3 already reserves.
+Both are `Struct<T>[]`, which `RootstockLog`'s `<T> void critical(String, T[], Struct<T>)` (§2.1) already supports and which NT4 and AdvantageKit both handle natively as variable-length arrays *of fixed-size elements* — the one shape the struct system is designed for. `tagIds` is not in the header; it is recoverable from the `Targets` topic (`fiducialId` of every target with the matching `frameSequence`) and is additionally logged as a plain `long[]` on `Rootstock/Vision/<name>/TagIds` for AdvantageScope convenience, which is also the key `design/04` §3.3 already reserves.
 
-**Struct registration timing.** `DESIGN.md` §5.6 requires both vision structs to be **registered and written once during `robotInit()`**, because AdvantageKit documents the first log of a new struct as a >100 ms blocking cost. `PumpkinVision.build()` writes one zero-length array on each of the two topics before returning, so the cost lands at boot and never at match start.
+**Struct registration timing.** `DESIGN.md` §5.6 requires both vision structs to be **registered and written once during `robotInit()`**, because AdvantageKit documents the first log of a new struct as a >100 ms blocking cost. `RootstockVision.build()` writes one zero-length array on each of the two topics before returning, so the cost lands at boot and never at match start.
 
 **Reconstruction in replay** is `VisionCameraIOInputs.fromLog(...)`: read both arrays, group targets by `frameSequence`, rebuild each `VisionFrame` with `Optional.of(pose)` when `hasPose` and `Optional.empty()` otherwise. This closes open question #10 (§21): the shape is fixed-size structs on two topics, and no `LogTable` support beyond `Struct<T>[]` is needed.
 
 ### 4.4 `VisionCameraIO` and its inputs
 
 ```java
-package org.pumpkinlib.vision.io;
+package org.rootstock.vision.io;
 
 public interface VisionCameraIO extends AutoCloseable {
 
@@ -797,7 +797,7 @@ public interface VisionCameraIO extends AutoCloseable {
 
   void updateInputs(VisionCameraIOInputs inputs);
 
-  /** Camera index assigned by PumpkinVision at build time. Stamped into every VisionFrame. */
+  /** Camera index assigned by RootstockVision at build time. Stamped into every VisionFrame. */
   void setIndex(int index);
   String name();
 
@@ -821,12 +821,12 @@ public interface VisionCameraIO extends AutoCloseable {
 }
 ```
 
-**Every IO drains every frame.** `LimelightCameraIO` uses `DoubleArraySubscriber.readQueue()`; `PhotonCameraIO` uses `getAllUnreadResults()`; `CustomNTCameraIO` uses `readQueue()`. A 120 fps LL4 on a 50 Hz loop throws away >60% of its data otherwise (deep-vision elite practice #1). Note 8793's `VisionSubsystem.java` deliberately takes only `results.get(results.size()-1)` to avoid an overrun spiral — PumpkinLib solves that differently, with a per-loop **decode** cap (`maxFramesPerLoop`, default **4**) and a separate per-loop **accepted-measurement** cap (`maxAcceptedPerLoop`, default **2**) that coalesces rather than discards. The full reasoning, and why the old default of 20 was a loop-time bomb, is §9.6.
+**Every IO drains every frame.** `LimelightCameraIO` uses `DoubleArraySubscriber.readQueue()`; `PhotonCameraIO` uses `getAllUnreadResults()`; `CustomNTCameraIO` uses `readQueue()`. A 120 fps LL4 on a 50 Hz loop throws away >60% of its data otherwise (deep-vision elite practice #1). Note 8793's `VisionSubsystem.java` deliberately uses one frame per camera, walking the batch backwards to the newest frame that has targets, to avoid an overrun spiral — Rootstock solves that differently, with a per-loop **decode** cap (`maxFramesPerLoop`, default **4**) and a separate per-loop **accepted-measurement** cap (`maxAcceptedPerLoop`, default **2**) that coalesces rather than discards. The full reasoning, and why the old default of 20 was a loop-time bomb, is §9.6.
 
 ### 4.5 AdvantageKit template compatibility
 
 ```java
-package org.pumpkinlib.vision.compat;
+package org.rootstock.vision.compat;
 
 /** Lets a team port an AdvantageKit vision-template project by changing imports only. */
 public final class AdvantageKitCompat {
@@ -850,7 +850,7 @@ This section is the single most consequential page in the document. Get it wrong
 
 > `VisionFrame.timestampSeconds` is **FPGA seconds** at the **middle of exposure**.
 
-WPILib pose estimators run on FPGA time. AdvantageKit's template deliberately uses FPGA timestamps end to end so no conversion is needed; PumpkinLib does the same, reading the clock through `PumpkinLog.timestamp()` (== `compat.Clock.now()` == `Timer.getTimestamp()`, `design/04` guarantee G2). The *only* place a different time base appears is when the consumer is a CTRE `SwerveDrivetrain` — handled once, in §9.2.
+WPILib pose estimators run on FPGA time. AdvantageKit's template deliberately uses FPGA timestamps end to end so no conversion is needed; Rootstock does the same, reading the clock through `RootstockLog.timestamp()` (== `compat.Clock.now()` == `Timer.getTimestamp()`, `design/04` guarantee G2). The *only* place a different time base appears is when the consumer is a CTRE `SwerveDrivetrain` — handled once, in §9.2.
 
 ### 5.2 Limelight
 
@@ -896,13 +896,13 @@ for (TimestampedDoubleArray sample : m_botposeSub.readQueue()) {
 
 Two honest caveats we document in the Javadoc and surface in `VisionDiagnostics`:
 
-1. `sample.timestamp` is when the **server received** the value, i.e. *after* network transit. Subtracting only the camera-side latency yields a capture time that is **late by the transit time** (~1–3 ms on a wired network, far worse on a saturated radio). We log `Pumpkin/Vision/<name>/NetworkTransitEstimateSecs` as `now - sample.timestamp*1e-6` so a team can see when the number goes bad.
-2. Limelight OS 2026.0 changed to **middle-of-exposure** capture timestamps (middle row for rolling shutter). On LLOS ≤ 2025 the convention is start-of-exposure. PumpkinLib assumes 2026.0+ and raises an info-level finding if it cannot confirm the OS version. **[UNVERIFIED]** — re-checked 2026-08-08 against the complete NetworkTables reference: **there is no key that reports the Limelight OS or firmware version.** The check is a documentation item, not a runtime one. §21 OQ 1.
+1. `sample.timestamp` is when the **server received** the value, i.e. *after* network transit. Subtracting only the camera-side latency yields a capture time that is **late by the transit time** (~1–3 ms on a wired network, far worse on a saturated radio). We log `Rootstock/Vision/<name>/NetworkTransitEstimateSecs` as `now - sample.timestamp*1e-6` so a team can see when the number goes bad.
+2. Limelight OS 2026.0 changed to **middle-of-exposure** capture timestamps (middle row for rolling shutter). On LLOS ≤ 2025 the convention is start-of-exposure. Rootstock assumes 2026.0+ and raises an info-level finding if it cannot confirm the OS version. **[UNVERIFIED]** — re-checked 2026-08-08 against the complete NetworkTables reference: **there is no key that reports the Limelight OS or firmware version.** The check is a documentation item, not a runtime one. §21 OQ 1.
 
 **MegaTag2 `SetRobotOrientation` + flush ordering.** This is mandatory and order-sensitive. The key's documented layout is *"SET Robot Orientation and angular velocities in degrees and degrees per second [yaw, yawrate, pitch, pitchrate, roll, rollrate]"* (verified 2026-08-08); `LimelightHelpers.SetRobotOrientation(String limelightName, double yaw, double yawRate, double pitch, double pitchRate, double roll, double rollRate)` passes them in that order.
 
 ```java
-// LimelightCameraIO.setRobotOrientation(...) — called by PumpkinVision.periodic() BEFORE updateInputs()
+// LimelightCameraIO.setRobotOrientation(...) — called by RootstockVision.periodic() BEFORE updateInputs()
 @Override
 public void setRobotOrientation(Rotation2d yaw, double yawRateRadPerSec) {
   if (m_mode == LimelightMode.MEGATAG1) return;
@@ -933,13 +933,13 @@ Rules enforced in code, not in a README:
   and set `RejectReason.MEGATAG2_NO_ORIENTATION` on every MT2 frame. Writing it once at init produces a pose that looks fine at startup and drifts silently — that failure now names itself.
 - The write happens **before** the read, every loop, with an explicit flush between. There is still an inherent one-frame lag (the frame you read was solved with the yaw you wrote earlier); this is a property of the vendor, not a bug, and is why MegaTag2's `sigmaTheta` is pinned to `StdDevModels.UNTRUSTED_SIGMA` anyway.
 - **The yaw comes from `PoseProvider.getGyroFieldHeading()`** — raw IMU yaw plus the field offset latched at the last pose reset (§2.2). This is precisely the frame the key demands: blue-origin, CCW-positive, 0 deg facing the RED wall. A raw IMU yaw would be referenced to power-on and is never correct here; the fused estimate would close a feedback loop. There is exactly one accessor and it is neither of those things.
-- `PumpkinVision` cannot detect by reflection whether a team wired `getGyroFieldHeading()` to the fused estimate, so we defend by consequence instead: `VisionDiagnostics.GYRO_OFFSET_UNSEEDED` fires when a gyro-fused camera is configured and `PoseProvider.gyroFieldOffsetSeeded()` is false (§2.2a item 3), and `Pumpkin/Vision/GyroFieldHeadingDeg` is logged every loop next to `Pumpkin/Vision/FusedHeadingDeg` so the two curves being identical is visible in AdvantageScope in one glance.
+- `RootstockVision` cannot detect by reflection whether a team wired `getGyroFieldHeading()` to the fused estimate, so we defend by consequence instead: `VisionDiagnostics.GYRO_OFFSET_UNSEEDED` fires when a gyro-fused camera is configured and `PoseProvider.gyroFieldOffsetSeeded()` is false (§2.2a item 3), and `Rootstock/Vision/GyroFieldHeadingDeg` is logged every loop next to `Rootstock/Vision/FusedHeadingDeg` so the two curves being identical is visible in AdvantageScope in one glance.
 
-**LL4 IMU modes.** `imumode_set`, quoted verbatim from the vendor reference (verified 2026-08-08): *"Set the imumode. 0 - use external imu, 1 - use external imu, seed internal imu, 2 - use internal, 3 - use internal with MT1 assisted convergence, 4 - use internal IMU with external IMU assisted convergence."* Set through `LimelightHelpers.SetIMUMode(String, int)`. PumpkinLib default for LL4 is **mode 4**, set once at construction and re-asserted every 5 s (configs are lost across a camera reboot). `imuassistalpha_set` — *"Complementary filter alpha / strength. Higher values will cause the internal imu to converge on assist source more rapidly"* — via `LimelightHelpers.SetIMUAssistAlpha(String, double)`, default 0.001.
+**LL4 IMU modes.** `imumode_set`, quoted verbatim from the vendor reference (verified 2026-08-08): *"Set the imumode. 0 - use external imu, 1 - use external imu, seed internal imu, 2 - use internal, 3 - use internal with MT1 assisted convergence, 4 - use internal IMU with external IMU assisted convergence."* Set through `LimelightHelpers.SetIMUMode(String, int)`. Rootstock default for LL4 is **mode 4**, set once at construction and re-asserted every 5 s (configs are lost across a camera reboot). `imuassistalpha_set` — *"Complementary filter alpha / strength. Higher values will cause the internal imu to converge on assist source more rapidly"* — via `LimelightHelpers.SetIMUAssistAlpha(String, double)`, default 0.001.
 
 **Limelight also publishes its own std devs.** The `stddevs` key is documented as *"MegaTag Standard Deviations [MT1x, MT1y, MT1z, MT1roll, MT1pitch, MT1Yaw, MT2x, MT2y, MT2z, MT2roll, MT2pitch, MT2yaw]"* — a 12-element array (verified 2026-08-08). We read it into `VisionCameraIOInputs` and expose it via `StdDevModels.limelightReported()` as an *option*, but it is not the default — the distance²/tag-count model is better characterized across the community, and whether these numbers are in the same statistical sense as WPILib's `visionMeasurementStdDevs` is **[UNVERIFIED]** (§21 OQ 9).
 
-**The `imu` key.** Documented as *"IMU data output [robot_yaw, roll, pitch, internal_yaw, roll_rate, pitch_rate, yaw_rate, accel_x, accel_y, accel_z] (10 elements). Angles in degrees, rates in deg/s."* `LimelightCameraIO.imuData()` exposes `LimelightHelpers.IMUData` as an escape hatch; PumpkinLib does not consume it in the pose path.
+**The `imu` key.** Documented as *"IMU data output [robot_yaw, roll, pitch, internal_yaw, roll_rate, pitch_rate, yaw_rate, accel_x, accel_y, accel_z] (10 elements). Angles in degrees, rates in deg/s."* `LimelightCameraIO.imuData()` exposes `LimelightHelpers.IMUData` as an escape hatch; Rootstock does not consume it in the pose path.
 
 ### 5.2a Limelight camera space is not WPILib camera space — the basis change, written out
 
@@ -957,7 +957,7 @@ Verified 2026-08-08 against Limelight's *AprilTag Coordinate Systems* page and i
 **The translation basis change is unambiguous and is specified now:**
 
 ```java
-package org.pumpkinlib.vision.limelight;
+package org.rootstock.vision.limelight;
 
 /** The single translation point between Limelight camera space and WPILib camera space. */
 public final class LimelightCameraSpace {
@@ -1033,14 +1033,14 @@ No arithmetic. **Do not** recompute from `result.metadata` — PhotonVision alre
 
 ### 5.4 Custom NT coprocessors
 
-The coprocessor must publish **middle-of-exposure time converted into NT server time**. This is where homebrew systems die. PumpkinLib's Python helper (`pumpkin_vision` on PyPI) exposes:
+The coprocessor must publish **middle-of-exposure time converted into NT server time**. This is where homebrew systems die. Rootstock's Python helper (`rootstock_vision` on PyPI) exposes:
 
 ```python
-from pumpkin_vision import VisionPublisher, nt_now_us
+from rootstock_vision import VisionPublisher, nt_now_us
 # nt_now_us() resolves camera monotonic time -> NT server time using the NT4 time-sync offset.
 ```
 
-On the robot side, a `pumpkinV1` frame carries its own `captureTimestampMicros` in NT server time; we convert with `* 1e-6` and do not subtract anything. For the Northstar back-compat decoder we use the NT sample timestamp minus the coprocessor-declared latency, exactly as 6328 do.
+On the robot side, a `rootstockV1` frame carries its own `captureTimestampMicros` in NT server time; we convert with `* 1e-6` and do not subtract anything. For the Northstar back-compat decoder we use the NT sample timestamp minus the coprocessor-declared latency, exactly as 6328 do.
 
 `VisionFilters.timestampSane(...)` (§7) is the backstop: a frame whose timestamp is in the future, or older than the odometry buffer, is rejected with a named reason and counted, instead of silently no-op'ing inside `addVisionMeasurement`.
 
@@ -1051,7 +1051,7 @@ On the robot side, a `pumpkinV1` frame carries its own `captureTimestampMicros` 
 ### 6.1 `LimelightCameraIO`
 
 ```java
-package org.pumpkinlib.vision.limelight;
+package org.rootstock.vision.limelight;
 
 public final class LimelightCameraIO implements VisionCameraIO {
 
@@ -1081,7 +1081,7 @@ public final class LimelightCameraIO implements VisionCameraIO {
   public LimelightCameraIO withDetectorPipeline(int index);         // enables object-detection decode
   public LimelightCameraIO withMaxFramesPerLoop(int max);           // default 4 — see section 9.6
   /**
-   * Attach a sim twin. No-op on a real robot, and no-op when pumpkinlib-photonvision is absent
+   * Attach a sim twin. No-op on a real robot, and no-op when rootstock-photonvision is absent
    * (named Alert, §2.6). Takes the CORE-owned CameraSimProfile, never photonlib's
    * SimCameraProperties — that is what keeps this artifact photonlib-free. See §14.2.
    */
@@ -1116,14 +1116,14 @@ m_pipelinePub= t.getIntegerTopic("pipeline").publish();
 
 `hb` is documented as *"heartbeat value. Increases once per frame, resets at 2 billion"* and `getpipe` as *"True active pipeline index of the camera (0 .. 9)"* (verified 2026-08-08). The heartbeat wrap at 2e9 is handled: `pipelineSettled` compares a *delta* and treats a negative delta as "wrapped, therefore advanced."
 
-**Per-tag decode.** From index 11, stride 7, we emit a `TargetObservation.fiducial(...)` per tag with `tx` **negated** (Limelight `txnc` is right-positive; PumpkinLib is CCW-positive). `bestCameraToTarget` is `Optional.empty()` for botpose-derived targets — which becomes `hasBestCameraToTarget == false` and a zeroed `Transform3d`, never a null (§4.2). When `LimelightCameraIO` needs the transform for `TagResidualMonitor` or for `VisionCommands.alignToTag` it reads `targetpose_cameraspace` **for the primary tag only** (the key is documented as *"the primary in-view AprilTag"*), converts it through `LimelightCameraSpace` (§5.2a), and passes `Optional.of(...)` on that one target. The primary tag is the one `tid` reports.
+**Per-tag decode.** From index 11, stride 7, we emit a `TargetObservation.fiducial(...)` per tag with `tx` **negated** (Limelight `txnc` is right-positive; Rootstock is CCW-positive). `bestCameraToTarget` is `Optional.empty()` for botpose-derived targets — which becomes `hasBestCameraToTarget == false` and a zeroed `Transform3d`, never a null (§4.2). When `LimelightCameraIO` needs the transform for `TagResidualMonitor` or for `VisionCommands.alignToTag` it reads `targetpose_cameraspace` **for the primary tag only** (the key is documented as *"the primary in-view AprilTag"*), converts it through `LimelightCameraSpace` (§5.2a), and passes `Optional.of(...)` on that one target. The primary tag is the one `tid` reports.
 
 **Pipeline switching with settle detection.**
 
 ```java
 @Override public void setPipeline(int index) {
   m_pipelinePub.set(index);
-  m_pipelineRequestedAt = PumpkinLog.timestamp();
+  m_pipelineRequestedAt = RootstockLog.timestamp();
   m_pipelineRequestHeartbeat = m_hbSub.get();
   m_pipelineRequested = index;
 }
@@ -1133,7 +1133,7 @@ m_pipelinePub= t.getIntegerTopic("pipeline").publish();
 }
 ```
 
-**[UNVERIFIED]** — the exact number of frames a Limelight pipeline switch costs is not documented anywhere (re-checked 2026-08-08). `SETTLE_FRAMES = 3` is a conservative default; `LimelightCameraIO` measures the observed settle time on every switch and logs it to `Pumpkin/Vision/<name>/PipelineSettleSecs`, so a team can see the real number for their hardware instead of trusting ours. §21 OQ 3.
+**[UNVERIFIED]** — the exact number of frames a Limelight pipeline switch costs is not documented anywhere (re-checked 2026-08-08). `SETTLE_FRAMES = 3` is a conservative default; `LimelightCameraIO` measures the observed settle time on every switch and logs it to `Rootstock/Vision/<name>/PipelineSettleSecs`, so a team can see the real number for their hardware instead of trusting ours. §21 OQ 3.
 
 **Also note:** `snapshot` is documented as *"Takes a snapshot. Increment this value to trigger a capture (e.g., 0→1→2→3). Rate-limited to once every 10 frames"* (verified 2026-08-08) — a rising-edge counter, not a level. `LimelightCameraIO.triggerSnapshot()` increments; code that sets it to 1 and leaves it captures once and then stops.
 
@@ -1156,7 +1156,7 @@ PhotonVision 2026 **deprecated** the `PoseStrategy` enum + `PhotonPoseEstimator.
 >
 > **Root cause, and the process fix.** Revision 2 cited `javadocs.photonvision.org/release/...`. As of 2026-08-08 that URL serves **PhotonVision v2027.0.0-alpha-2**, in which the deprecated members really are gone — so the claim was true of a version we do not target and false of the one we do. A floating `/release/` URL is not a citation. **Every vendor claim in this document is now pinned to an immutable git tag or to a vendor reference page that is itself versioned**, and `[UNVERIFIED]` is used where neither exists. This is the same defect class as the review's B2/B5 findings in `design/01`, arriving through a different door.
 >
-> **What is unchanged:** the two-argument constructor exists and is the non-deprecated one; the eight explicit estimator entry points exist with exactly the signatures below; `addHeadingData(double, Rotation2d)` / `addHeadingData(double, Rotation3d)` and `resetHeadingData(double, Rotation2d)` / `resetHeadingData(double, Rotation3d)` exist and are not deprecated. **PumpkinLib's design does not change** — we already used only the non-deprecated surface. What changes is what we may *claim*, and the migration advice we give.
+> **What is unchanged:** the two-argument constructor exists and is the non-deprecated one; the eight explicit estimator entry points exist with exactly the signatures below; `addHeadingData(double, Rotation2d)` / `addHeadingData(double, Rotation3d)` and `resetHeadingData(double, Rotation2d)` / `resetHeadingData(double, Rotation3d)` exist and are not deprecated. **Rootstock's design does not change** — we already used only the non-deprecated surface. What changes is what we may *claim*, and the migration advice we give.
 
 The eight estimation entry points, all returning `Optional<EstimatedRobotPose>`, verified at tag `v2026.3.4`:
 
@@ -1167,7 +1167,7 @@ The eight estimation entry points, all returning `Optional<EstimatedRobotPose>`,
 `PhotonStrategy` below covers all eight explicit methods — the earlier draft omitted `estimateClosestToReferencePose`, which is now present with a documented reason why it is not a default.
 
 ```java
-package org.pumpkinlib.vision.photon;
+package org.rootstock.vision.photon;
 
 public final class PhotonCameraIO implements VisionCameraIO {
 
@@ -1183,7 +1183,7 @@ public final class PhotonCameraIO implements VisionCameraIO {
     CLOSEST_TO_CAMERA_HEIGHT,
     /**
      * estimateClosestToReferencePose(result, Pose3d referencePose) — picks the PnP solution nearest
-     * a supplied reference. PumpkinLib supplies the CURRENT pose estimate at the frame's capture
+     * a supplied reference. Rootstock supplies the CURRENT pose estimate at the frame's capture
      * time, i.e. `new Pose3d(ctx.estimateAtCapture().orElse(ctx.currentEstimate()))`. This is also
      * the migration target for the deprecated CLOSEST_TO_LAST_POSE strategy.
      *
@@ -1239,7 +1239,7 @@ PhotonCameraIO(String name, Transform3d robotToCamera, AprilTagFieldLayout layou
   // `yaw` is PoseProvider.getGyroFieldHeading() — blue-origin, never the fused estimate (section 2.2).
   // Verified overloads: addHeadingData(double, Rotation2d) and addHeadingData(double, Rotation3d),
   // plus resetHeadingData(double, Rotation2d|Rotation3d) which we call on a pose reset. None deprecated.
-  m_estimator.addHeadingData(PumpkinLog.timestamp(), yaw);
+  m_estimator.addHeadingData(RootstockLog.timestamp(), yaw);
   m_headingWrites++;
 }
 
@@ -1329,7 +1329,7 @@ for (PhotonTrackedTarget t : result.getTargets()) {
 ### 6.3 `CustomNTCameraIO` and the wire schema
 
 ```java
-package org.pumpkinlib.vision.custom;
+package org.rootstock.vision.custom;
 
 public interface VisionWireSchema {
   /** Called once at construction to create subscribers. */
@@ -1338,7 +1338,7 @@ public interface VisionWireSchema {
   List<VisionFrame> drain(Transform3d robotToCamera, AprilTagFieldLayout layout);
   String schemaName();
 
-  static VisionWireSchema pumpkinV1()      { return new PumpkinV1Schema(); }
+  static VisionWireSchema rootstockV1()      { return new RootstockV1Schema(); }
   static VisionWireSchema northstar2026()  { return new NorthstarSchema(); }
 }
 
@@ -1351,23 +1351,23 @@ public final class CustomNTCameraIO implements VisionCameraIO {
 }
 ```
 
-**`pumpkinV1` NT layout.** Struct-serialized, versioned, self-describing — the thing nobody in FRC has built. WPILib 2026 has first-class `Struct<T>` on NetworkTables; we use it.
+**`rootstockV1` NT layout.** Struct-serialized, versioned, self-describing — the thing nobody in FRC has built. WPILib 2026 has first-class `Struct<T>` on NetworkTables; we use it.
 
 ```
-/pumpkin_vision/<name>/schema        string   "pumpkin-vision/1"
-/pumpkin_vision/<name>/frames        struct[]:PumpkinVisionFrame     (sendAll, keepDuplicates, pollStorage 20, periodic 0.01)
-/pumpkin_vision/<name>/targets       struct[]:PumpkinTargetObservation
-/pumpkin_vision/<name>/heartbeat     int
-/pumpkin_vision/<name>/fps           double
-/pumpkin_vision/<name>/health        struct:CoprocHealth   (cpuTempC, cpuPct, ramPct, uptimeS)
-/pumpkin_vision/<name>/layout_hash   string    <- coprocessor's loaded tag layout fingerprint. See section 10.4.
-/pumpkin_vision/<name>/config/*      published DOWN by robot code
+/rootstock_vision/<name>/schema        string   "rootstock-vision/1"
+/rootstock_vision/<name>/frames        struct[]:RootstockVisionFrame     (sendAll, keepDuplicates, pollStorage 20, periodic 0.01)
+/rootstock_vision/<name>/targets       struct[]:RootstockTargetObservation
+/rootstock_vision/<name>/heartbeat     int
+/rootstock_vision/<name>/fps           double
+/rootstock_vision/<name>/health        struct:CoprocHealth   (cpuTempC, cpuPct, ramPct, uptimeS)
+/rootstock_vision/<name>/layout_hash   string    <- coprocessor's loaded tag layout fingerprint. See section 10.4.
+/rootstock_vision/<name>/config/*      published DOWN by robot code
 ```
 
-Struct schemas (fixed-size — WPILib structs cannot be variable-length, so the target list lives on its own topic and links back by `frameSequence`). **These are the same two schemas the robot logs its own frames with**: `PumpkinVisionFrame` ≡ `VisionFrameHeader` (§4.3) and `PumpkinTargetObservation` ≡ `TargetObservation` (§4.2), field for field, in this order. One layout, one schema string, one place to get it right.
+Struct schemas (fixed-size — WPILib structs cannot be variable-length, so the target list lives on its own topic and links back by `frameSequence`). **These are the same two schemas the robot logs its own frames with**: `RootstockVisionFrame` ≡ `VisionFrameHeader` (§4.3) and `RootstockTargetObservation` ≡ `TargetObservation` (§4.2), field for field, in this order. One layout, one schema string, one place to get it right.
 
 ```
-PumpkinVisionFrame:      // == org.pumpkinlib.vision.VisionFrameHeader
+RootstockVisionFrame:      // == org.rootstock.vision.VisionFrameHeader
   int64  frameSequence;
   double captureTimestampSeconds;   // NT server time base, MIDDLE OF EXPOSURE
   uint8  hasPose;
@@ -1378,7 +1378,7 @@ PumpkinVisionFrame:      // == org.pumpkinlib.vision.VisionFrameHeader
   double tagSpanMeters;
   double ambiguity;
 
-PumpkinTargetObservation:  // == org.pumpkinlib.vision.TargetObservation
+RootstockTargetObservation:  // == org.rootstock.vision.TargetObservation
   int64  frameSequence;             // links to the frame above
   int32  fiducialId;
   int32  objectClassId;
@@ -1434,7 +1434,7 @@ public final class ReplayCameraIO implements VisionCameraIO {
   @Override public void updateInputs(VisionCameraIOInputs inputs) { /* intentionally empty */ }
 }
 ```
-All fields are overwritten by `PumpkinLog.processInputs` in replay. This is the AdvantageKit `new VisionIO(){}` convention, named so it is discoverable.
+All fields are overwritten by `RootstockLog.processInputs` in replay. This is the AdvantageKit `new VisionIO(){}` convention, named so it is discoverable.
 
 ---
 
@@ -1456,7 +1456,7 @@ When a small team's robot teleports at an event, that expression tells them noth
 ### 7.1 Types
 
 ```java
-package org.pumpkinlib.vision.filter;
+package org.rootstock.vision.filter;
 
 public enum RejectReason {
   ACCEPTED,
@@ -1543,7 +1543,7 @@ public interface VisionFilter {
 Every threshold is a `TuningRegistry.tunable("Vision", ...)` (§2.3) so it is adjustable at the field without a redeploy, and frozen at competition by `FmsPolicy.tunablesLocked()`.
 
 ```java
-package org.pumpkinlib.vision.filter;
+package org.rootstock.vision.filter;
 
 public final class VisionFilters {
 
@@ -1557,7 +1557,7 @@ public final class VisionFilters {
   public static VisionFilter tagsInLayout();
 
   /** Single-tag frames only: reject when ambiguity > max. AdvantageKit 0.3; Limelight MT1 docs 0.7;
-   *  8793 VisionSubsystem 0.2. PumpkinLib default 0.3. Multi-tag and gyro-fused frames pass. */
+   *  8793 VisionSubsystem 0.2. Rootstock default 0.3. Multi-tag and gyro-fused frames pass. */
   public static VisionFilter maxAmbiguitySingleTag(double max);
 
   /** 6328's approach, and better than a bare threshold: require one PnP solution to be decisively
@@ -1567,7 +1567,7 @@ public final class VisionFilters {
   /** Pose inside [ -margin, fieldLength+margin ] x [ -margin, fieldWidth+margin ]. 6328 use 0.5 m. */
   public static VisionFilter withinField(double marginMeters);
 
-  /** 6328: zMin -0.5, zMax 1.0. AdvantageKit: |z| < 0.75. PumpkinLib default -0.30 .. 0.50. */
+  /** 6328: zMin -0.5, zMax 1.0. AdvantageKit: |z| < 0.75. Rootstock default -0.30 .. 0.50. */
   public static VisionFilter zRange(double minZ, double maxZ);
 
   /** Roll/pitch sanity. A robot is never rolled 40 deg. Default 15 deg each. */
@@ -1648,61 +1648,61 @@ Two implementation notes that matter:
 
 ### 7.3 What gets logged
 
-Per camera, per loop. The namespace is `Pumpkin/Vision/<name>/`, which `design/04` §3.3 owns; `<name>` is `VisionCameraIO.name()`. Tier column is `design/04`'s three-tier model.
+Per camera, per loop. The namespace is `Rootstock/Vision/<name>/`, which `design/04` §3.3 owns; `<name>` is `VisionCameraIO.name()`. Tier column is `design/04`'s three-tier model.
 
 ```
-Pumpkin/Vision/<name>/Frames               struct[]:VisionFrameHeader  CRITICAL  fixed-size headers, this loop
-Pumpkin/Vision/<name>/Targets              struct[]:TargetObservation  STANDARD  joined to Frames by frameSequence
-Pumpkin/Vision/<name>/TagIds               long[]     CRITICAL   convenience view for AdvantageScope
-Pumpkin/Vision/<name>/RobotPoses           Pose3d[]   STANDARD   every frame that carried a pose
-Pumpkin/Vision/<name>/RobotPosesAccepted   Pose3d[]   CRITICAL
-Pumpkin/Vision/<name>/RobotPosesRejected   Pose3d[]   STANDARD
-Pumpkin/Vision/<name>/TagPoses             Pose3d[]   DEBUG      layout poses of tags seen this loop (supplier-gated)
-Pumpkin/Vision/<name>/RejectReasons        String[]   CRITICAL   one per frame, parallel to RobotPoses
-Pumpkin/Vision/<name>/RejectDetail         String[]   STANDARD   e.g. "z=0.83 m outside [-0.30, 0.50]"
-Pumpkin/Vision/<name>/RejectCounts/<REASON> long      STANDARD   cumulative since boot
-Pumpkin/Vision/<name>/AcceptRate           double     STANDARD   rolling 5 s
-Pumpkin/Vision/<name>/CoalescedCount       long       STANDARD   accepted frames merged away by maxAcceptedPerLoop (9.6)
-Pumpkin/Vision/<name>/DecodeDroppedCount   long       STANDARD   frames left undecoded by maxFramesPerLoop (9.6)
-Pumpkin/Vision/<name>/StdDevs              double[3]  STANDARD (Demotable)  sigma actually handed to the estimator
-Pumpkin/Vision/<name>/Fps                  double     CRITICAL
-Pumpkin/Vision/<name>/LatencySec           double     CRITICAL   now - frame.timestampSeconds, per accepted frame
-Pumpkin/Vision/<name>/NetworkTransitEstimateSecs double STANDARD  §5.2 caveat 1
-Pumpkin/Vision/<name>/PipelineSettleSecs   double     STANDARD   measured, not assumed (§6.1)
-Pumpkin/Vision/<name>/Connected            boolean    CRITICAL
-Pumpkin/Vision/<name>/RobotToCamera        Transform3d STANDARD  logged on change
-Pumpkin/Vision/GyroFieldHeadingDeg         double     CRITICAL   PoseProvider.getGyroFieldHeading()
-Pumpkin/Vision/FusedHeadingDeg             double     CRITICAL   PoseProvider.getPose().getRotation()
-Pumpkin/Vision/AcceptedThisCycle           long       CRITICAL
-Pumpkin/Vision/UptimeFraction              double     STANDARD
-Pumpkin/Vision/AnyCameraOffline            boolean    CRITICAL
-Pumpkin/Vision/Summary/CoalescedCount      long       STANDARD
-Pumpkin/Vision/Summary/RejectCounts/<REASON> long     STANDARD
-Pumpkin/Vision/Summary/DominantRejectReason String    CRITICAL   most common non-ACCEPTED reason in the last 5 s
-Pumpkin/Vision/Arbiter/SelectedCameras     long[]     STANDARD   which cameras relocalized this loop (13.6)
-Pumpkin/Vision/Arbiter/Scores              double[]   STANDARD   per-camera geometry score (13.6)
-Pumpkin/Vision/Arbiter/SuppressedCount     long       STANDARD
-Pumpkin/Vision/Seed/Count                  long       CRITICAL   disabled multi-tag pose seeds issued (9.7)
-Pumpkin/Vision/Seed/LastSeedPose           Pose2d     CRITICAL
-Pumpkin/Vision/Seed/LastSeedSource         String     CRITICAL
-Pumpkin/Vision/Seed/RejectedNoAgree        long       STANDARD
-Pumpkin/Vision/Align/TagId                 long       CRITICAL   active alignToTag lock (13.5)
-Pumpkin/Vision/Align/ErrorMeters           double     CRITICAL   TAG-RELATIVE error, not fused-pose error
-Pumpkin/Vision/Align/ErrorDegrees          double     CRITICAL
-Pumpkin/Vision/Align/CommandedRobotSpeeds  ChassisSpeeds CRITICAL  what we actually sent (§13.4.1)
-Pumpkin/Vision/Align/ProfileVelocity       double     STANDARD   ProfiledPIDController.getSetpoint().velocity
-Pumpkin/Vision/Align/ObservationAgeSecs    double     STANDARD
-Pumpkin/Vision/Align/NoSolveLoops          long       STANDARD
-Pumpkin/Perf/Vision/ConsumeMs              double     STANDARD   PumpkinTracer budget, 2.0 ms (9.6)
+Rootstock/Vision/<name>/Frames               struct[]:VisionFrameHeader  CRITICAL  fixed-size headers, this loop
+Rootstock/Vision/<name>/Targets              struct[]:TargetObservation  STANDARD  joined to Frames by frameSequence
+Rootstock/Vision/<name>/TagIds               long[]     CRITICAL   convenience view for AdvantageScope
+Rootstock/Vision/<name>/RobotPoses           Pose3d[]   STANDARD   every frame that carried a pose
+Rootstock/Vision/<name>/RobotPosesAccepted   Pose3d[]   CRITICAL
+Rootstock/Vision/<name>/RobotPosesRejected   Pose3d[]   STANDARD
+Rootstock/Vision/<name>/TagPoses             Pose3d[]   DEBUG      layout poses of tags seen this loop (supplier-gated)
+Rootstock/Vision/<name>/RejectReasons        String[]   CRITICAL   one per frame, parallel to RobotPoses
+Rootstock/Vision/<name>/RejectDetail         String[]   STANDARD   e.g. "z=0.83 m outside [-0.30, 0.50]"
+Rootstock/Vision/<name>/RejectCounts/<REASON> long      STANDARD   cumulative since boot
+Rootstock/Vision/<name>/AcceptRate           double     STANDARD   rolling 5 s
+Rootstock/Vision/<name>/CoalescedCount       long       STANDARD   accepted frames merged away by maxAcceptedPerLoop (9.6)
+Rootstock/Vision/<name>/DecodeDroppedCount   long       STANDARD   frames left undecoded by maxFramesPerLoop (9.6)
+Rootstock/Vision/<name>/StdDevs              double[3]  STANDARD (Demotable)  sigma actually handed to the estimator
+Rootstock/Vision/<name>/Fps                  double     CRITICAL
+Rootstock/Vision/<name>/LatencySec           double     CRITICAL   now - frame.timestampSeconds, per accepted frame
+Rootstock/Vision/<name>/NetworkTransitEstimateSecs double STANDARD  §5.2 caveat 1
+Rootstock/Vision/<name>/PipelineSettleSecs   double     STANDARD   measured, not assumed (§6.1)
+Rootstock/Vision/<name>/Connected            boolean    CRITICAL
+Rootstock/Vision/<name>/RobotToCamera        Transform3d STANDARD  logged on change
+Rootstock/Vision/GyroFieldHeadingDeg         double     CRITICAL   PoseProvider.getGyroFieldHeading()
+Rootstock/Vision/FusedHeadingDeg             double     CRITICAL   PoseProvider.getPose().getRotation()
+Rootstock/Vision/AcceptedThisCycle           long       CRITICAL
+Rootstock/Vision/UptimeFraction              double     STANDARD
+Rootstock/Vision/AnyCameraOffline            boolean    CRITICAL
+Rootstock/Vision/Summary/CoalescedCount      long       STANDARD
+Rootstock/Vision/Summary/RejectCounts/<REASON> long     STANDARD
+Rootstock/Vision/Summary/DominantRejectReason String    CRITICAL   most common non-ACCEPTED reason in the last 5 s
+Rootstock/Vision/Arbiter/SelectedCameras     long[]     STANDARD   which cameras relocalized this loop (13.6)
+Rootstock/Vision/Arbiter/Scores              double[]   STANDARD   per-camera geometry score (13.6)
+Rootstock/Vision/Arbiter/SuppressedCount     long       STANDARD
+Rootstock/Vision/Seed/Count                  long       CRITICAL   disabled multi-tag pose seeds issued (9.7)
+Rootstock/Vision/Seed/LastSeedPose           Pose2d     CRITICAL
+Rootstock/Vision/Seed/LastSeedSource         String     CRITICAL
+Rootstock/Vision/Seed/RejectedNoAgree        long       STANDARD
+Rootstock/Vision/Align/TagId                 long       CRITICAL   active alignToTag lock (13.5)
+Rootstock/Vision/Align/ErrorMeters           double     CRITICAL   TAG-RELATIVE error, not fused-pose error
+Rootstock/Vision/Align/ErrorDegrees          double     CRITICAL
+Rootstock/Vision/Align/CommandedRobotSpeeds  ChassisSpeeds CRITICAL  what we actually sent (§13.4.1)
+Rootstock/Vision/Align/ProfileVelocity       double     STANDARD   ProfiledPIDController.getSetpoint().velocity
+Rootstock/Vision/Align/ObservationAgeSecs    double     STANDARD
+Rootstock/Vision/Align/NoSolveLoops          long       STANDARD
+Rootstock/Perf/Vision/ConsumeMs              double     STANDARD   RootstockTracer budget, 2.0 ms (9.6)
 ```
 
-`Pumpkin/Vision/GyroFieldHeadingDeg` and `Pumpkin/Vision/FusedHeadingDeg` are logged side by side deliberately: if a team miswires `getGyroFieldHeading()` to the pose estimator, the two traces are identical in AdvantageScope and the MegaTag2 feedback loop is visible in one glance instead of being invisible forever.
+`Rootstock/Vision/GyroFieldHeadingDeg` and `Rootstock/Vision/FusedHeadingDeg` are logged side by side deliberately: if a team miswires `getGyroFieldHeading()` to the pose estimator, the two traces are identical in AdvantageScope and the MegaTag2 feedback loop is visible in one glance instead of being invisible forever.
 
-**Honest cost of the namespace change.** Revision 3 named these keys `Vision/Camera<i>/...`, *exactly* as the AdvantageKit template does, and claimed existing AdvantageScope layouts would port unchanged. Under binding **D9/D22** the telemetry domain owns the schema and it is `Pumpkin/**`, so that claim is now weaker and is restated accurately: **porting an AdvantageKit vision layout is a prefix edit** (`Vision/Camera0/` → `Pumpkin/Vision/front-left/`), not a no-op. The leaf names are still identical, which is the part that actually saves work, and `Pumpkin/Vision/CameraIndex/<name>` (long) is published once at boot so the index↔name mapping is answerable from the log.
+**Honest cost of the namespace change.** Revision 3 named these keys `Vision/Camera<i>/...`, *exactly* as the AdvantageKit template does, and claimed existing AdvantageScope layouts would port unchanged. Under binding **D9/D22** the telemetry domain owns the schema and it is `Rootstock/**`, so that claim is now weaker and is restated accurately: **porting an AdvantageKit vision layout is a prefix edit** (`Vision/Camera0/` → `Rootstock/Vision/front-left/`), not a no-op. The leaf names are still identical, which is the part that actually saves work, and `Rootstock/Vision/CameraIndex/<name>` (long) is published once at boot so the index↔name mapping is answerable from the log.
 
-`Pumpkin/Vision/<name>/RobotPoses*` and `Pumpkin/Vision/Summary` keep the AdvantageKit leaf names for that reason.
+`Rootstock/Vision/<name>/RobotPoses*` and `Rootstock/Vision/Summary` keep the AdvantageKit leaf names for that reason.
 
-The driver-dashboard widget (owned by the telemetry domain, fed by us) shows a per-camera reject-reason histogram. `PumpkinVision.rejectCounts(int cameraIndex)` returns `Map<RejectReason, Long>` for anyone who wants it in code.
+The driver-dashboard widget (owned by the telemetry domain, fed by us) shows a per-camera reject-reason histogram. `RootstockVision.rejectCounts(int cameraIndex)` returns `Map<RejectReason, Long>` for anyone who wants it in code.
 
 ---
 
@@ -1734,14 +1734,14 @@ Both of these were review findings, and both are the kind of bug that quietly en
 
 > **Rule 2: the per-camera factor is applied BEFORE the untrusted-theta override, never after.**
 >
-> Ordering is not cosmetic. Scaling first and pinning second means the pin is the last word and a factor of `0`, `1e9`, or `NaN` cannot corrupt it. Scaling second means the tunable multiplies a sentinel. The `bySource` / `scaledBy` / `withLatencyPenalty` decorators are therefore all applied **inside** `compute`, and the override is applied **outside**, in `PumpkinVision`, where no user code can reorder it.
+> Ordering is not cosmetic. Scaling first and pinning second means the pin is the last word and a factor of `0`, `1e9`, or `NaN` cannot corrupt it. Scaling second means the tunable multiplies a sentinel. The `bySource` / `scaledBy` / `withLatencyPenalty` decorators are therefore all applied **inside** `compute`, and the override is applied **outside**, in `RootstockVision`, where no user code can reorder it.
 
 ### 8.1 Interface
 
 The model writes into a caller-owned matrix. It does not allocate.
 
 ```java
-package org.pumpkinlib.vision.stddev;
+package org.rootstock.vision.stddev;
 
 @FunctionalInterface
 public interface StdDevModel {
@@ -1750,7 +1750,7 @@ public interface StdDevModel {
    *
    * <p>OUT-PARAMETER, not a return value, and this is deliberate on two counts. (1) The zero-
    * allocation CI gate: at up to `maxFramesPerLoop` frames per camera per loop, returning a fresh
-   * `Matrix<N3,N1>` allocates on the hot path every frame. `PumpkinVision` hands each camera a
+   * `Matrix<N3,N1>` allocates on the hot path every frame. `RootstockVision` hands each camera a
    * preallocated `Matrix<N3,N1>` and reuses it. (2) Aliasing safety: the previous
    * `Matrix<N3,N1> compute(...)` shape let `withAngularDisabled()` mutate whatever the wrapped
    * model returned — including a cached or shared matrix — which corrupts state for every other
@@ -1791,7 +1791,7 @@ public interface StdDevModel {
 }
 ```
 
-### 8.2 The default — `StdDevModels.pumpkinDefault()`
+### 8.2 The default — `StdDevModels.rootstockDefault()`
 
 Note the order: **scale, then pin.** Never the reverse.
 
@@ -1831,10 +1831,10 @@ This is the AdvantageKit 2026 template's model, with the infinity replaced by a 
 
 ### 8.3 The final guard — the last thing before the estimator sees a number
 
-No matter what model, decorator, tunable, or user escape hatch produced the matrix, the `VisionConsumer` wrapper inside `PumpkinVision` checks it. This is the single choke point through which every vision measurement passes.
+No matter what model, decorator, tunable, or user escape hatch produced the matrix, the `VisionConsumer` wrapper inside `RootstockVision` checks it. This is the single choke point through which every vision measurement passes.
 
 ```java
-// PumpkinVision, wrapping the team's VisionConsumer. Runs for EVERY accepted frame.
+// RootstockVision, wrapping the team's VisionConsumer. Runs for EVERY accepted frame.
 private boolean sanitizeStdDevs(Matrix<N3, N1> sd, int cameraIndex) {
   for (int i = 0; i < 3; i++) {
     double s = sd.get(i, 0);
@@ -1852,7 +1852,7 @@ private boolean sanitizeStdDevs(Matrix<N3, N1> sd, int cameraIndex) {
 Three properties worth stating explicitly:
 
 1. **`NaN` and `Infinity` cannot reach `addVisionMeasurement`.** They become a named, counted rejection with the offending value printed, which is exactly the "zero-mystery debugging" contract the rest of this document is built on.
-2. **The clamp is silent-but-logged, not silent.** `Pumpkin/Vision/<name>/StdDevs` logs the post-clamp vector every accepted frame, so a team that has tuned `cameraFactor` into a corner can see it.
+2. **The clamp is silent-but-logged, not silent.** `Rootstock/Vision/<name>/StdDevs` logs the post-clamp vector every accepted frame, so a team that has tuned `cameraFactor` into a corner can see it.
 3. **This runs after every escape hatch**, including `allowVisionHeadingFromGyroFusedSources(true)`. There is no supported path around it. `StdDevNaNGuardTest` asserts that a deliberately hostile model returning `{NaN, 0.0, Infinity}` produces a rejection and leaves the estimator's pose finite.
 
 ### 8.4 The other shipped presets
@@ -1867,8 +1867,8 @@ public final class StdDevModels {
    *  angular term is pinned to UNTRUSTED_SIGMA by the structural override in section 9.4. */
   public static StdDevModel advantageKit(double linearBaseline, double angularBaseline);
 
-  /** PumpkinLib default == advantageKit(0.02, 0.06). */
-  public static StdDevModel pumpkinDefault() { return advantageKit(0.02, 0.06); }
+  /** Rootstock default == advantageKit(0.02, 0.06). */
+  public static StdDevModel rootstockDefault() { return advantageKit(0.02, 0.06); }
 
   /**
    * FRC 6328 "Darwin" 2026. Note n SQUARED — two tags are 4x more trusted, not 2x.
@@ -1887,16 +1887,19 @@ public final class StdDevModels {
    *  Limelight sources only, and see §21 OQ 9 before making it a default. */
   public static StdDevModel limelightReported();
 
-  /** 8793's shipped model, for teams migrating from that codebase without changing behavior:
-   *  base * (1.0 + d² / 30.0), base from a supplied Matrix. See 8793 VisionSubsystem.java:322. */
-  public static StdDevModel legacy8793(Matrix<N3,N1> base);
+  /** Standard deviations that grow with the square of tag distance: base * (1.0 + d² / 30.0),
+   *  base from a supplied Matrix. Named for the shape of the curve rather than for a team,
+   *  because a team migrating from any codebase that shipped this formula wants it unchanged.
+   *  One such codebase is the maintainer's own (VisionSubsystem.java:683), which is where the
+   *  30.0 came from. */
+  public static StdDevModel quadraticGrowth(Matrix<N3,N1> base);
 
   /** Per-source override table; anything unmapped falls through to `fallback`. */
   public static StdDevModel bySource(Map<PoseSource, StdDevModel> table, StdDevModel fallback);
 }
 ```
 
-**The rule we enforce structurally, not by documentation:** `PumpkinVision` wraps whatever model the team supplies so that any `frame.source().isGyroFused()` frame gets `sigmaTheta = StdDevModels.UNTRUSTED_SIGMA`, applied **after** every user-supplied decorator and per-camera factor, regardless of what the model returned. A user cannot accidentally close the MegaTag2 heading feedback loop, and cannot accidentally turn the sentinel into `NaN` by scaling it. There is one opt-out, `PumpkinVision.Builder.allowVisionHeadingFromGyroFusedSources(true)`, which logs a warning on every construction and exists only so the escape hatch is real — and even that path still passes through `sanitizeStdDevs` (§8.3).
+**The rule we enforce structurally, not by documentation:** `RootstockVision` wraps whatever model the team supplies so that any `frame.source().isGyroFused()` frame gets `sigmaTheta = StdDevModels.UNTRUSTED_SIGMA`, applied **after** every user-supplied decorator and per-camera factor, regardless of what the model returned. A user cannot accidentally close the MegaTag2 heading feedback loop, and cannot accidentally turn the sentinel into `NaN` by scaling it. There is one opt-out, `RootstockVision.Builder.allowVisionHeadingFromGyroFusedSources(true)`, which logs a warning on every construction and exists only so the escape hatch is real — and even that path still passes through `sanitizeStdDevs` (§8.3).
 
 ---
 
@@ -1904,12 +1907,12 @@ public final class StdDevModels {
 
 ### 9.1 The front door
 
-`PumpkinVision` is a `VirtualSubsystem`-style periodic object (not a `SubsystemBase`, so it never participates in command requirements — the template repo is state-based and would reject a mandatory `Subsystem`). It registers with `PumpkinRegistry.addAll(...)` like every other component (D27).
+`RootstockVision` is a `VirtualSubsystem`-style periodic object (not a `SubsystemBase`, so it never participates in command requirements — the template repo is state-based and would reject a mandatory `Subsystem`). It registers with `RootstockRegistry.addAll(...)` like every other component (D27).
 
 ```java
-package org.pumpkinlib.vision;
+package org.rootstock.vision;
 
-public final class PumpkinVision {
+public final class RootstockVision {
 
   public static Builder builder() { return new Builder(); }
 
@@ -1934,15 +1937,15 @@ public final class PumpkinVision {
     public Builder arbiter(CameraArbiter arbiter);
     /**
      * The disabled MegaTag1/multi-tag pose seed (9.7). This is the ONLY vision path allowed to
-     * write PumpkinDrive's gyro->field offset (2.2), so it is a separate, explicitly-named hook
+     * write RootstockDrive's gyro->field offset (2.2), so it is a separate, explicitly-named hook
      * that takes `resetPose`, not `addVisionMeasurement`. Pass `m_drive::resetPose`.
      */
     public Builder disabledSeedConsumer(Consumer<Pose2d> resetPose);
     public Builder seedWhileDisabled(boolean enabled);              // default false; requires the hook above
     public Builder simEnabled(boolean enabled);
-    public Builder logKey(String key);                             // default "Pumpkin/Vision"
+    public Builder logKey(String key);                             // default "Rootstock/Vision"
     public Builder allowVisionHeadingFromGyroFusedSources(boolean allow);  // default false
-    public PumpkinVision build();
+    public RootstockVision build();
   }
 
   /** Call from robotPeriodic (or the state machine's periodic). Order-sensitive: see 9.4. */
@@ -1998,30 +2001,30 @@ The consumer is exactly `SwerveDrivePoseEstimator::addVisionMeasurement` or `Dif
 **CTRE trap.** A Phoenix 6 `SwerveDrivetrain` runs its own time base. 8793's `CommandSwerveDrivetrain.java:314-350` overrides all three `addVisionMeasurement`/`samplePoseAt` entry points solely to wrap timestamps in `Utils.fpgaToCurrentTime(...)`. Any library vision path that skips this silently corrupts the Kalman fusion in proportion to robot speed.
 
 ```java
-// PumpkinVision.Builder.consumerIsPhoenixSwerve(true) installs this wrapper:
+// RootstockVision.Builder.consumerIsPhoenixSwerve(true) installs this wrapper:
 private static VisionConsumer phoenixWrapped(VisionConsumer inner) {
   return (pose, fpgaTimestamp, stdDevs) ->
       inner.accept(pose, com.ctre.phoenix6.Utils.fpgaToCurrentTime(fpgaTimestamp), stdDevs);
 }
 ```
 
-We detect the common case automatically: if `Class.forName("com.ctre.phoenix6.swerve.SwerveDrivetrain")` resolves **and** the consumer's declaring class is assignable to it, we install the wrapper and log `Pumpkin/Vision/PhoenixTimeConversion = true`. If detection is ambiguous we do nothing and raise an info-level Finding telling the team to set the flag explicitly. Never guess silently in a way that changes numbers.
+We detect the common case automatically: if `Class.forName("com.ctre.phoenix6.swerve.SwerveDrivetrain")` resolves **and** the consumer's declaring class is assignable to it, we install the wrapper and log `Rootstock/Vision/PhoenixTimeConversion = true`. If detection is ambiguous we do nothing and raise an info-level Finding telling the team to set the flag explicitly. Never guess silently in a way that changes numbers.
 
 ### 9.3 The alliance-flip trap
 
 This is where teams lose a whole event, so it gets a rule, not a paragraph.
 
-> **PumpkinLib never flips a measured pose, and never mutates an `AprilTagFieldLayout`.**
+> **Rootstock never flips a measured pose, and never mutates an `AprilTagFieldLayout`.**
 
 Specifics:
 
 1. **Always blue origin.** We read `botpose_orb_wpiblue` / `botpose_wpiblue`, never `_wpired`. PhotonVision returns poses in the layout's origin, and we keep the layout at blue origin. The drivetrain's pose is blue-origin at all times, in both alliances, in auto and teleop. Red-alliance drivers see a rotated field on the dashboard; that is correct and is how PathPlanner, Choreo, AdvantageScope and every elite team work.
-2. **`AprilTagFieldLayout.setOrigin()` is forbidden.** It mutates a shared object — if two subsystems hold the same instance and one flips it for red, the other silently sees flipped tag poses. `PumpkinVision.periodic()` asserts `layout.getOrigin().equals(Pose3d.kZero)` once per second and raises
+2. **`AprilTagFieldLayout.setOrigin()` is forbidden.** It mutates a shared object — if two subsystems hold the same instance and one flips it for red, the other silently sees flipped tag poses. `RootstockVision.periodic()` asserts `layout.getOrigin().equals(Pose3d.kZero)` once per second and raises
 
    ```java
    Alerts.error("Vision",
        "AprilTagFieldLayout.setOrigin() was called on the shared layout. Every tag pose in this "
-     + "robot is now mirrored for one of the two consumers. PumpkinLib never flips a layout; "
+     + "robot is now mirrored for one of the two consumers. Rootstock never flips a layout; "
      + "flip TARGETS with AllianceFlip instead (design/03 9.3).",
        MatchImpact.BLOCKS_MATCH).set(true);
    ```
@@ -2032,14 +2035,14 @@ Specifics:
 
 ### 9.4 Loop order
 
-`PumpkinVision.periodic()` does the following, in this order, every loop:
+`RootstockVision.periodic()` does the following, in this order, every loop:
 
 ```
 1. Build VisionContext once (currentEstimate, gyro, gyroRate, now, autonomous, enabled)
-   — autonomous/enabled from MatchContext, now from PumpkinLog.timestamp().
+   — autonomous/enabled from MatchContext, now from RootstockLog.timestamp().
 2. For each camera: io.setRobotOrientation(getGyroFieldHeading(), gyroRate)  -> writes + flushes NT.
 3. For each camera: io.updateInputs(inputs);
-      PumpkinLog.processInputs("Pumpkin/Vision/" + io.name(), inputs).
+      RootstockLog.processInputs("Rootstock/Vision/" + io.name(), inputs).
       inputs.frames is already capped at maxFramesPerLoop (default 4) BY THE IO — see 9.6.
 4. For each camera, for each frame (oldest first):
       a. ctx.estimateAtCapture = poseProvider.sampleAt(frame.timestampSeconds())
@@ -2051,7 +2054,7 @@ Specifics:
    (maxAcceptedPerLoop - 1) NEWEST; the remainder are logged to CoalescedCount with
    RejectReason.CUSTOM detail "coalesced: N accepted frames this loop exceeded maxAcceptedPerLoop".
 6. ARBITRATE (13.6): arbiter.select(accepted, ctx) may drop whole cameras this loop.
-7. try (var s = PumpkinTracer.scope("Vision/Consume")) {
+7. try (var s = RootstockTracer.scope("Vision/Consume")) {
      For each surviving frame, OLDEST FIRST:
         a. stdDevModel.compute(frame, ctx, m_sd[i])            // out-parameter; m_sd[i] is preallocated
         b. if (frame.source().isGyroFused() && !allowVisionHeading)
@@ -2083,7 +2086,7 @@ Why each ordering constraint exists:
 
 This is the section that corrects the most dangerous number in the earlier draft.
 
-**What the earlier draft said.** `maxFramesPerLoop` defaulted to **20 per camera**, and every accepted frame called `consumer.accept(...)` → `addVisionMeasurement`. That was presented as a virtue: we drain every frame instead of taking `results.get(results.size()-1)` the way 8793's `VisionSubsystem.java` does.
+**What the earlier draft said.** `maxFramesPerLoop` defaulted to **20 per camera**, and every accepted frame called `consumer.accept(...)` → `addVisionMeasurement`. That was presented as a virtue: we drain every frame instead of using one frame per camera the way 8793's `VisionSubsystem.java` does.
 
 **Why that is a loop-time bomb.** WPILib's `SwerveDrivePoseEstimator.addVisionMeasurement` is not a cheap accumulate. It replays the odometry buffer forward from the measurement's timestamp:
 
@@ -2111,7 +2114,7 @@ Each replayed entry runs 4-module inverse kinematics plus a `Pose2d.exp`. Now pu
 .maxAcceptedPerLoop(2)    // MEASUREMENT cap, per camera. Default 2.
 ```
 
-1. **`maxFramesPerLoop` (default 4) is a decode cap, enforced inside each `VisionCameraIO`.** A 120 fps LL4 on a 50 Hz loop produces `120 / 50 = 2.4` frames/camera/loop in steady state, so 4 is steady state plus `4 / 2.4 − 1 = 67 %` headroom. Frames beyond the cap are **still drained from the NT queue** — we must drain or `pollStorage(20)` overflows and NT starts dropping samples of its own choosing — they are simply not decoded into a `VisionFrame`. The count goes to `Pumpkin/Vision/<name>/DecodeDroppedCount`.
+1. **`maxFramesPerLoop` (default 4) is a decode cap, enforced inside each `VisionCameraIO`.** A 120 fps LL4 on a 50 Hz loop produces `120 / 50 = 2.4` frames/camera/loop in steady state, so 4 is steady state plus `4 / 2.4 − 1 = 67 %` headroom. Frames beyond the cap are **still drained from the NT queue** — we must drain or `pollStorage(20)` overflows and NT starts dropping samples of its own choosing — they are simply not decoded into a `VisionFrame`. The count goes to `Rootstock/Vision/<name>/DecodeDroppedCount`.
 
    ```java
    // LimelightCameraIO.updateInputs — drain everything, decode at most m_maxFramesPerLoop.
@@ -2121,10 +2124,10 @@ Each replayed entry runs 4-module inverse kinematics plus a `Pose2d.exp`. Now pu
    for (int i = start; i < queue.length; i++) { decode(queue[i]); }
    ```
 
-2. **`maxAcceptedPerLoop` (default 2) is a measurement cap, enforced in `PumpkinVision` after filtering.** Every decoded frame is filtered, logged, counted, and shown in the diagnostics — the zero-mystery contract is untouched. Only the handoff to the estimator is rationed. When more than the cap survive filtering in one loop from one camera, we **keep the oldest and the newest**, and coalesce the middle:
+2. **`maxAcceptedPerLoop` (default 2) is a measurement cap, enforced in `RootstockVision` after filtering.** Every decoded frame is filtered, logged, counted, and shown in the diagnostics — the zero-mystery contract is untouched. Only the handoff to the estimator is rationed. When more than the cap survive filtering in one loop from one camera, we **keep the oldest and the newest**, and coalesce the middle:
 
    ```java
-   // PumpkinVision.periodic() step 5.
+   // RootstockVision.periodic() step 5.
    if (accepted.size() > m_maxAcceptedPerLoop) {
      List<VisionFrame> keep = new ArrayList<>(m_maxAcceptedPerLoop);
      keep.add(accepted.get(0));                                   // OLDEST
@@ -2142,9 +2145,9 @@ Each replayed entry runs 4-module inverse kinematics plus a `Pose2d.exp`. Now pu
 
    **Why oldest *and* newest, rather than just the newest.** They carry different information and dropping either one loses something real. The **oldest** has the longest odometry tail, so it corrects the most accumulated drift — it is the measurement that actually moves the estimate. The **newest** is the tightest fix on where the robot is right now, which is what an alignment command reads two milliseconds later. Keeping only the newest is what 8793's `results.get(results.size()-1)` does today, and it is why that code's pose snaps rather than converges.
 
-3. **A declared budget, so the failure names itself.** `PumpkinTracer.budget("Vision/Consume", Milliseconds.of(2.0))` (§2.1) wraps step 7 of §9.4. Blowing 2 ms on vision consumption in a 20 ms loop is a warning with the frame counts printed, not a mystery overrun in `robotPeriodic`.
+3. **A declared budget, so the failure names itself.** `RootstockTracer.budget("Vision/Consume", Milliseconds.of(2.0))` (§2.1) wraps step 7 of §9.4. Blowing 2 ms on vision consumption in a 20 ms loop is a warning with the frame counts printed, not a mystery overrun in `robotPeriodic`.
 
-**Both caps are `Builder` knobs and neither is secretly clamped.** A team that has measured their own loop and wants `maxAcceptedPerLoop(6)` gets it. The defaults are chosen to be right for the 95 % case, and `Pumpkin/Perf/Vision/ConsumeMs` is logged so raising them is an informed decision instead of a guess.
+**Both caps are `Builder` knobs and neither is secretly clamped.** A team that has measured their own loop and wants `maxAcceptedPerLoop(6)` gets it. The defaults are chosen to be right for the 95 % case, and `Rootstock/Perf/Vision/ConsumeMs` is logged so raising them is an informed decision instead of a guess.
 
 **Reviewer pushback, recorded because it is a fair objection:** capping accepted measurements does mean we discard information the cameras genuinely produced, which sits uneasily beside §4.4's "every IO drains every frame."
 
@@ -2152,10 +2155,10 @@ Each replayed entry runs 4-module inverse kinematics plus a `Pose2d.exp`. Now pu
 
 ### 9.7 The disabled multi-tag pose seed
 
-This is the only path in the entire library by which vision may write `PumpkinDrive`'s gyro→field offset (§2.2a item 2). It is therefore fenced in on six sides.
+This is the only path in the entire library by which vision may write `RootstockDrive`'s gyro→field offset (§2.2a item 2). It is therefore fenced in on six sides.
 
 ```java
-// PumpkinVision.periodic() step 8. Runs ONLY when all of the following hold.
+// RootstockVision.periodic() step 8. Runs ONLY when all of the following hold.
 // MatchContext, never DriverStation: ArchUnit rule 10 (design/06 §5.3).
 if (MatchContext.isDisabled()             // 1. disabled only — never during a match
     && m_seedWhileDisabled                // 2. explicitly opted in
@@ -2164,10 +2167,10 @@ if (MatchContext.isDisabled()             // 1. disabled only — never during a
     if (f.source().isGyroFused()) continue;   // 4. a gyro-fused solve cannot seed the gyro offset
     if (f.tagCount() < 2) continue;           // 5. multi-tag only — no single-tag PnP seeding
     if (!m_seedAgreement.accept(f.pose2d())) continue;  // 6. three consecutive agreeing frames
-    m_disabledSeedConsumer.accept(f.pose2d());          // -> PumpkinDrive.resetPose(bluePose)
-    PumpkinLog.critical("Pumpkin/Vision/Seed/LastSeedPose", f.pose2d(), Pose2d.struct);
-    PumpkinLog.critical("Pumpkin/Vision/Seed/LastSeedSource", f.source().name());
-    PumpkinLog.critical("Pumpkin/Vision/Seed/Count", ++m_seedCount);
+    m_disabledSeedConsumer.accept(f.pose2d());          // -> RootstockDrive.resetPose(bluePose)
+    RootstockLog.critical("Rootstock/Vision/Seed/LastSeedPose", f.pose2d(), Pose2d.struct);
+    RootstockLog.critical("Rootstock/Vision/Seed/LastSeedSource", f.source().name());
+    RootstockLog.critical("Rootstock/Vision/Seed/Count", ++m_seedCount);
     break;                                    // one seed per loop, maximum
   }
 }
@@ -2178,10 +2181,10 @@ Constraint 4 is the one that is easy to get wrong and fatal to get wrong. MegaTa
 `m_seedAgreement` is a 3-deep ring: a candidate seeds only if the last three qualifying poses agree within **10 cm and 3°**. One bad multi-tag solve on a robot sitting on a cart in the queue line otherwise reseeds the offset to garbage, and nothing downstream would notice until the match started.
 
 ```
-Pumpkin/Vision/Seed/Count             long     seeds issued since boot
-Pumpkin/Vision/Seed/LastSeedPose      Pose2d
-Pumpkin/Vision/Seed/LastSeedSource    String   PoseSource of the frame that seeded
-Pumpkin/Vision/Seed/RejectedNoAgree   long     candidates that failed the 3-frame agreement gate
+Rootstock/Vision/Seed/Count             long     seeds issued since boot
+Rootstock/Vision/Seed/LastSeedPose      Pose2d
+Rootstock/Vision/Seed/LastSeedSource    String   PoseSource of the frame that seeded
+Rootstock/Vision/Seed/RejectedNoAgree   long     candidates that failed the 3-frame agreement gate
 ```
 
 ---
@@ -2191,13 +2194,13 @@ Pumpkin/Vision/Seed/RejectedNoAgree   long     candidates that failed the 3-fram
 ### 10.1 `FieldLayouts`
 
 ```java
-package org.pumpkinlib.vision.field;
+package org.rootstock.vision.field;
 
 public final class FieldLayouts {
 
   /**
-   * Resolution order, logged as Pumpkin/Vision/Layout/Source:
-   *   1. src/main/deploy/pumpkin/field-layout.json   (a WPIcal or hand-authored layout)
+   * Resolution order, logged as Rootstock/Vision/Layout/Source:
+   *   1. src/main/deploy/rootstock/field-layout.json   (a WPIcal or hand-authored layout)
    *   2. AprilTagFieldLayout.loadField(fallback)
    * Never throws. On a malformed override we fall back, raise an Alert, and keep running.
    */
@@ -2224,7 +2227,7 @@ The malformed-override path raises:
 
 ```java
 Alerts.error("Vision",
-    "deploy/pumpkin/field-layout.json could not be parsed (" + reason + "). "
+    "deploy/rootstock/field-layout.json could not be parsed (" + reason + "). "
   + "Running on the built-in " + fallback.name() + " layout instead — which is NOT the layout "
   + "you deployed. Fix the file or delete it.",
     MatchImpact.BLOCKS_MATCH).set(true);
@@ -2239,30 +2242,30 @@ AprilTagFields.k2026RebuiltAndymark
 
 **Verified 2026-08-08 against the WPILib 2026.2.2 `AprilTagFields` Javadoc.** The enum constants are exactly, and only: `k2022RapidReact, k2023ChargedUp, k2024Crescendo, k2025ReefscapeWelded, k2025ReefscapeAndyMark, k2026RebuiltWelded, k2026RebuiltAndymark`. Note the inconsistent capitalization the vendor ships: **2025 is `AndyMark`, 2026 is `Andymark`.** `kDefaultField` is a **static field**, not an enum constant — `public static final AprilTagFields kDefaultField`, javadoc *"Alias to the current game"* — alongside `kBaseResourceDir` and the instance field `m_resourceFile`. The distinction matters because `AprilTagFields.values()` does not contain it.
 
-`AprilTagFields.loadAprilTagLayoutField()` is **`@Deprecated(forRemoval = true, since = "2025")`** with the javadoc note *"Use `AprilTagFieldLayout.loadField(AprilTagFields)` instead"* (verified 2026-08-08). PumpkinLib calls `AprilTagFieldLayout.loadField(...)` exclusively.
+`AprilTagFields.loadAprilTagLayoutField()` is **`@Deprecated(forRemoval = true, since = "2025")`** with the javadoc note *"Use `AprilTagFieldLayout.loadField(AprilTagFields)` instead"* (verified 2026-08-08). Rootstock calls `AprilTagFieldLayout.loadField(...)` exclusively.
 
-**We refuse to default.** `PumpkinVision.Builder.layout(...)` has no default value. A team must write which field they are on. `kDefaultField` is an alias whose meaning changes between WPILib releases, and picking it silently is exactly the bug we are trying to prevent.
+**We refuse to default.** `RootstockVision.Builder.layout(...)` has no default value. A team must write which field they are on. `kDefaultField` is an alias whose meaning changes between WPILib releases, and picking it silently is exactly the bug we are trying to prevent.
 
 ### 10.2 The deploy convention
 
 ```
-src/main/deploy/pumpkin/field-layout.json      # optional; a WPIcal output or a custom field
-src/main/deploy/pumpkin/vision.json            # optional; per-camera transform overrides, see 11.1
+src/main/deploy/rootstock/field-layout.json      # optional; a WPIcal output or a custom field
+src/main/deploy/rootstock/vision.json            # optional; per-camera transform overrides, see 11.1
 ```
 
 At boot we log:
 
 ```
-Pumpkin/Vision/Layout/Source        "deploy/pumpkin/field-layout.json"  |  "k2026RebuiltWelded"
-Pumpkin/Vision/Layout/Fingerprint   "a1f4c2..."
-Pumpkin/Vision/Layout/TagCount      22
-Pumpkin/Vision/Layout/FieldLength   17.548
-Pumpkin/Vision/Layout/FieldWidth     8.052
+Rootstock/Vision/Layout/Source        "deploy/rootstock/field-layout.json"  |  "k2026RebuiltWelded"
+Rootstock/Vision/Layout/Fingerprint   "a1f4c2..."
+Rootstock/Vision/Layout/TagCount      22
+Rootstock/Vision/Layout/FieldLength   17.548
+Rootstock/Vision/Layout/FieldWidth     8.052
 ```
 
 Putting the fingerprint in the log means "which layout was this match run against?" is answerable from the log file six weeks later, from a hotel room, without the robot.
 
-> **Replay note.** These five values are read from a file at boot, and `design/04` guarantee **G4** requires that any file read which *affects control* pass through a replayed input channel, not merely be logged. The layout affects control (it is the reference for every filter and every residual). `PumpkinVision` therefore publishes the resolved layout's **fingerprint and tag poses** into a one-shot `LayoutInputs implements LoggableInputs` struct processed once during `robotInit()`, so a replay uses the layout the match ran on rather than whatever is in the developer's working tree. This is the vision-domain instance of `REVIEW.md` M12.
+> **Replay note.** These five values are read from a file at boot, and `design/04` guarantee **G4** requires that any file read which *affects control* pass through a replayed input channel, not merely be logged. The layout affects control (it is the reference for every filter and every residual). `RootstockVision` therefore publishes the resolved layout's **fingerprint and tag poses** into a one-shot `LayoutInputs implements LoggableInputs` struct processed once during `robotInit()`, so a replay uses the layout the match ran on rather than whatever is in the developer's working tree. This is the vision-domain instance of `REVIEW.md` M12.
 
 ### 10.3 `TagResidualMonitor` — seeing which tag is wrong
 
@@ -2284,11 +2287,11 @@ double residualDegrees = Math.abs(observedTag.getRotation().toRotation2d()
 Logged as:
 
 ```
-Pumpkin/Vision/TagHealth/Tag<id>/ResidualMeters     rolling median
-Pumpkin/Vision/TagHealth/Tag<id>/ResidualDegrees    rolling median
-Pumpkin/Vision/TagHealth/Tag<id>/SampleCount
-Pumpkin/Vision/TagHealth/WorstTag                   long
-Pumpkin/Vision/TagHealth/MedianResidualMeters       across all tags
+Rootstock/Vision/TagHealth/Tag<id>/ResidualMeters     rolling median
+Rootstock/Vision/TagHealth/Tag<id>/ResidualDegrees    rolling median
+Rootstock/Vision/TagHealth/Tag<id>/SampleCount
+Rootstock/Vision/TagHealth/WorstTag                   long
+Rootstock/Vision/TagHealth/MedianResidualMeters       across all tags
 ```
 
 This is the number that turns "vision feels off" into "tag 7's residual is 9 cm and everything else is 1.5 cm — go look at the field."
@@ -2316,9 +2319,9 @@ if (sampleCount >= 200
 }
 ```
 
-**(c) Explicit handshake for custom coprocessors.** `pumpkinV1` publishes `/pumpkin_vision/<name>/layout_hash`. `CustomNTCameraIO` compares it against `FieldLayouts.fingerprint(ourLayout)` and raises a hard error on mismatch, naming both hashes, `MatchImpact.BLOCKS_MATCH`. This is the only way to get a *certain* answer, and it is a strong argument for the `pumpkinV1` schema over the vendor formats. We publish the same key downward under `config/tag_layout` so a `pumpkinV1` coprocessor can simply adopt ours.
+**(c) Explicit handshake for custom coprocessors.** `rootstockV1` publishes `/rootstock_vision/<name>/layout_hash`. `CustomNTCameraIO` compares it against `FieldLayouts.fingerprint(ourLayout)` and raises a hard error on mismatch, naming both hashes, `MatchImpact.BLOCKS_MATCH`. This is the only way to get a *certain* answer, and it is a strong argument for the `rootstockV1` schema over the vendor formats. We publish the same key downward under `config/tag_layout` so a `rootstockV1` coprocessor can simply adopt ours.
 
-**(d) A build-time check for PhotonVision.** `FieldLayouts.logDeltas(welded, andymark, "Pumpkin/Vision/Layout/WeldedVsAndymark")` runs once at boot and logs the maximum per-tag delta between the two 2026 layouts. If that number is smaller than our residual noise floor, we log an info Finding saying the automatic detector cannot distinguish them on this field and the team must verify by hand. **[UNVERIFIED]** — I do not have the numeric welded-vs-Andymark delta for 2026 REBUILT; for 2025 Reefscape the differences were on the order of 1 inch on some tags, which is comfortably above the noise floor, and I expect the same for 2026. Measure it at boot rather than hardcoding an expectation. §21 OQ 5.
+**(d) A build-time check for PhotonVision.** `FieldLayouts.logDeltas(welded, andymark, "Rootstock/Vision/Layout/WeldedVsAndymark")` runs once at boot and logs the maximum per-tag delta between the two 2026 layouts. If that number is smaller than our residual noise floor, we log an info Finding saying the automatic detector cannot distinguish them on this field and the team must verify by hand. **[UNVERIFIED]** — I do not have the numeric welded-vs-Andymark delta for 2026 REBUILT; for 2025 Reefscape the differences were on the order of 1 inch on some tags, which is comfortably above the noise floor, and I expect the same for 2026. Measure it at boot rather than hardcoding an expectation. §21 OQ 5.
 
 ---
 
@@ -2328,10 +2331,10 @@ if (sampleCount >= 200
 
 Limelight's camera-to-robot transform lives in the web UI by default. That means it is invisible to sim, invisible to replay, and **gone the moment the camera is reflashed or a spare is swapped in.** Every pose is then wrong by the mount offset, with no error.
 
-PumpkinLib's rule: **the transform is a `Transform3d` in robot code, and we push it to the camera.**
+Rootstock's rule: **the transform is a `Transform3d` in robot code, and we push it to the camera.**
 
 ```java
-package org.pumpkinlib.vision;
+package org.rootstock.vision;
 
 /** Declares where a camera is. One place, visible to sim, replay, logging and the dashboard. */
 public record CameraMount(
@@ -2403,14 +2406,14 @@ PhotonVision does not support Logitech cameras, built-in webcams, or virtual cam
 ### 11.3 `VisionDiagnostics`
 
 ```java
-package org.pumpkinlib.vision.diag;
+package org.rootstock.vision.diag;
 
 public final class VisionDiagnostics {
   public enum Severity { INFO, WARN, ERROR }
   public record Finding(Severity severity, String code, String cameraName,
                         String message, String remedy, MatchImpact impact) {}
 
-  public VisionDiagnostics(PumpkinVision vision);
+  public VisionDiagnostics(RootstockVision vision);
   /** Safe to call in disabledPeriodic. Cheap; caches for 1 s. */
   public List<Finding> run();
   public void publishToNT(String key);
@@ -2429,7 +2432,7 @@ Checks, each producing a sentence a student can act on. The `Impact` column is b
 | `TRANSFORM_ZERO` | **BLOCKS_MATCH** (rolled up) | `robotToCamera` is `Transform3d.kZero` | "limelight-front's robot-to-camera transform is (0,0,0). Every pose is off by the mount offset." |
 | `TRANSFORM_REJECTED` | **BLOCKS_MATCH** (rolled up) | pushed transform readback mismatch | "limelight-front did not accept the camera transform." |
 | `LAYOUT_MISMATCH` | **BLOCKS_MATCH** (rolled up) | systematic residual (§10.4) | "Layout mismatch suspected: median residual 6.1 cm is systematic across 9 tags." |
-| `LAYOUT_HASH_MISMATCH` | **BLOCKS_MATCH** (rolled up) | `pumpkinV1` layout_hash ≠ ours | "northstar-rear loaded layout 7c1e…, robot code is on a1f4c2…." |
+| `LAYOUT_HASH_MISMATCH` | **BLOCKS_MATCH** (rolled up) | `rootstockV1` layout_hash ≠ ours | "northstar-rear loaded layout 7c1e…, robot code is on a1f4c2…." |
 | `TIMESTAMP_OUT_OF_BUFFER` | PIT_ONLY | `ODOMETRY_BUFFER_MISS` > 5 % of frames | "back-right's timestamps are outside the 1.5 s odometry buffer. addVisionMeasurement is silently discarding them." |
 | `NO_CALIBRATION` | PIT_ONLY | `getCameraMatrix()` empty | "front-left is uncalibrated at its current resolution. 3D mode will not work. Recalibrate at 1280x800." |
 | `CALIB_REPROJ_HIGH` | PIT_ONLY | reprojection error > 1.0 px (read from the PhotonVision config JSON) | "front-left's calibration reprojection error is 1.8 px; it should be under 1.0. Recalibrate." |
@@ -2455,7 +2458,7 @@ Checks, each producing a sentence a student can act on. The `Impact` column is b
 
 ### 11.3a Alert budget discipline — how vision stays inside the CI ceiling
 
-Binding **D10** caps the `/Pumpkin/Driver` mirror at three simultaneous `BLOCKS_MATCH` alerts and makes `AlertBudgetTest` fail CI if the example robot can raise more than the budget at once. `DESIGN.md` states that budget as **3**; `design/06` argues **5** with a stated rationale, and `REVIEW.md` M14 adjudicates in favour of **5**. **Vision is designed against the tighter of the two**, because a domain that quietly assumes the looser number is how a budget gets blown.
+Binding **D10** caps the `/Rootstock/Driver` mirror at three simultaneous `BLOCKS_MATCH` alerts and makes `AlertBudgetTest` fail CI if the example robot can raise more than the budget at once. `DESIGN.md` states that budget as **3**; `design/06` argues **5** with a stated rationale, and `REVIEW.md` M14 adjudicates in favour of **5**. **Vision is designed against the tighter of the two**, because a domain that quietly assumes the looser number is how a budget gets blown.
 
 A four-camera robot with a bad layout could raise `CAM_DISCONNECTED` ×4, `TRANSFORM_ZERO` ×4, `LAYOUT_MISMATCH` and `TRANSFORM_REJECTED` — ten blocking alerts from one domain. That is not "answering D10's question", it is refusing to answer it ten times.
 
@@ -2471,7 +2474,7 @@ Every other finding in §11.3 is `PIT_ONLY` and appears only on the pit tab, in 
 Elite teams record what the camera actually saw, gated on FMS attach. 6328 debounce `DriverStation.isFMSAttached()` by 3 s and push `is_recording`; Limelight OS 2026 ships Rewind on LL4 (always-buffering, `.rwnd` bundles synchronized video + targeting + config, ~0.5–1 ms latency penalty).
 
 ```java
-// Wired automatically by PumpkinVision unless the team calls setRecording() themselves.
+// Wired automatically by RootstockVision unless the team calls setRecording() themselves.
 // MatchContext, never DriverStation: ArchUnit rule 10.
 m_fmsDebounce = new Debouncer(3.0, Debouncer.DebounceType.kBoth);
 boolean record = m_fmsDebounce.calculate(MatchContext.isFMSAttached());
@@ -2486,14 +2489,14 @@ for (VisionCameraIO io : m_ios) io.setRecording(record);
 vision.setThrottle(cameraIndex, skipFrames);   // LL: throttle_set. PV: camera.setFPSLimit(int). Northstar: config/throttle_fps
 ```
 
-`throttle_set` is documented as *"Sets number of frames to skip between processed frames to reduce temperature rise. Outputs are not zeroed during skipped frames"* (verified 2026-08-08). `PhotonCamera.setFPSLimit(int fps)` exists and is not deprecated (verified at tag `v2026.3.4`). `PumpkinVision` exposes `setGlobalThrottle(int)` so a robot-wide "we need CPU elsewhere" signal (6328's `Robot.shouldThrottle()`) reaches every camera at once. Limelight also exposes `fiducial_downscale_set` via `LimelightCameraIO.setFiducialDownscale(int)` (§6.1).
+`throttle_set` is documented as *"Sets number of frames to skip between processed frames to reduce temperature rise. Outputs are not zeroed during skipped frames"* (verified 2026-08-08). `PhotonCamera.setFPSLimit(int fps)` exists and is not deprecated (verified at tag `v2026.3.4`). `RootstockVision` exposes `setGlobalThrottle(int)` so a robot-wide "we need CPU elsewhere" signal (6328's `Robot.shouldThrottle()`) reaches every camera at once. Limelight also exposes `fiducial_downscale_set` via `LimelightCameraIO.setFiducialDownscale(int)` (§6.1).
 
 ### 11.6 Typed SnapScript channel
 
 The Limelight Python pipeline is the only way a small team gets custom CV without a second coprocessor, and today the robot↔script contract is two untyped double arrays that drift silently. The two keys are documented as `llrobot` — *"NumberArray sent by robot, accessible within Python SnapScripts"* — and `llpython` — *"NumberArray sent by Python scripts, accessible in robot code"* (verified 2026-08-08).
 
 ```java
-package org.pumpkinlib.vision.limelight;
+package org.rootstock.vision.limelight;
 
 public final class SnapScriptChannel<TOut, TIn> {
   public static <O, I> SnapScriptChannel<O, I> of(
@@ -2514,7 +2517,7 @@ Ships with a Python-side stub generator so the array layout is declared once. `r
 ### 12.1 `DetectedObject`
 
 ```java
-package org.pumpkinlib.vision.objects;
+package org.rootstock.vision.objects;
 
 /**
  * A game piece (or an opposing robot) seen by a neural detector and projected onto the field.
@@ -2544,7 +2547,7 @@ public record DetectedObject(
 We deliberately do **not** trust a coprocessor's 3D estimate of a sphere or a cylinder. We take the corner/center bearings and project onto a known ground plane, exactly as 6328 do. This is far more robust and it is pure, unit-testable, HAL-free math.
 
 ```java
-package org.pumpkinlib.vision.objects;
+package org.rootstock.vision.objects;
 
 public final class ObjectProjection {
 
@@ -2603,21 +2606,21 @@ public final class ObjectProjection {
 
 **Limelight neural detector.** `rawdetections` is documented as *"[id, txnc, tync, ta, corner0x, corner0y, corner1x, corner1y, corner2x, corner2y, corner3x, corner3y, id2.....]"* — stride **12** per detection (verified 2026-08-08, and matched by `LimelightHelpers`' own `RawDetection` fields `classId, txnc, tync, ta, corner0_X, corner0_Y, corner1_X, corner1_Y, corner2_X, corner2_Y, corner3_X, corner3_Y`). `LimelightHelpers.getRawDetections(name)` returns typed `RawDetection[]`; `getRawFiducials(name)` returns `RawFiducial[]` with `id, txnc, tync, ta, distToCamera, distToRobot, ambiguity` at stride **7**, matching the botpose per-tag block exactly. We use the typed accessors for detections (they are low-rate and the array is small) and raw NT for botpose. `getDetectorClass(name)` gives the primary detection's class name; `getDetectorClassIndex(name)` the index.
 
-**PhotonVision object detection.** Verified 2026-08-08 at tag `v2026.3.4`: `int getDetectedObjectClassID()` (−1 when N/A) and `float getDetectedObjectConfidence()` (−1 when N/A) on `PhotonTrackedTarget`. Object detection is only available on specific hardware (Orange Pi 5 / Rubik Pi 3 as of 2026), and PhotonVision's shipped COCO and 2026 FUEL models are AGPLv3 (Ultralytics). PhotonVision supports model *conversion*, not training. Limelight's free trainer produces Limelight-format models tied to Hailo 8 / 8L / Coral / CPU runtimes. **Models are not portable between vendors and PumpkinLib does not pretend otherwise.**
+**PhotonVision object detection.** Verified 2026-08-08 at tag `v2026.3.4`: `int getDetectedObjectClassID()` (−1 when N/A) and `float getDetectedObjectConfidence()` (−1 when N/A) on `PhotonTrackedTarget`. Object detection is only available on specific hardware (Orange Pi 5 / Rubik Pi 3 as of 2026), and PhotonVision's shipped COCO and 2026 FUEL models are AGPLv3 (Ultralytics). PhotonVision supports model *conversion*, not training. Limelight's free trainer produces Limelight-format models tied to Hailo 8 / 8L / Coral / CPU runtimes. **Models are not portable between vendors and Rootstock does not pretend otherwise.**
 
 ### 12.4 `ObjectTracker`
 
 A neural detector flickers. Feeding raw per-frame detections into an intake command produces a robot that lunges at noise.
 
 ```java
-package org.pumpkinlib.vision.objects;
+package org.rootstock.vision.objects;
 
 public final class ObjectTracker {
   public ObjectTracker(double associationRadiusMeters,   // default 0.35
                        double persistenceSeconds,        // default 0.5 — keep a track alive this long
                        int minSightingsToPromote);       // default 2
 
-  void ingest(VisionFrame frame, VisionContext ctx);     // called by PumpkinVision.periodic
+  void ingest(VisionFrame frame, VisionContext ctx);     // called by RootstockVision.periodic
 
   public List<DetectedObject> tracks(int classId);
   /** Highest-confidence track of this class, breaking ties by proximity to `from`. */
@@ -2627,13 +2630,13 @@ public final class ObjectTracker {
 }
 ```
 
-Tracks are associated by nearest field position across frames and across **cameras** — two cameras seeing the same fuel produce one track, not two. Logged to `Pumpkin/Vision/Objects/Class<n>/Positions` as a `Translation2d[]` so it renders directly in AdvantageScope's 2D field view.
+Tracks are associated by nearest field position across frames and across **cameras** — two cameras seeing the same fuel produce one track, not two. Logged to `Rootstock/Vision/Objects/Class<n>/Positions` as a `Translation2d[]` so it renders directly in AdvantageScope's 2D field view.
 
 ---
 
 ## 13. Vision-Driven Actions
 
-These are the ready-to-use command factories that actually change a small team's score. They live in `org.pumpkinlib.vision.commands` and take a `Drive` interface, never a concrete drivetrain.
+These are the ready-to-use command factories that actually change a small team's score. They live in `org.rootstock.vision.commands` and take a `Drive` interface, never a concrete drivetrain.
 
 > ### Revision-4 blocking correction — read this before §13.4 and §13.5
 >
@@ -2650,15 +2653,15 @@ These are the ready-to-use command factories that actually change a small team's
 
 ### 13.1 The drive seam
 
-**Declared by Drive, not here (D16).** Until 2026-08-08 this section declared `AlignableDrive` in `org.pumpkinlib.vision.commands` while binding **D16** assigned it to `org.pumpkinlib.drive` — open question 14 in `design/05` §14, and the last of the four D16 interfaces to move. It has moved: the declaration is [`design/05` §3.3.2](05-drivetrain-auto.md) and there is no second one. The block below is the surface these commands *consume*. **If it disagrees with `design/05`, `design/05` wins.** Nothing else in §13 changed — the `VisionAlignFactory` seam was designed to be correct either way.
+**Declared by Drive, not here (D16).** Until 2026-08-08 this section declared `AlignableDrive` in `org.rootstock.vision.commands` while binding **D16** assigned it to `org.rootstock.drive` — open question 14 in `design/05` §14, and the last of the four D16 interfaces to move. It has moved: the declaration is [`design/05` §3.3.2](05-drivetrain-auto.md) and there is no second one. The block below is the surface these commands *consume*. **If it disagrees with `design/05`, `design/05` wins.** Nothing else in §13 changed — the `VisionAlignFactory` seam was designed to be correct either way.
 
 > **consumed-surface mirror — `design/05` §3.3.2 wins.** Same banner, same rule as §2.2: this is one of the **four legal labelled mirrors** of the D16 interfaces, and it is legal *because* it carries this line verbatim. An occurrence of `PoseProvider`, `AlignableDrive`, `DriveTelemetry` or `VisionConsumer` declared **without** this banner is an unbannered duplicate and the gate fails on it.
 
 ```java
-package org.pumpkinlib.drive;   // D16. MIRROR of design/05 §3.3.2 — not a second declaration.
+package org.rootstock.drive;   // D16. MIRROR of design/05 §3.3.2 — not a second declaration.
 
 /** consumed-surface mirror — design/05 §3.3.2 wins.
- *  The only thing the vision commands need from a drivetrain. PumpkinDrive implements it (D16). */
+ *  The only thing the vision commands need from a drivetrain. RootstockDrive implements it (D16). */
 public interface AlignableDrive {
   void driveFieldRelative(ChassisSpeeds speeds);
   /**
@@ -2734,12 +2737,12 @@ public record AlignGains(
 }
 ```
 
-> **Cross-domain consequence, and it is a required change, not a suggestion.** `design/05` §9 currently gives `PumpkinDriveToPose` a default of `tolerance(Meters.of(0.02), Degrees.of(1.5))`. That default is unreachable for the reason above and must become `tolerance(Meters.of(0.05), Degrees.of(2.0))`, carrying the Javadoc line above. `DESIGN.md` §10B and `design/05` §10's worked example carry the same literal. The Drive domain owns those edits; Vision owns the number and the reason. §2.7 contract C6, and `REVIEW.md` M20. *(Now applied everywhere — verified 2026-08-08: `design/05` §9 reads the change through the named constants `kDefaultTolerance`/`kDefaultAngularTolerance`, `design/05` §10 and `DESIGN.md` §10B both read `0.05 m / 2.0°`. The "currently gives" above describes the pre-correction state and is kept as the record of why the change was ordered.)*
+> **Cross-domain consequence, and it is a required change, not a suggestion.** `design/05` §9 currently gives `RootstockDriveToPose` a default of `tolerance(Meters.of(0.02), Degrees.of(1.5))`. That default is unreachable for the reason above and must become `tolerance(Meters.of(0.05), Degrees.of(2.0))`, carrying the Javadoc line above. `DESIGN.md` §10B and `design/05` §10's worked example carry the same literal. The Drive domain owns those edits; Vision owns the number and the reason. §2.7 contract C6, and `REVIEW.md` M20. *(Now applied everywhere — verified 2026-08-08: `design/05` §9 reads the change through the named constants `kDefaultTolerance`/`kDefaultAngularTolerance`, `design/05` §10 and `DESIGN.md` §10B both read `0.05 m / 2.0°`. The "currently gives" above describes the pre-correction state and is kept as the record of why the change was ordered.)*
 
 ### 13.3 `VisionCommands`
 
 ```java
-package org.pumpkinlib.vision.commands;
+package org.rootstock.vision.commands;
 
 public final class VisionCommands {
 
@@ -2760,7 +2763,7 @@ public final class VisionCommands {
    * not per-camera, because a fused-pose command does not care WHICH camera fixed the pose.
    */
   public static Command driveToPose(
-      AlignableDrive drive, PoseProvider pose, PumpkinVision vision, Supplier<Pose2d> target,
+      AlignableDrive drive, PoseProvider pose, RootstockVision vision, Supplier<Pose2d> target,
       PathConstraints approachConstraints, double handoffMeters,
       AlignGains gains, VisionFreshness freshness);
 
@@ -2770,7 +2773,7 @@ public final class VisionCommands {
    * "20 cm back from the face, facing it" is expressed once and works at every scoring location.
    */
   public static Command alignToNearest(
-      AlignableDrive drive, PoseProvider pose, PumpkinVision vision, List<Pose2d> blueTargets,
+      AlignableDrive drive, PoseProvider pose, RootstockVision vision, List<Pose2d> blueTargets,
       Transform2d offset, PathConstraints approach, double handoffMeters,
       AlignGains gains, VisionFreshness freshness);
 
@@ -2797,13 +2800,13 @@ public final class VisionCommands {
    *                         written once and is correct at every tag on the field.
    */
   public static Command alignToTag(
-      AlignableDrive drive, PumpkinVision vision, int cameraIndex,
+      AlignableDrive drive, RootstockVision vision, int cameraIndex,
       int[] acceptableTagIds, Transform3d tagRelativeGoal, AlignGains gains);
 
   /** As above, plus a staleness gate and odometry-based latency compensation. Preferred when the
    *  robot is still moving fast at handoff; see 13.5 for why the compensation matters. */
   public static Command alignToTag(
-      AlignableDrive drive, PumpkinVision vision, PoseProvider pose, int cameraIndex,
+      AlignableDrive drive, RootstockVision vision, PoseProvider pose, int cameraIndex,
       int[] acceptableTagIds, Transform3d tagRelativeGoal,
       AlignGains gains, VisionFreshness freshness);
 
@@ -2817,7 +2820,7 @@ public final class VisionCommands {
 
   /** aimAtPoint, but at the MOVING-TARGET solution instead of the static point. See 13.7. */
   public static Command aimWhileMoving(
-      AlignableDrive drive, PoseProvider pose, PumpkinVision vision, MovingTargetSolver solver,
+      AlignableDrive drive, PoseProvider pose, RootstockVision vision, MovingTargetSolver solver,
       Supplier<Translation3d> fieldTarget,
       DoubleSupplier vxSupplier, DoubleSupplier vySupplier, AlignGains gains);
 
@@ -2827,7 +2830,7 @@ public final class VisionCommands {
    * track is lost for longer than the tracker's persistence window.
    */
   public static Command autoIntake(
-      AlignableDrive drive, PumpkinVision vision, PoseProvider pose,
+      AlignableDrive drive, RootstockVision vision, PoseProvider pose,
       int objectClassId, Command intakeCommand, BooleanSupplier hasPiece,
       AlignGains gains, double maxSearchSeconds);
 
@@ -2843,8 +2846,8 @@ public record VisionFreshness(double maxAgeSeconds, int minAcceptedFramesInWindo
    *  Infinity surviving arithmetic applies to every sentinel in the library, not just sigmas. */
   public static VisionFreshness none() { return new VisionFreshness(1.0e6, 0); }
 
-  /** Evaluated against PumpkinVision, which is why §13.3's factories take one. */
-  public boolean satisfiedBy(PumpkinVision v) {
+  /** Evaluated against RootstockVision, which is why §13.3's factories take one. */
+  public boolean satisfiedBy(RootstockVision v) {
     return v.hasRecentFix(maxAgeSeconds)
         && v.acceptedFramesInWindow(maxAgeSeconds) >= minAcceptedFramesInWindow;
   }
@@ -2967,17 +2970,17 @@ public void execute() {
     m_inToleranceLoops = 0;
   }
 
-  PumpkinLog.critical("Pumpkin/Vision/Align/ErrorMeters", errorNorm);
-  PumpkinLog.critical("Pumpkin/Vision/Align/ErrorDegrees", Math.toDegrees(thetaErrorRad));
-  PumpkinLog.critical("Pumpkin/Vision/Align/CommandedRobotSpeeds", field, ChassisSpeeds.struct);
-  PumpkinLog.log("Pumpkin/Vision/Align/ProfileVelocity",
+  RootstockLog.critical("Rootstock/Vision/Align/ErrorMeters", errorNorm);
+  RootstockLog.critical("Rootstock/Vision/Align/ErrorDegrees", Math.toDegrees(thetaErrorRad));
+  RootstockLog.critical("Rootstock/Vision/Align/CommandedRobotSpeeds", field, ChassisSpeeds.struct);
+  RootstockLog.log("Rootstock/Vision/Align/ProfileVelocity",
                  m_translationController.getSetpoint().velocity);
 }
 ```
 
 `isFinished()` is `m_inToleranceLoops >= 2` — both axes inside tolerance, and a live vision fix when freshness is not `none()`, held for two consecutive loops.
 
-Driver override is always available: `driveToPose` and `alignToNearest` accept an optional `abortIf(BooleanSupplier)`. Every automation in PumpkinLib has a manual escape hatch, because a single-button macro that depends on vision fails the moment a defender occludes the tag. This is the vision-domain instance of binding **D30**'s rule that automation without a manual fallback loses matches.
+Driver override is always available: `driveToPose` and `alignToNearest` accept an optional `abortIf(BooleanSupplier)`. Every automation in Rootstock has a manual escape hatch, because a single-button macro that depends on vision fails the moment a defender occludes the tag. This is the vision-domain instance of binding **D30**'s rule that automation without a manual fallback loses matches.
 
 ### 13.4.1 Why the two channels look different, and why that is not the bug
 
@@ -3089,10 +3092,10 @@ public void execute() {
   ChassisSpeeds cmd = new ChassisSpeeds(vel.getX(), vel.getY(), omega);
   m_drive.driveRobotRelative(cmd);
 
-  PumpkinLog.critical("Pumpkin/Vision/Align/TagId", (long) m_lockedTagId);
-  PumpkinLog.critical("Pumpkin/Vision/Align/ErrorMeters", errorNorm);
-  PumpkinLog.critical("Pumpkin/Vision/Align/ErrorDegrees", errTh.getDegrees());
-  PumpkinLog.critical("Pumpkin/Vision/Align/CommandedRobotSpeeds", cmd, ChassisSpeeds.struct);
+  RootstockLog.critical("Rootstock/Vision/Align/TagId", (long) m_lockedTagId);
+  RootstockLog.critical("Rootstock/Vision/Align/ErrorMeters", errorNorm);
+  RootstockLog.critical("Rootstock/Vision/Align/ErrorDegrees", errTh.getDegrees());
+  RootstockLog.critical("Rootstock/Vision/Align/CommandedRobotSpeeds", cmd, ChassisSpeeds.struct);
 }
 ```
 
@@ -3100,19 +3103,19 @@ Six details that are not optional:
 
 1. **`Transform3d.plus` is composition, not addition.** WPILib documents it as *"Composes two transformations. The second transform is applied relative to the orientation of the first"* (verified 2026-08-08) — which is exactly `robot→camera` then `camera→tag`. Writing this with `Translation3d` arithmetic instead is the classic way to get an alignment that is correct only when the robot faces the tag square-on.
 2. **The tag id is latched on `initialize()`, not re-picked every loop.** `acceptableTagIds` selects *which* tag we lock to at the start (highest area among the acceptable ids); after that the id is fixed. Re-picking every loop makes the goal jump when a second acceptable tag comes into view mid-approach, and the robot lunges.
-3. **The camera's tag filter is set to `acceptableTagIds` on `initialize()` and restored on `end()`.** `setTagIdFilter` costs an NT write and buys immunity to a defender's bumper tag. The previous filter is captured via `PumpkinVision.getTagIdFilter(...)` and restored even on interrupt.
+3. **The camera's tag filter is set to `acceptableTagIds` on `initialize()` and restored on `end()`.** `setTagIdFilter` costs an NT write and buys immunity to a defender's bumper tag. The previous filter is captured via `RootstockVision.getTagIdFilter(...)` and restored even on interrupt.
 4. **A missing solve holds; it never extrapolates.** Limelight only populates `bestCameraToTarget` for the primary tag via `targetpose_cameraspace` (§6.1), so a Limelight alignment that loses its primary tag stops. If `m_noSolveLoops` exceeds 25 (0.5 s) the command ends and raises `ALIGN_TAG_LOST` (`MatchImpact.PIT_ONLY` — it is a *this-attempt* failure, not a do-not-take-the-field one) rather than sitting there.
 5. **Latency.** The 6-arg overload does no compensation and documents it: at the ≤ 0.5 m/s terminal speeds where this controller operates, an 80 ms observation age is ≤ 4 cm and the controller converges through it. The `PoseProvider` overload does compensate, transforming the observation forward by the odometry delta between `frame.timestampSeconds()` and now — worth it when the handoff from `driveToPose` happens at speed. §21 OQ 11 asks whether the compensating form should be the default.
 6. **On a Limelight, this controller's accuracy is only as good as §5.2a's basis change**, whose rotation half is `[UNVERIFIED]`. The `LL_CAMERASPACE_CONVENTION` finding (§11.3) fires when the cross-check disagrees, and a team seeing it should treat `alignToTag` on that camera as unverified until it clears. PhotonVision cameras are unaffected — their transforms are already WPILib-framed.
 
-`isFinished()` is `errorNorm < toleranceMeters && |errTh| < toleranceRotation`, held two consecutive loops, with a live solve in both. Logged to `Pumpkin/Vision/Align/*` (§7.3).
+`isFinished()` is `errorNorm < toleranceMeters && |errTh| < toleranceRotation`, held two consecutive loops, with a live solve in both. Logged to `Rootstock/Vision/Align/*` (§7.3).
 
 ### 13.6 `CameraArbiter` — which cameras get to relocalize
 
 The earlier draft punted this to "an offseason-stretch experiment" on the reasoning that std-dev weighting *probably* dominates. That was not defensible: the dossier records that **2910 shipped automatic selection of the optimal camera to relocalize from**, specifically because feeding every camera into the estimator is not what top teams do, and "probably" is not an argument against shipped evidence from a team that wins. `CameraArbiter` is defined here and is built at **M16**.
 
 ```java
-package org.pumpkinlib.vision.commands;
+package org.rootstock.vision.commands;
 
 /** Chooses which of this loop's accepted frames are handed to the pose estimator. */
 @FunctionalInterface
@@ -3142,7 +3145,7 @@ public interface CameraArbiter {
 }
 ```
 
-Logged as `Pumpkin/Vision/Arbiter/SelectedCameras` (`long[]`), `Pumpkin/Vision/Arbiter/Scores` (`double[]`), `Pumpkin/Vision/Arbiter/SuppressedCount` (`long`). Which camera relocalized the robot, and why, is answerable from the log.
+Logged as `Rootstock/Vision/Arbiter/SelectedCameras` (`long[]`), `Rootstock/Vision/Arbiter/Scores` (`double[]`), `Rootstock/Vision/Arbiter/SuppressedCount` (`long`). Which camera relocalized the robot, and why, is answerable from the log.
 
 **Default stays `all()`.** `bestByGeometry` is a real behavior change and we will not flip a default on a hypothesis — but it is a one-line builder call, it is logged well enough to A/B on a practice field, and building it at M16 rather than leaving it as "maybe someday" means a team can actually run that A/B during a season instead of reading an open question.
 
@@ -3151,13 +3154,13 @@ Logged as `Pumpkin/Vision/Arbiter/SelectedCameras` (`long[]`), `Pumpkin/Vision/A
 The vision-side half of shoot-on-the-move: given the robot's pose, its field-relative velocity, and a static field target, find the **virtual target** you must aim at so the projectile lands on the real one. Pure math, no vision or hardware dependency, fully unit-testable off-robot.
 
 ```java
-package org.pumpkinlib.vision.commands;
+package org.rootstock.vision.commands;
 
 /**
  * Iterative virtual-target solver. Move the TARGET backwards along the robot's drift during flight,
  * and re-solve, because time-of-flight depends on the corrected range. 3-5 iterations converge in
  * practice; 6328 run 20; 8793's ShooterSubsystem runs a hardcoded 10 with no convergence test.
- * PumpkinLib iterates to a TOLERANCE with a divergence guard, so it cannot sit in a limit cycle.
+ * Rootstock iterates to a TOLERANCE with a divergence guard, so it cannot sit in a limit cycle.
  */
 public final class MovingTargetSolver {
 
@@ -3175,7 +3178,7 @@ public final class MovingTargetSolver {
   public static Builder builder() { return new Builder(); }
 
   public static final class Builder {
-    /** Range (m) -> time of flight (s). Team-supplied; PumpkinLib supplies the solver, not the numbers. */
+    /** Range (m) -> time of flight (s). Team-supplied; Rootstock supplies the solver, not the numbers. */
     public Builder timeOfFlight(InterpolatingDoubleTreeMap rangeToTof);
     /** Launcher offset from robot origin. The omega x r term below is what most teams get wrong. */
     public Builder launcherOffset(Translation2d robotRelativeOffset);
@@ -3251,9 +3254,9 @@ Solution solve(Pose2d robotPose, ChassisSpeeds v, Translation3d target) {
 }
 ```
 
-**Cross-domain seam:** the mechanism domain's shooter takes `Solution.effectiveRangeMeters()` into its own range→hood / range→RPM lookups, and `Solution.aimHeadingRateRadPerSec()` as a turret velocity feedforward. PumpkinLib Vision owns the geometry; the mechanism owns the ballistics table. If the mechanism domain also defines a `ShotSolver`, it must consume `MovingTargetSolver` rather than re-deriving the `omega x r` term — that is the specific piece both 8793 and the template implemented separately and that most teams get wrong.
+**Cross-domain seam:** the mechanism domain's shooter takes `Solution.effectiveRangeMeters()` into its own range→hood / range→RPM lookups, and `Solution.aimHeadingRateRadPerSec()` as a turret velocity feedforward. Rootstock Vision owns the geometry; the mechanism owns the ballistics table. If the mechanism domain also defines a `ShotSolver`, it must consume `MovingTargetSolver` rather than re-deriving the `omega x r` term — that is the specific piece both 8793 and the template implemented separately and that most teams get wrong.
 
-**Gate on odometry quality.** Shoot-on-the-move multiplies pose error into miss distance: a 20 cm pose error aims 20 cm wrong at every range. `aimWhileMoving` refuses to engage (and logs `AIM_ODOMETRY_UNTRUSTED`) when `vision.hasRecentFix(0.5)` is false — which is why the factory takes a `PumpkinVision`. Stopping to shoot beats confidently missing.
+**Gate on odometry quality.** Shoot-on-the-move multiplies pose error into miss distance: a 20 cm pose error aims 20 cm wrong at every range. `aimWhileMoving` refuses to engage (and logs `AIM_ODOMETRY_UNTRUSTED`) when `vision.hasRecentFix(0.5)` is false — which is why the factory takes a `RootstockVision`. Stopping to shoot beats confidently missing.
 
 ---
 
@@ -3263,15 +3266,15 @@ Solution solve(Pose2d robotPose, ChassisSpeeds v, Translation3d target) {
 
 PhotonVision's `VisionSystemSim` is the only production-grade FRC camera sim: it renders tag corners through real intrinsics and distortion, injects per-pixel noise, models FPS/exposure/latency distributions, and drives the *real* `PhotonCamera` NT topics so production code runs unchanged.
 
-PumpkinLib routes **every** source through it — including Limelight — so `simEnabled(true)` is one boolean, not a rewrite.
+Rootstock routes **every** source through it — including Limelight — so `simEnabled(true)` is one boolean, not a rewrite.
 
 ```java
-package org.pumpkinlib.vision.sim;
+package org.rootstock.vision.sim;
 
-/** Discovered through the core VisionSimHook SPI (D19/D26), never named by PumpkinSim. */
-public final class PumpkinVisionSim implements VisionSimHook {
+/** Discovered through the core VisionSimHook SPI (D19/D26), never named by RootstockSim. */
+public final class RootstockVisionSim implements VisionSimHook {
   /** One process-wide sim world. Every *CameraIO.simulated(...) registers into it. */
-  public static PumpkinVisionSim global();
+  public static RootstockVisionSim global();
 
   public void addAprilTags(AprilTagFieldLayout layout);
   /** VisionTargetSim(Pose3d pose, TargetModel model, int objDetClassId, float objDetConf) —
@@ -3295,10 +3298,10 @@ public final class PumpkinVisionSim implements VisionSimHook {
 
 PhotonVision's shipped `SimCameraProperties` factories stop at Limelight 2. Verified 2026-08-08 at tag `v2026.3.4`, the complete factory list is `PERFECT_90DEG()`, `PI4_LIFECAM_320_240()`, `PI4_LIFECAM_640_480()`, `LL2_640_480()`, `LL2_960_720()`, `LL2_1280_720()`. We add the sensors teams actually run in 2026.
 
-**The presets live in the CORE artifact, as plain numbers.** `SimCameraProperties` is a photonlib type; if a preset returned one, `RobotContainer`'s `.simulated(...)` line would drag photonlib into every Limelight-only team's classpath and §2.6's artifact split would be fiction. So the presets return a core-owned record and `pumpkinlib-photonvision` converts.
+**The presets live in the CORE artifact, as plain numbers.** `SimCameraProperties` is a photonlib type; if a preset returned one, `RobotContainer`'s `.simulated(...)` line would drag photonlib into every Limelight-only team's classpath and §2.6's artifact split would be fiction. So the presets return a core-owned record and `rootstock-photonvision` converts.
 
 ```java
-package org.pumpkinlib.vision;   // CORE artifact — WPILib only, no photonlib
+package org.rootstock.vision;   // CORE artifact — WPILib only, no photonlib
 
 /** A sensor model, as numbers. Everything PhotonVision's SimCameraProperties needs, none of its types. */
 public record CameraSimProfile(
@@ -3328,10 +3331,10 @@ public final class CameraSimProfiles {
 ```
 
 ```java
-package org.pumpkinlib.vision.sim;   // + photonlib
+package org.rootstock.vision.sim;   // + photonlib
 
 /** The single translation point between our numbers and PhotonVision's type. */
-public final class PumpkinCameraProps {
+public final class RootstockCameraProps {
   /**
    * Applies, in this order and nowhere else in the library:
    *   setCalibration(int resWidth, int resHeight, Rotation2d fovDiag)
@@ -3356,12 +3359,12 @@ public final class PumpkinCameraProps {
 
 ### 14.3 Simulating a Limelight — the part nobody has built
 
-Limelight ships **no** simulation. A Limelight team cannot test an auto or an alignment without a robot and a field. Here is how PumpkinLib fixes that.
+Limelight ships **no** simulation. A Limelight team cannot test an auto or an alignment without a robot and a field. Here is how Rootstock fixes that.
 
 `SimulatedLimelight` stands up a hidden `PhotonCameraSim`, drains its results, and **re-encodes them into the Limelight NT wire format** on the table the production `LimelightCameraIO` is already subscribed to. Production code path is exercised unchanged, including the botpose index map and the latency math.
 
 ```java
-package org.pumpkinlib.vision.sim;
+package org.rootstock.vision.sim;
 
 public final class SimulatedLimelight implements AutoCloseable {
 
@@ -3373,17 +3376,17 @@ public final class SimulatedLimelight implements AutoCloseable {
    */
   public SimulatedLimelight(String limelightName, Transform3d robotToCamera,
                             CameraSimProfile props, LimelightCameraIO.LimelightMode mode,
-                            AprilTagFieldLayout layout);   // converts via PumpkinCameraProps.toPhoton
+                            AprilTagFieldLayout layout);   // converts via RootstockCameraProps.toPhoton
 
-  /** Called from PumpkinVisionSim.update(). */
+  /** Called from RootstockVisionSim.update(). */
   void update(Pose2d groundTruthRobotPose);
 }
 ```
 
 Implementation, in order:
 
-1. Construct a `PhotonCamera` on a **private, unpublished NT table** name (`"__pumpkinsim_" + limelightName`) so it never collides with a real camera and never shows up on a dashboard.
-2. Construct `new PhotonCameraSim(camera, props, layout)` — the 3-arg constructor `PhotonCameraSim(PhotonCamera, SimCameraProperties, AprilTagFieldLayout)` is **verified at tag `v2026.3.4`** and is what makes `multitagResult` available in sim. Register it into `PumpkinVisionSim.global().raw().addCamera(sim, robotToCamera)`.
+1. Construct a `PhotonCamera` on a **private, unpublished NT table** name (`"__rootstocksim_" + limelightName`) so it never collides with a real camera and never shows up on a dashboard.
+2. Construct `new PhotonCameraSim(camera, props, layout)` — the 3-arg constructor `PhotonCameraSim(PhotonCamera, SimCameraProperties, AprilTagFieldLayout)` is **verified at tag `v2026.3.4`** and is what makes `multitagResult` available in sim. Register it into `RootstockVisionSim.global().raw().addCamera(sim, robotToCamera)`.
 3. Subscribe to `/<limelightName>/robot_orientation_set`, `/<limelightName>/pipeline`, `/<limelightName>/throttle_set`, `/<limelightName>/fiducial_id_filters_set` — **the sim honors the same control keys the real camera does**, so a pipeline switch or a tag filter behaves identically in sim.
 4. Each loop, drain `camera.getAllUnreadResults()`. For each result:
 
@@ -3438,9 +3441,9 @@ VisionCameraIO frontIo = LimelightCameraIO.megaTag2("limelight-front", TF_FRONT)
     .simulated(CameraSimProfiles.OV9281_1280_800_82DEG());   // no-op on a real robot
 ```
 
-`.simulated(...)` records the profile — a core-owned record of plain numbers, so **this line compiles with no photonlib on the classpath**. `PumpkinVision.build()` inspects `Platform.isSimulation()` (the confined accessor; ArchUnit rules 2 and 12 forbid `RobotBase.isSimulation()` outside `compat`) and, only then, reflectively instantiates `PumpkinVisionSim` from `pumpkinlib-photonvision` (§2.6). If that artifact is absent the builder raises the named warning and runs with no simulated cameras. No ternary in `RobotContainer`, no second IO class to write, no code path that exists only in sim, and no vendordep a Limelight-only team did not ask for.
+`.simulated(...)` records the profile — a core-owned record of plain numbers, so **this line compiles with no photonlib on the classpath**. `RootstockVision.build()` inspects `Platform.isSimulation()` (the confined accessor; ArchUnit rules 2 and 12 forbid `RobotBase.isSimulation()` outside `compat`) and, only then, reflectively instantiates `RootstockVisionSim` from `rootstock-photonvision` (§2.6). If that artifact is absent the builder raises the named warning and runs with no simulated cameras. No ternary in `RobotContainer`, no second IO class to write, no code path that exists only in sim, and no vendordep a Limelight-only team did not ask for.
 
-`PumpkinVisionSim.global().update(groundTruthPose)` is called by the drive domain's `simulationPeriodic` through the `VisionSimHook` SPI. If the team is using maple-sim, ground truth is the maple-sim robot pose; otherwise it is the drivetrain's own sim pose.
+`RootstockVisionSim.global().update(groundTruthPose)` is called by the drive domain's `simulationPeriodic` through the `VisionSimHook` SPI. If the team is using maple-sim, ground truth is the maple-sim robot pose; otherwise it is the drivetrain's own sim pose.
 
 ---
 
@@ -3454,15 +3457,15 @@ package frc.robot;
 import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.*;
 import edu.wpi.first.math.util.Units;
-import org.pumpkinlib.vision.*;
-import org.pumpkinlib.vision.commands.*;
-import org.pumpkinlib.vision.custom.CustomNTCameraIO;
-import org.pumpkinlib.vision.field.FieldLayouts;
-import org.pumpkinlib.vision.filter.VisionFilters;
-import org.pumpkinlib.vision.limelight.LimelightCameraIO;
-import org.pumpkinlib.vision.photon.PhotonCameraIO;      // pumpkinlib-photonvision artifact
-import org.pumpkinlib.vision.stddev.StdDevModels;
-// NOTE: no org.pumpkinlib.vision.sim import and no org.photonvision import anywhere in this file.
+import org.rootstock.vision.*;
+import org.rootstock.vision.commands.*;
+import org.rootstock.vision.custom.CustomNTCameraIO;
+import org.rootstock.vision.field.FieldLayouts;
+import org.rootstock.vision.filter.VisionFilters;
+import org.rootstock.vision.limelight.LimelightCameraIO;
+import org.rootstock.vision.photon.PhotonCameraIO;      // rootstock-photonvision artifact
+import org.rootstock.vision.stddev.StdDevModels;
+// NOTE: no org.rootstock.vision.sim import and no org.photonvision import anywhere in this file.
 // CameraSimProfiles is in the core artifact (section 14.2), which is what lets a Limelight-only
 // team delete the two PhotonCameraIO lines below and drop the photonlib vendordep entirely.
 
@@ -3486,11 +3489,11 @@ public class RobotContainer {
       new Rotation3d(0.0, Units.degreesToRadians(-15.0), Math.PI));
 
   private final Drive m_drive = new Drive();          // your drivetrain; implements PoseProvider
-  private final PumpkinVision m_vision;
+  private final RootstockVision m_vision;
 
   public RobotContainer() {
-    m_vision = PumpkinVision.builder()
-        // deploy/pumpkin/field-layout.json wins if present; otherwise this. No default.
+    m_vision = RootstockVision.builder()
+        // deploy/rootstock/field-layout.json wins if present; otherwise this. No default.
         .layout(FieldLayouts.resolve(AprilTagFields.k2026RebuiltWelded))
         .poseProvider(m_drive)
 
@@ -3509,7 +3512,7 @@ public class RobotContainer {
         .camera(CustomNTCameraIO.northstar("northstar-rear", TF_REAR))
 
         .filter(VisionFilters.standard())
-        .stdDevs(StdDevModels.pumpkinDefault())
+        .stdDevs(StdDevModels.rootstockDefault())
         // Binding D17: the sink is VisionConsumer.accept(Pose2d, double, Matrix<N3,N1>),
         // which is exactly addVisionMeasurement's signature.
         .consumer(m_drive.getPoseEstimator()::addVisionMeasurement)
@@ -3574,13 +3577,13 @@ Simulation, in `Robot.java`:
 
 ```java
 @Override public void simulationPeriodic() {
-  PumpkinVisionSim.global().update(m_drive.getSimGroundTruthPose());
+  RootstockVisionSim.global().update(m_drive.getSimGroundTruthPose());
 }
 ```
 
 That is everything. Four cameras, three vendors plus sim, correct timestamps, a named reason for every rejected frame, distance²-scaled std devs with the MegaTag2 heading rule enforced structurally and a finite untrusted sentinel that cannot become `NaN`, a bounded frame budget that cannot spiral, layout-mismatch detection, tag residual health, object tracking, and four ready-to-use commands including tag-relative 2 cm alignment. Adding a fifth camera of a fourth brand is one `.camera(...)` line.
 
-**What a Limelight-only team writes instead:** delete the two `PhotonCameraIO` lines and the `CustomNTCameraIO` line, delete the `pumpkinlib-photonvision` vendordep, keep everything else including `.simulated(...)`. They still get the filter chain, the std-dev models, the diagnostics, layout management, object projection, `alignToTag`, and — with the one extra `pumpkinlib-photonvision` vendordep — a simulated Limelight, which Limelight itself does not ship.
+**What a Limelight-only team writes instead:** delete the two `PhotonCameraIO` lines and the `CustomNTCameraIO` line, delete the `rootstock-photonvision` vendordep, keep everything else including `.simulated(...)`. They still get the filter chain, the std-dev models, the diagnostics, layout management, object projection, `alignToTag`, and — with the one extra `rootstock-photonvision` vendordep — a simulated Limelight, which Limelight itself does not ship.
 
 ---
 
@@ -3595,7 +3598,7 @@ Pure-math surface is HAL-free and unit-tested off-robot (this was the single hig
 | **`LimelightCameraSpaceConversionTest`** | **(new, revision 4)** A tag placed 2 m ahead, 0.5 m left and 0.3 m below the lens in WPILib camera space encodes to `targetpose_cameraspace = [-0.5, 0.3, 2.0, ...]` in Limelight camera space and decodes back to within 1 mm. Pins `x_wpi = z_ll`, `y_wpi = -x_ll`, `z_wpi = -y_ll`. The **rotation** half is a `@Disabled` placeholder carrying the `[UNVERIFIED]` tag until the M10 hardware gate resolves §21 OQ 13 — a disabled test with a named reason, not a silently missing one. |
 | `ObjectProjectionTest` | The same synthetic scene, encoded as a Limelight detection and as a PhotonVision target, projects to field positions within 1 mm. Pins the tx sign convention. |
 | `FilterChainTest` | Each filter fires its own `RejectReason` and only its own; `and()` reports the **first** rejection. |
-| `StdDevModelTest` | `pumpkinDefault()` reproduces the AdvantageKit template's numbers exactly at d ∈ {1, 2, 4} and n ∈ {1, 2, 3}, **including the §8.2 worked case: d = 3, n = 2, gyro-fused → sigmaXY = 0.045 m**; every gyro-fused source yields `sigmaTheta == StdDevModels.UNTRUSTED_SIGMA` (finite, never `Infinity`) even when the supplied model does not. |
+| `StdDevModelTest` | `rootstockDefault()` reproduces the AdvantageKit template's numbers exactly at d ∈ {1, 2, 4} and n ∈ {1, 2, 3}, **including the §8.2 worked case: d = 3, n = 2, gyro-fused → sigmaXY = 0.045 m**; every gyro-fused source yields `sigmaTheta == StdDevModels.UNTRUSTED_SIGMA` (finite, never `Infinity`) even when the supplied model does not. |
 | `StdDevNaNGuardTest` | **The season-ending bug, pinned.** `cameraFactor = 0.0` on a gyro-fused frame yields a finite sigma, not `NaN`. A deliberately hostile model writing `{NaN, 0.0, Infinity}` produces a `RejectReason.CUSTOM` rejection, never reaches `addVisionMeasurement`, and leaves the estimator's pose finite. Asserts the ordering too: scaling by `1e9` then pinning leaves the pin intact. |
 | `StdDevAllocationTest` | `compute(frame, ctx, out)` allocates zero bytes across 10 000 calls (the zero-allocation CI gate), and `withAngularDisabled()` does not mutate any matrix the wrapped model retains. |
 | `FrameBudgetTest` | 20 queued frames on one camera produce at most `maxFramesPerLoop` decodes and at most `maxAcceptedPerLoop` `addVisionMeasurement` calls; the kept frames are the **oldest and the newest**; `CoalescedCount` and `DecodeDroppedCount` account for every dropped frame exactly once; the NT queue is fully drained regardless. |
@@ -3607,13 +3610,13 @@ Pure-math surface is HAL-free and unit-tested off-robot (this was the single hig
 | `AlignToTagTest` | (retained, unchanged in intent) A synthetic `bestCameraToTarget` plus a mount transform and a `tagRelativeGoal` produce the correct robot-frame **error**, verified against a hand-computed case at a non-zero robot heading (the case where `Translation3d` arithmetic instead of `Transform3d.plus` silently gives the wrong answer). Error is invariant when the fused pose is perturbed by 1 m — that invariance IS the feature. **This test pins error computation only; the three direction/dead-zone tests above pin the commanded velocity, which is what revision 3 got wrong.** |
 | `AlignTagFilterRestoreTest` | The camera's tag-id filter is restored on `end(true)` (interrupt) as well as `end(false)`. |
 | `DisabledSeedTest` | A `MEGATAG_2` frame never seeds. A single-tag frame never seeds. Three disagreeing multi-tag frames never seed. Three agreeing ones seed exactly once. Seeding while enabled is impossible. |
-| `ArtifactIsolationTest` | Compiles the core jar (`pumpkinlib`) against a classpath with photonlib **absent**, and asserts no class outside `org.pumpkinlib.vision.photon` / `.sim` imports `org.photonvision.*`. Also asserts `.simulated(CameraSimProfiles.OV9281_1280_800_82DEG())` compiles and runs (as a no-op) in that classpath. |
-| `VisionArchUnitTest` | No class in `org.pumpkinlib.vision..` names `edu.wpi.first.wpilibj.DriverStation` (rule 10), `RobotBase` (rules 2/12), or `Timer.getFPGATimestamp` (rule 3/G2). This is the test that keeps §9.7, §11.4 and §14.3 honest after the revision-4 migration. |
+| `ArtifactIsolationTest` | Compiles the core jar (`rootstock`) against a classpath with photonlib **absent**, and asserts no class outside `org.rootstock.vision.photon` / `.sim` imports `org.photonvision.*`. Also asserts `.simulated(CameraSimProfiles.OV9281_1280_800_82DEG())` compiles and runs (as a no-op) in that classpath. |
+| `VisionArchUnitTest` | No class in `org.rootstock.vision..` names `edu.wpi.first.wpilibj.DriverStation` (rule 10), `RobotBase` (rules 2/12), or `Timer.getFPGATimestamp` (rule 3/G2). This is the test that keeps §9.7, §11.4 and §14.3 honest after the revision-4 migration. |
 | **`VisionAlertBudgetTest`** | **(new)** A synthetic four-camera robot with every §11.3 check failing raises exactly **two** `BLOCKS_MATCH` alerts (§11.3a), and every other finding is still present in `VisionDiagnostics.run()`. **All twenty checks are enumerated by this test**, so adding a check without classifying its `MatchImpact` fails the build — which is what makes `NETWORK_TRANSIT_HIGH`'s `PIT_ONLY` a decision rather than a default. |
 | **`NetworkTransitCheckTest`** | **(new, `DESIGN.md` §16 item 8)** A camera fed a synthetic `NetworkTransitEstimateSecs` series raises `NETWORK_TRANSIT_HIGH` when the 5 s rolling p95 crosses **10 ms** and not at 9 ms; the finding is `Severity.WARN` / `MatchImpact.PIT_ONLY` and names the camera; it is **per camera**, so one bad camera among four produces exactly one finding; and it raises **zero** `BLOCKS_MATCH` alerts, so `VisionAlertBudgetTest`'s count of two is unchanged. Asserts alongside that `HealthMonitor.builtinTypeCount() == 7` and `builtinSliceCount() == 8` — the check is deliberately *not* an eighth core monitor. |
 | `MovingTargetSolverTest` | Zero velocity → virtual target == real target. Convergence within tolerance in ≤ 8 iterations for a realistic ToF map. The `omega x r` term produces the correct launch-point velocity for an off-center launcher (pinned against a hand-computed case). |
 | `LayoutFingerprintTest` | Welded and Andymark 2026 layouts produce different fingerprints; reordering tags produces the same fingerprint. |
-| `AllianceOriginTest` | No PumpkinLib code path calls `AprilTagFieldLayout.setOrigin`; the periodic origin assertion fires when a test mutates it. |
+| `AllianceOriginTest` | No Rootstock code path calls `AprilTagFieldLayout.setOrigin`; the periodic origin assertion fires when a test mutates it. |
 | `SimLimelightRoundTripTest` | `SimulatedLimelight` publishes, `LimelightCameraIO` decodes, and the resulting robot pose matches the ground-truth pose within 3 cm on a static scene with 3 tags in view. **Read §14.3's last limitation before trusting it**: it proves the two halves agree with each other, not that either matches a real Limelight. |
 
 `SimLimelightRoundTripTest` is the important one for the sim claim: it proves the sim exercises the *production* decode path, which is the entire justification for the design. **`DriveToPoseDirectionTest` and `AlignToTagDirectionTest` are the important ones for the alignment claim**, and they are the direct analogues of `design/05` §9.2's `drivesTowardTheTarget` / `drivesTowardTheTargetOffAxis`. If any of the four new tests is deleted or weakened, the sign bug comes back — it already came back once, in a document written *after* `design/05` §9.1 fixed it.
@@ -3630,13 +3633,13 @@ Pure-math surface is HAL-free and unit-tested off-robot (this was the single hig
 | A field-tag calibration tool | **WPIcal** (ships with WPILib 2026; emits both a WPILib layout JSON and a Limelight `.fmap`) | `FieldLayouts.fromWpical(Path)`, a deploy convention, and `TagResidualMonitor` so you can *see* which tag is off. |
 | A camera simulator | **PhotonVision `VisionSystemSim`** — real intrinsics, distortion, per-pixel noise, FPS/latency distributions | Wrap it, add 2026 sensor presets, and route Limelight through it (§14.3). This wrapper is the novel part; the renderer is not. |
 | A path planner or pathfinder | **PathPlannerLib** `AutoBuilder.pathfindToPose`, **Choreo** | Compose `pathfindToPose` for the approach phase and add the terminal controller and freshness gate PathPlanner deliberately does not have. |
-| A logging framework or a replay engine | **AdvantageKit**, **AdvantageScope**, WPILib DataLog, CTRE SignalLogger | Call `PumpkinLog`; log the leaf names AdvantageScope layouts already expect. |
+| A logging framework or a replay engine | **AdvantageKit**, **AdvantageScope**, WPILib DataLog, CTRE SignalLogger | Call `RootstockLog`; log the leaf names AdvantageScope layouts already expect. |
 | A dashboard or a 3D viewer | **AdvantageScope**, **Elastic** | Publish stable NT keys and a reject-reason histogram the telemetry domain renders. |
-| An alert registry | **`org.pumpkinlib.core.alert`** (domain 06, binding D10) | Call `Alerts.error/warning/info(group, text, MatchImpact)` and answer the match-impact question at every site (§11.3a). |
+| An alert registry | **`org.rootstock.core.alert`** (domain 06, binding D10) | Call `Alerts.error/warning/info(group, text, MatchImpact)` and answer the match-impact question at every site (§11.3a). |
 | A tunable type | **`TuningRegistry`** (domain 02, binding D11) | Call `TuningRegistry.tunable("Vision", key, default, unit)`. |
 | A neural-network trainer | **Limelight's free H100-backed trainer**, **PhotonVision's Colab conversion notebook** | Decode both vendors' detector output into one `DetectedObject`. Models are not portable and we say so. |
 | A Limelight NT wrapper | **`LimelightHelpers.java`** (LimelightLib-WPIJava 1.14) | Vendor it verbatim so teams stop copy-pasting a 1,900-line file, expose it as an escape hatch, and use raw NT `readQueue()` on the hot path because `getBotPoseEstimate_*` drops frames and `getLatestResults()` parses JSON on the RIO. |
-| A ballistics model | The mechanism domain's shot tables; the team's own measurements | `MovingTargetSolver` supplies the virtual-target geometry only. PumpkinLib supplies the solver and the tuning UI, never the numbers. |
+| A ballistics model | The mechanism domain's shot tables; the team's own measurements | `MovingTargetSolver` supplies the virtual-target geometry only. Rootstock supplies the solver and the tuning UI, never the numbers. |
 | A replacement for `VisionSystemSim`'s renderer, or a Limelight firmware emulator | — | We re-encode PhotonVision's simulated output into the Limelight wire format. We simulate the *interface*, not the device. |
 
 ---
@@ -3648,13 +3651,13 @@ WPILib 2027 renames every Java package `edu.wpi.first.*` → `org.wpilib.*`, dro
 Vision's plan:
 
 1. **The math is already portable.** `MovingTargetSolver`, `ObjectProjection`, `StdDevModels`, the botpose decoder, `LimelightCameraSpace`, the filter predicates, and `LayoutFingerprint` depend only on geometry types and `Matrix`. A package rename is mechanical for them, and they contain no `Command`.
-2. **Commands are quarantined.** Only `org.pumpkinlib.vision.commands` imports `edu.wpi.first.wpilibj2.command.*`. That is one package to rewrite for Commands v3, and the terminal-controller math inside it is already a plain class with an `execute()`-shaped method that a coroutine can call.
+2. **Commands are quarantined.** Only `org.rootstock.vision.commands` imports `edu.wpi.first.wpilibj2.command.*`. That is one package to rewrite for Commands v3, and the terminal-controller math inside it is already a plain class with an `execute()`-shaped method that a coroutine can call.
 3. **No NT3 anywhere.** Every publisher/subscriber uses the NT4 typed topic API (`getDoubleArrayTopic(...).subscribe(...)` with `PubSubOption`), which survives.
 4. **No Shuffleboard, no SmartDashboard.** `VisionDiagnostics.publishToNT` writes plain NT4 topics. Both of those dashboards are deleted in 2027.
-5. **Two artifacts, ONE source line, one source tree.** The vision packages ride inside `pumpkinlib`; `pumpkinlib-photonvision` is the only vision-relevant adapter (§2.6). **Revision 3 correction:** there is no permanent `2026.x` / `2027.x` pair. Under [`ROADMAP.md` §7.2 rule 3](../ROADMAP.md), the 2027 port is **M12**, the generated-source variant and dual-compile CI exist **only** inside M12's transition window, and the 2026 line and the generator are **deleted at the end of M12**. The project is single-line after that, because there are no external users on the 2026 line to protect. What survives from the argument below is the *shape* of the port, not the two-branch plan: the vision packages inside the core jar depend on no camera vendor, so they are a pure mechanical rename; `pumpkinlib-photonvision` is the only piece whose port is blocked on a vendor, and it is one enum, one adapter and three sim classes.
+5. **Two artifacts, ONE source line, one source tree.** The vision packages ride inside `rootstock`; `rootstock-photonvision` is the only vision-relevant adapter (§2.6). **Revision 3 correction:** there is no permanent `2026.x` / `2027.x` pair. Under [`ROADMAP.md` §7.2 rule 3](../ROADMAP.md), the 2027 port is **M12**, the generated-source variant and dual-compile CI exist **only** inside M12's transition window, and the 2026 line and the generator are **deleted at the end of M12**. The project is single-line after that, because there are no external users on the 2026 line to protect. What survives from the argument below is the *shape* of the port, not the two-branch plan: the vision packages inside the core jar depend on no camera vendor, so they are a pure mechanical rename; `rootstock-photonvision` is the only piece whose port is blocked on a vendor, and it is one enum, one adapter and three sim classes.
 6. **Java-17-safe subset now** so the port is mechanical: no pattern matching for `switch`, no record patterns, no sealed-interface exhaustiveness tricks.
 7. Assume **PathPlanner and Choreo both break in 2027** (both deliberately froze 2026). `VisionCommands.driveToPose` touches PathPlanner in exactly one place, behind a `PathfindingBackend` interface with a `NoPathfinding` fallback.
-8. **Revision-4 addition: the PhotonVision port is already partly visible and it is not free.** PhotonVision's 2027 alpha has **removed** the members 2026.3.4 merely deprecates — the 3-arg `PhotonPoseEstimator` constructor, `update()`, `setPrimaryStrategy`, `setMultiTagFallbackStrategy`, `setReferencePose`, `setLastPose`. PumpkinLib already uses none of them (§6.2), so our port is a rename, but **any team escape-hatching through `PhotonCameraIO.estimator()` onto those methods will not compile in 2027**. The `estimator()` javadoc says so.
+8. **Revision-4 addition: the PhotonVision port is already partly visible and it is not free.** PhotonVision's 2027 alpha has **removed** the members 2026.3.4 merely deprecates — the 3-arg `PhotonPoseEstimator` constructor, `update()`, `setPrimaryStrategy`, `setMultiTagFallbackStrategy`, `setReferencePose`, `setLastPose`. Rootstock already uses none of them (§6.2), so our port is a rename, but **any team escape-hatching through `PhotonCameraIO.estimator()` onto those methods will not compile in 2027**. The `estimator()` javadoc says so.
 
 ---
 
@@ -3664,11 +3667,11 @@ Vision's plan:
 
 | Was called | Now built at | Contents | Person-weeks |
 |---|---|---|---|
-| "v0.1" | **M10 — Vision core: Limelight** | `VisionFrame` + `VisionFrameHeader`, `TargetObservation`, `PoseSource`, `CameraSimProfile`/`CameraSimProfiles`, `VisionCameraIO`, `LimelightCameraIO` (MT1/MT2/BOTH) **+ `LimelightCameraSpace` (§5.2a)**, `ReplayCameraIO`, filter chain + `RejectReason` + `standard()`, `StdDevModels` (3 presets) + the `UNTRUSTED_SIGMA`/`sanitizeStdDevs` guard, `PumpkinVision` builder + the §9.6 frame budget + the §9.7 disabled seed, `FieldLayouts.resolve/fingerprint`, the full log key set, `VisionDiagnostics` (11 of 20 checks — `NETWORK_TRANSIT_HIGH` is in this slice, because M10 already builds the `NetworkTransitEstimateSecs` key it reads) + the §11.3a roll-up, **`VisionCommands.alignToTag` + `AlignableDrive` + `AlignGains` + the four §16 direction/dead-zone/seeding tests**. | **4.4** |
+| "v0.1" | **M10 — Vision core: Limelight** | `VisionFrame` + `VisionFrameHeader`, `TargetObservation`, `PoseSource`, `CameraSimProfile`/`CameraSimProfiles`, `VisionCameraIO`, `LimelightCameraIO` (MT1/MT2/BOTH) **+ `LimelightCameraSpace` (§5.2a)**, `ReplayCameraIO`, filter chain + `RejectReason` + `standard()`, `StdDevModels` (3 presets) + the `UNTRUSTED_SIGMA`/`sanitizeStdDevs` guard, `RootstockVision` builder + the §9.6 frame budget + the §9.7 disabled seed, `FieldLayouts.resolve/fingerprint`, the full log key set, `VisionDiagnostics` (11 of 20 checks — `NETWORK_TRANSIT_HIGH` is in this slice, because M10 already builds the `NetworkTransitEstimateSecs` key it reads) + the §11.3a roll-up, **`VisionCommands.alignToTag` + `AlignableDrive` + `AlignGains` + the four §16 direction/dead-zone/seeding tests**. | **4.4** |
 | "v0.2" | **M16 — Vision, advanced sources** | `PhotonCameraIO` (2026 API) + `PhotonStrategy`, `CustomNTCameraIO` + `NorthstarSchema`, `DetectedObject` + `ObjectProjection` + `ObjectTracker`, `TagResidualMonitor` + layout-mismatch detection, `VisionCommands.driveToPose` / `alignToNearest` / `aimAtPoint` / `setPipeline`, **`CameraArbiter` (§13.6)**, remaining diagnostics. | **3.3** |
-| "v0.3" | **M17 — `SimulatedLimelight` + custom coprocessors** | `PumpkinVisionSim` + `PumpkinCameraProps` + `SimulatedLimelight`, `PumpkinV1Schema` + `Struct` implementations, `SnapScriptChannel`, `AdvantageKitCompat`, match recording, throttling. | **2.5** |
+| "v0.3" | **M17 — `SimulatedLimelight` + custom coprocessors** | `RootstockVisionSim` + `RootstockCameraProps` + `SimulatedLimelight`, `RootstockV1Schema` + `Struct` implementations, `SnapScriptChannel`, `AdvantageKitCompat`, match recording, throttling. | **2.5** |
 | — | **M18 — Shoot-on-the-move** | `MovingTargetSolver` + `aimWhileMoving`, `autoIntake`. | **1.5** |
-| "v0.4 (offseason stretch)" | **M17 (same milestone)** — *no longer a stretch, and no longer optional* | `pumpkin_vision` Python package for coprocessors, WPIcal deploy tooling, calibration-JSON ingestion for the reprojection/FOV checks. | **2.0** |
+| "v0.4 (offseason stretch)" | **M17 (same milestone)** — *no longer a stretch, and no longer optional* | `rootstock_vision` Python package for coprocessors, WPIcal deploy tooling, calibration-JSON ingestion for the reprojection/FOV checks. | **2.0** |
 | **Total (this domain's rows, added)** | | `4.4 + 3.3 + 2.5 + 1.5 + 2.0` | **13.7 person-weeks** |
 
 > ### Reconciling this table's arithmetic — revision-4 correction
@@ -3709,14 +3712,14 @@ Vision's plan:
 
 ## 20. Risks
 
-1. **The photonlib fence is real complexity, and CI is the only thing keeping it honest.** ~~PhotonVision is a hard dependency even for Limelight-only teams~~ — that was the earlier draft's position and it was wrong (§2.6). It violated Principle 5 and Principle 12, and it made our ship date hostage to PhotonVision's. The fence fixes it, and introduces its own risk: two Maven coordinates and one `CameraSimProfile → SimCameraProperties` translation point that exists only to keep photonlib out of the core jar's type signatures. If nobody maintains that boundary it will rot the first time someone finds it convenient to accept a `SimCameraProperties` in core. Mitigation: `ArtifactIsolationTest` (§16) compiles the core jar against a photonlib-free classpath on every CI run and fails the build on any `org.photonvision.*` import outside the two designated packages. The vendor-neutrality claim is checked mechanically or it is not a claim. Residual risk: a Limelight-only team that wants *camera simulation* still installs one photonlib-bearing vendordep (`PumpkinLib-PhotonVision.json`). That is an honest, opt-in, sim-only cost, and the alternative is writing a camera renderer, which we will not do. **What the fence no longer buys is a "no third-party `requires`" install story** — `PumpkinLib.json` requires `AdvantageKit.json` regardless (maintainer decision 3), so the fence is now about *camera* vendor neutrality only.
+1. **The photonlib fence is real complexity, and CI is the only thing keeping it honest.** ~~PhotonVision is a hard dependency even for Limelight-only teams~~ — that was the earlier draft's position and it was wrong (§2.6). It violated Principle 5 and Principle 12, and it made our ship date hostage to PhotonVision's. The fence fixes it, and introduces its own risk: two Maven coordinates and one `CameraSimProfile → SimCameraProperties` translation point that exists only to keep photonlib out of the core jar's type signatures. If nobody maintains that boundary it will rot the first time someone finds it convenient to accept a `SimCameraProperties` in core. Mitigation: `ArtifactIsolationTest` (§16) compiles the core jar against a photonlib-free classpath on every CI run and fails the build on any `org.photonvision.*` import outside the two designated packages. The vendor-neutrality claim is checked mechanically or it is not a claim. Residual risk: a Limelight-only team that wants *camera simulation* still installs one photonlib-bearing vendordep (`Rootstock-PhotonVision.json`). That is an honest, opt-in, sim-only cost, and the alternative is writing a camera renderer, which we will not do. **What the fence no longer buys is a "no third-party `requires`" install story** — `Rootstock.json` requires `AdvantageKit.json` regardless (maintainer decision 3), so the fence is now about *camera* vendor neutrality only.
 2. **`SimulatedLimelight` is genuinely novel and therefore genuinely unproven.** The MegaTag2 reconstruction in §14.3 is my own derivation of what MegaTag2 does conceptually, not a vendor-documented algorithm. It will be optimistic relative to the real device. `SimLimelightRoundTripTest` pins the round trip, but only against my own encoder — and revision 4 adds a second thing it cannot prove: §5.2a's camera-space rotation convention, which the sim encodes and decodes with the same `[UNVERIFIED]` reading. Mitigation: publish the limitation prominently; validate against a real LL4 on a practice field — an **explicit, non-negotiable M17 gate** (R7), not a good intention with a month attached — and pull the *camera-space* half of that validation forward to the **M10** gate, because `alignToTag` ships at M10 and depends on it.
-3. **The `pumpkinV1` wire schema has no adopters on day one.** Its value is the layout-hash handshake and correct timestamping, but a team with a working Northstar has no reason to migrate. Mitigation: ship `NorthstarSchema` first and make `pumpkinV1` the *new-coprocessor* path, not a migration ask.
+3. **The `rootstockV1` wire schema has no adopters on day one.** Its value is the layout-hash handshake and correct timestamping, but a team with a working Northstar has no reason to migrate. Mitigation: ship `NorthstarSchema` first and make `rootstockV1` the *new-coprocessor* path, not a migration ask.
 4. **Filter-chain tuning could become the new footgun.** Fifteen filters with fifteen tunable thresholds is more rope than one boolean expression. Mitigation: `standard()` is the documented default and the diagnostics name the *dominant* reject reason, so a team is pushed toward "why is this one reason firing" rather than "let me loosen everything."
-5. **Timestamp correctness cannot be verified without hardware.** Every claim in §5 is derived from vendor docs and from AdvantageKit's shipped implementation. A 20 ms systematic error would be invisible in sim and cost 8 cm at 4 m/s on the field. Mitigation: `Pumpkin/Vision/<name>/LatencySec` and `NetworkTransitEstimateSecs` are logged every frame so the numbers are auditable in a real log; the odometry-vs-vision disagreement statistic in `VisionDiagnostics` is a direct empirical check; and **as of 2026-08-08 the transit half is no longer log-only — `NETWORK_TRANSIT_HIGH` (§11.3) alerts above a 10 ms p95**, which is the difference between a number a team could have read and a number a team is told about.
+5. **Timestamp correctness cannot be verified without hardware.** Every claim in §5 is derived from vendor docs and from AdvantageKit's shipped implementation. A 20 ms systematic error would be invisible in sim and cost 8 cm at 4 m/s on the field. Mitigation: `Rootstock/Vision/<name>/LatencySec` and `NetworkTransitEstimateSecs` are logged every frame so the numbers are auditable in a real log; the odometry-vs-vision disagreement statistic in `VisionDiagnostics` is a direct empirical check; and **as of 2026-08-08 the transit half is no longer log-only — `NETWORK_TRANSIT_HIGH` (§11.3) alerts above a 10 ms p95**, which is the difference between a number a team could have read and a number a team is told about.
 6. **~~2027 lands in ~4 months.~~ REWRITTEN under maintainer decision 1 — the risk inverted.** The old risk was "the port slips and Vision ships one usable season." There is now **no 2026 release at all**, so there is no 2026 season to protect and nothing to quarantine *for*. The 2027 port is **M12**, the only date-triggered milestone: it arms at the first confirmed 2027 alpha (~Oct 2027), must complete inside the beta window, and at solo pace **preempts M11** ([`ROADMAP.md` §7.2](../ROADMAP.md)). The 2026 source line and the rename generator are **deleted at the end of M12** — the project is single-line afterwards, not dual-line, because there are no external users on the 2026 line. Do **not** start the port on an unconfirmed alpha. The real residual risk here is the *opposite* one: at solo pace this domain's own milestones (M16–M18) land in 2029, so vision is written twice-removed from the WPILib line it was designed against, and R20 (relevance decay) applies to it directly.
-7. **Layout-mismatch detection is statistical, not certain**, for both vendors (§10.4). A team could still run a mismatched layout for a whole event if their residuals are noisy. Mitigation: the `TAG_NOT_IN_LAYOUT` canary catches the common case immediately, and `pumpkinV1` makes it certain for custom coprocessors. Push vendors for a layout-identity NT key.
-8. **`maxAcceptedPerLoop = 2` is a judgement call made from arithmetic, not from a robot.** The §9.6 reasoning about `addVisionMeasurement`'s odometry replay is structurally sound and the old default of 20 was indefensible, but the claim that the third and later measurements in a 20 ms window add negligible information is an argument, not a measurement. If it is wrong, we are throwing away real corrections at exactly the moment a team most needs them. Mitigation: nothing is hidden — `CoalescedCount` counts every discarded measurement, `Pumpkin/Perf/Vision/ConsumeMs` shows what the cap bought, and the cap is one builder call to raise. Measure it on a real robot with a 250 Hz Phoenix odometry thread as part of the M10 gate and revise the default if the data disagrees; the API freeze is not until M24, so the default is still free to move.
+7. **Layout-mismatch detection is statistical, not certain**, for both vendors (§10.4). A team could still run a mismatched layout for a whole event if their residuals are noisy. Mitigation: the `TAG_NOT_IN_LAYOUT` canary catches the common case immediately, and `rootstockV1` makes it certain for custom coprocessors. Push vendors for a layout-identity NT key.
+8. **`maxAcceptedPerLoop = 2` is a judgement call made from arithmetic, not from a robot.** The §9.6 reasoning about `addVisionMeasurement`'s odometry replay is structurally sound and the old default of 20 was indefensible, but the claim that the third and later measurements in a 20 ms window add negligible information is an argument, not a measurement. If it is wrong, we are throwing away real corrections at exactly the moment a team most needs them. Mitigation: nothing is hidden — `CoalescedCount` counts every discarded measurement, `Rootstock/Perf/Vision/ConsumeMs` shows what the cap bought, and the cap is one builder call to raise. Measure it on a real robot with a 250 Hz Phoenix odometry thread as part of the M10 gate and revise the default if the data disagrees; the API freeze is not until M24, so the default is still free to move.
 9. **`alignToTag` is only as good as `bestCameraToTarget`, and Limelight populates it for the primary tag only** (§6.1). A Limelight team's tag-relative alignment therefore depends on one `targetpose_cameraspace` read and stops the moment the primary tag changes or is occluded. PhotonVision supplies it per target and has no such limitation. Mitigation: the command holds rather than extrapolating, ends with a named `ALIGN_TAG_LOST` after 0.5 s, and the asymmetry is documented rather than smoothed over. A Limelight team that wants robust tag-relative alignment should lock a single tag id via `acceptableTagIds`. **Revision 4 adds a second, sharper edge to the same risk:** that single read also crosses a coordinate-frame boundary whose rotation half is `[UNVERIFIED]` (§5.2a). PhotonVision cameras cross no boundary at all.
 10. ***(new, revision 4)*** **Vendor documentation drifts under a stable URL, and this document was already burned by it.** Revision 2's PhotonVision verification note cited `javadocs.photonvision.org/release/`, which by 2026-08-08 serves **v2027.0.0-alpha-2** — so a claim that was true when checked became false about our target version without a single character of this document changing. The same hazard applies to `docs.limelightvision.io`, which is unversioned entirely. Mitigation, applied throughout revision 4: **cite immutable git tags** (`.../photonvision/blob/v2026.3.4/...`) wherever source exists; where only an unversioned vendor page exists, **quote the sentence verbatim and date the check**, so a future reader can tell whether the page moved under us; and treat any citation that cannot do either as `[UNVERIFIED]`. This is a process risk, not a code risk, and it is the one most likely to recur, because it recurs silently.
 
@@ -3728,14 +3731,14 @@ Vision's plan:
 2. **Coprocessor field-layout identity.** Neither PhotonVision nor Limelight publishes which layout it loaded. Is there a PhotonVision NT topic under the camera table that carries this? If PhotonVision would add one, it would eliminate the #1 silent bug in FRC vision outright. Worth an upstream PR.
 3. **Limelight pipeline settle time.** Undocumented. We measure and log it, but should `SETTLE_FRAMES = 3` be the default, or should the default be "wait for `getpipe` match only" with the heartbeat requirement opt-in? Needs bench measurement on LL3G and LL4. **[UNVERIFIED]**
 4. **`tdist` in Limelight OS 2026.1.** The dossier reports a new `tdist` (3D distance to target/POI) key. Re-checked 2026-08-08: it **does not appear** in the complete-NetworkTables reference. If it exists it is a cheap, high-quality distance source for object detection. Needs verification against a real 2026.1 camera. **[UNVERIFIED]**
-5. **Welded vs Andymark delta magnitude for 2026 REBUILT.** I do not have the per-tag numbers. If the maximum delta is below our residual noise floor, the statistical mismatch detector is useless for 2026 and the `TAG_NOT_IN_LAYOUT` canary plus the `pumpkinV1` handshake are the only real defenses. Measure at boot with `FieldLayouts.logDeltas`. **[UNVERIFIED]**
+5. **Welded vs Andymark delta magnitude for 2026 REBUILT.** I do not have the per-tag numbers. If the maximum delta is below our residual noise floor, the statistical mismatch detector is useless for 2026 and the `TAG_NOT_IN_LAYOUT` canary plus the `rootstockV1` handshake are the only real defenses. Measure at boot with `FieldLayouts.logDeltas`. **[UNVERIFIED]**
 6. **~~Should `ignoreEarlyAuto` default on?~~ RESOLVED by `DESIGN.md` §5.6.** *"Default on, automatically disabled when the selected auto declares `resetOdom == false`."* Revision 3 of this document still shipped it off and carried the question open; §7.2 now ships it on with the auto-declared gate. What remains is a **contract**, not a question: the Auto domain must expose the selected routine's `resetOdom` flag to the vision filter chain. Named in §2.7 as an implicit dependency of `VisionFilters.standard()`.
 7. **~~Multi-camera arbitration.~~ RESOLVED — `CameraArbiter` is specified in §13.6 and is built at M16.** The earlier text punted this to "an offseason-stretch experiment" on the reasoning that std-dev weighting *probably* dominates. That was not a defensible answer to shipped evidence: 2910 built "automatic selection of optimal camera to relocalize from" on purpose, and "probably" does not outrank a team that wins. The design decision is now explicit and split in two: the **default remains `CameraArbiter.all()`**, because flipping a behavioral default on a hypothesis is exactly the mistake we criticize elsewhere; but the alternative is **built, logged and one builder call away** at M16, so the A/B can actually be run on a practice field during the season rather than read as an open question. What genuinely remains open is only the *outcome* of that A/B and whether `bestByGeometry`'s scoring function should weight view angle explicitly in addition to tag span.
 8. **Moving-mount transforms and replay.** `CameraMount.transformAt(timestamp)` calls back into a mechanism's position history. In AdvantageKit replay that history must itself have come from logged inputs. Does the mechanism domain guarantee a replayable `TimeInterpolatableBuffer` of mechanism angles? If not, a turret-mounted camera is not replayable and we should say so.
 9. **`stddevs` NT key semantics.** Limelight publishes a 12-element MT1/MT2 std-dev array (layout verified 2026-08-08). Are those numbers in the same units and the same statistical sense as WPILib's `visionMeasurementStdDevs`? If yes, `StdDevModels.limelightReported()` becomes attractive as a default for Limelight cameras. **[UNVERIFIED]**
-10. **~~`PumpkinLog` replay of `VisionFrame[]`.~~ RESOLVED in §4.3 and by `DESIGN.md` §5.6.** `VisionFrame` is a plain record and is never serialized; the fixed-size `VisionFrameHeader` and `TargetObservation` go on two topics joined by `frameSequence`, and both are `Struct<T>[]`, which is the one shape WPILib's struct system is designed for. Both structs are registered and written once during `robotInit()` so AdvantageKit's documented >100 ms first-log cost lands at boot. Nothing further is required of the telemetry domain.
+10. **~~`RootstockLog` replay of `VisionFrame[]`.~~ RESOLVED in §4.3 and by `DESIGN.md` §5.6.** `VisionFrame` is a plain record and is never serialized; the fixed-size `VisionFrameHeader` and `TargetObservation` go on two topics joined by `frameSequence`, and both are `Struct<T>[]`, which is the one shape WPILib's struct system is designed for. Both structs are registered and written once during `robotInit()` so AdvantageKit's documented >100 ms first-log cost lands at boot. Nothing further is required of the telemetry domain.
 11. **`alignToTag` latency compensation at handoff speed.** The 6-arg overload deliberately does no compensation (§13.5 detail 5) on the argument that an 80 ms observation age is ≤ 4 cm at terminal speeds. That argument holds at ≤ 0.5 m/s and gets weaker fast above it. Should the `PoseProvider` overload become the *default* by making the 6-arg form delegate to it whenever a `PoseProvider` is reachable? Needs a measurement of the actual handoff speed out of `driveToPose` on a real robot before deciding.
 12. **`CameraArbiter.bestByGeometry` scoring.** `tagCount * tagSpan / d²` is a defensible first cut chosen to agree with the std-dev model rather than fight it, but it ignores view angle, and a tag seen at 75° off-normal is worth much less than the same tag seen at 20°. `TargetObservation.bestCameraToTarget()` carries enough to compute the incidence angle. Add it, or does the tag-span term already capture most of the effect? **Needs an A/B, and §13.6 is built so the A/B is cheap.**
 13. ***(new, revision 4, and it gates `alignToTag` on Limelight)*** **The `targetpose_cameraspace` rotation convention.** The translation basis change is unambiguous and is specified in §5.2a. The rotation half is not: the vendor documents the array as `[tx, ty, tz, pitch, yaw, roll]` in degrees but states neither the composition order nor which axis each name refers to *after* the camera-space basis change. **[UNVERIFIED]** — resolve empirically at the **M10** hardware gate by placing a tag at a known, deliberately asymmetric pose (yaw 30°, pitch 15°, roll 0°) and reading the key, then enable `LimelightCameraSpaceConversionTest`'s currently-`@Disabled` rotation case. Until then, the §5.2a runtime cross-check and the `LL_CAMERASPACE_CONVENTION` finding are the only defence, and §13.5 detail 6 tells a team so.
 14. ***(new, revision 4)*** **Limelight robot-space Y sign — the vendor's own two pages disagree.** The *AprilTag Coordinate Systems* page says robot space is *"Y+ → Pointing toward the robot's right"*; the *LimelightLib* page documents `setCameraPose_RobotSpace`'s second argument as *"Side offset (meters), left of robot center."* Those are opposite. §11.1 writes left-positive (a straight pass-through of the WPILib `Transform3d`) because that is the page documenting the setter we call. **[UNVERIFIED]** — resolve at the same M10 gate by pushing a deliberately asymmetric transform (`y = +0.30 m`) and checking whether `targetpose_robotspace` for a tag straight ahead reports the tag to the robot's right or left. Worth an upstream documentation issue either way.
-15. ***(new, revision 4)*** **`VisionFreshness` on a per-camera command.** `driveToPose`'s gate is now global (`hasRecentFix` / `acceptedFramesInWindow` across all cameras), which is right for a fused-pose command. But `alignToTag`'s 8-arg overload takes a `VisionFreshness` too, and for that command the meaningful question is *"is THIS camera's solve fresh"*, not "did any camera fix the pose." Should `VisionFreshness` grow a per-camera evaluation (`satisfiedBy(PumpkinVision, int cameraIndex)`), or does `alignToTag`'s own `m_noSolveLoops` gate (§13.5 detail 4) already cover it completely? Leaning: `m_noSolveLoops` covers it, and the 8-arg overload's freshness argument should be documented as applying only to the latency-compensation path.
+15. ***(new, revision 4)*** **`VisionFreshness` on a per-camera command.** `driveToPose`'s gate is now global (`hasRecentFix` / `acceptedFramesInWindow` across all cameras), which is right for a fused-pose command. But `alignToTag`'s 8-arg overload takes a `VisionFreshness` too, and for that command the meaningful question is *"is THIS camera's solve fresh"*, not "did any camera fix the pose." Should `VisionFreshness` grow a per-camera evaluation (`satisfiedBy(RootstockVision, int cameraIndex)`), or does `alignToTag`'s own `m_noSolveLoops` gate (§13.5 detail 4) already cover it completely? Leaning: `m_noSolveLoops` covers it, and the 8-arg overload's freshness argument should be documented as applying only to the latency-compensation path.

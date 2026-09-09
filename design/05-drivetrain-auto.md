@@ -1,4 +1,4 @@
-# PumpkinLib Design 05 — Drivetrain, Autonomous, and Mechanism Action Coordination
+# Rootstock Design 05 — Drivetrain, Autonomous, and Mechanism Action Coordination
 
 **Status:** Design complete, ready to implement — **revision 3, after the four binding maintainer decisions of 2026-08-07.**
 **Owner domain:** drivetrain + autonomous + mechanism-action coordination
@@ -10,38 +10,38 @@
 
 | # | Decision | Effect here |
 |---|---|---|
-| A | **1 — one release, v0.1, containing everything** | §13's v0.1 / v0.2 / v0.3 / v0.4 delivery plan is **deleted as a release plan** and survives only as build **order**, remapped onto **M9, M11, M15** (and the port, **M12**) in [`ROADMAP.md` §5](../ROADMAP.md), which is authoritative for every date. Nothing in this domain is deferred *out of* the release. Where this document said "deferred to v0.2/v0.3," read "built at a later milestone of the same release." Two items — `MecanumBackend` and `PumpkinNav.useProfile` — are **not in any milestone** and are therefore *post-v0.1*, which is a genuine reduction and is labelled as one. |
-| B | **2 — `PumpkinTemplate` is the front door** | The template's `differential` variant is the reason `DifferentialBackend` is non-optional; it is **not real until M15**, and `pumpkin init --template differential` must fail with a named message before then rather than generate a non-driving project. |
-| C | **3 — AdvantageKit is REQUIRED** | The `PumpkinLog` **fan-out SPI in §1.1 is deleted.** There is one logging path (AdvantageKit's `Logger`) and no `AdvantageKitSink` / `DataLogSink` / `HootSink` / `NtSink` / `NullSink` to choose between. Replay determinism — which `LocalADStarAK`, the trigger engine and `OdometryReport` all depend on — is now a **guarantee**, not a configuration. The cost: a team on DogLog or plain Epilogue cannot adopt PumpkinLib at all. |
+| A | **1 — one release, v0.1, containing everything** | §13's v0.1 / v0.2 / v0.3 / v0.4 delivery plan is **deleted as a release plan** and survives only as build **order**, remapped onto **M9, M11, M15** (and the port, **M12**) in [`ROADMAP.md` §5](../ROADMAP.md), which is authoritative for every date. Nothing in this domain is deferred *out of* the release. Where this document said "deferred to v0.2/v0.3," read "built at a later milestone of the same release." Two items — `MecanumBackend` and `RootstockNav.useProfile` — are **not in any milestone** and are therefore *post-v0.1*, which is a genuine reduction and is labelled as one. |
+| B | **2 — `RootstockTemplate` is the front door** | The template's `differential` variant is the reason `DifferentialBackend` is non-optional; it is **not real until M15**, and `rootstock init --template differential` must fail with a named message before then rather than generate a non-driving project. |
+| C | **3 — AdvantageKit is REQUIRED** | The `RootstockLog` **fan-out SPI in §1.1 is deleted.** There is one logging path (AdvantageKit's `Logger`) and no `AdvantageKitSink` / `DataLogSink` / `HootSink` / `NtSink` / `NullSink` to choose between. Replay determinism — which `LocalADStarAK`, the trigger engine and `OdometryReport` all depend on — is now a **guarantee**, not a configuration. The cost: a team on DogLog or plain Epilogue cannot adopt Rootstock at all. |
 | D | **1 + §7.2 of the roadmap** | The **two-artifacts-from-one-tree** plan in §12 item 7 is reversed. The project is **single-line** after M12; the 2026 line and the rename generator are deleted at the end of it. |
 | E | **4 — BSD-3-Clause** | Licence decided. No "TBD" anywhere. |
 
 **Revision 3.1 changelog — what the 2026-08-07 six-lens design review did to this document.** Five findings were routed here. Three were applied in full at the time; two were cross-domain contract changes that a separate reconciliation pass owned, and were marked in place with `<!-- CONTRACT-PENDING -->` comments rather than edited, so two parallel edits could not collide on the same seam.
 
-**Revision 3.2, 2026-08-08 — the contract-reconciliation pass ran, and R1 and R2 are now APPLIED.** Every `CONTRACT-PENDING` **marker** in this document is resolved and removed. The string still appears in the revision-3.1 paragraph above, in this paragraph, in the R1 and R2 rows below, and in §15.2 rows 9 and 10 — in every case as backtick-quoted prose describing what *used* to be there, never as a marker. **There are no live HTML comments left**: `grep -c '^ *<!-- CONTRACT-PENDING' design/05-drivetrain-auto.md` returns `0`, which is the check that actually distinguishes a marker from a memory of one. The dispositions in the R1/R2 rows below are updated in place and the original wording is kept so the history is legible. One further blocking finding was applied in the same pass and is not attributable to the six-lens review: REVIEW **B10**, this document's `PumpkinLog` call sites, which were written against a facade shape `design/04` does not ship (§1.1).
+**Revision 3.2, 2026-08-08 — the contract-reconciliation pass ran, and R1 and R2 are now APPLIED.** Every `CONTRACT-PENDING` **marker** in this document is resolved and removed. The string still appears in the revision-3.1 paragraph above, in this paragraph, in the R1 and R2 rows below, and in §15.2 rows 9 and 10 — in every case as backtick-quoted prose describing what *used* to be there, never as a marker. **There are no live HTML comments left**: `grep -c '^ *<!-- CONTRACT-PENDING' design/05-drivetrain-auto.md` returns `0`, which is the check that actually distinguishes a marker from a memory of one. The dispositions in the R1/R2 rows below are updated in place and the original wording is kept so the history is legible. One further blocking finding was applied in the same pass and is not attributable to the six-lens review: REVIEW **B10**, this document's `RootstockLog` call sites, which were written against a facade shape `design/04` does not ship (§1.1).
 
 | # | Finding | Severity | Disposition |
 |---|---|---|---|
-| R1 | The MegaTag2 gyro→field-offset contract (`design/03` §2.2, D16/D16a) was ordered on this document and never applied: `getGyroHeading()` still ships, no `getRawGyro()`, no `m_gyroFieldOffset`, no `getGyroFieldHeading()`, no ninth `DriveSelfCheck`, no `PoseProvider`/`AlignableDrive`/`VisionConsumer` in `org.pumpkinlib.drive`. `[SUPERSEDED-NAME]` | blocking | ~~**CONTRACT-PENDING.**~~ **APPLIED IN FULL, revision 3.2 (2026-08-08), by the contract-reconciliation pass.** `DriveBackend.getGyroHeading()` is deleted and replaced by `getRawGyro()` (§3.2); the four D16 interfaces are declared in **§3.3.2 and nowhere else in the design**; the offset, its exactly-two writers, the conversion and the never-writes prohibition are owned by **§3.3.3**; `DriveSelfCheck` check **9** is added (§3.8) with `design/03`'s alert text unparaphrased; §2's package layout lists all four types. Revision 3.1 deliberately did not apply this, to avoid a conflicting parallel edit on the highest-stakes seam in the library; that reason expired when the reconciliation pass took the seam. |
-| R2 | Binding **D17** deleted `VisionObservation`; this document still defines it and still declares `addVisionMeasurement(VisionObservation)`. `[SUPERSEDED-NAME]` | major | ~~**CONTRACT-PENDING** for the type change~~ — **APPLIED, revision 3.2 (2026-08-08).** The record is deleted from §1.3, `VisionConsumer` is declared in §3.3.2, `PumpkinDrive implements … VisionConsumer` and its sink is `accept(Pose2d, double, Matrix<N3,N1>)` (§3.3), and §8.3's timestamp paragraph names the method. **The part that needed a design answer rather than a mechanical edit was answered in full at revision 3.1** — `tagCount`/`avgTagDistanceMeters` do not survive D17's three-argument signature, and §8.3 says where they go and why widening the signature would be wrong. |
-| R3 | The auto DSL claimed **2 cm** from `alignAtEnd`, a fused-pose controller; `design/03` §13.3 states as an invariant that 2 cm "is achievable [in `alignToTag`] and nowhere else," and `alignToTag` was unreachable from `AutoStep`. | major | **APPLIED, both halves.** `AutoStep.alignToTagAtEnd(...)` added (§6.4) with a documented fallback to `alignAtEnd` when vision is absent, wired through `PumpkinAuto.withVision(...)` (§5.1) so `org.pumpkinlib.auto` imports nothing from `org.pumpkinlib.vision`; **and** every 2 cm claim on the fused-pose path is corrected with the arithmetic shown (§6.7, §9). +0.2 pw booked against M11 (§13). |
-| R4 | `design/03` §13.2's *"required change, not a suggestion"* — `PumpkinDriveToPose` default `tolerance(0.02 m, 1.5°)` → `tolerance(0.05 m, 2.0°)` — was never made, in the builder or in either worked example. | major | **APPLIED** at §9's builder and §10's example, with `design/03` §13.2's javadoc and the sigma derivation reproduced at the builder (§9). The third site, `DESIGN.md` §10B line 1112, belongs to that document — requested, not edited here. **Extended 2026-08-08 (`DESIGN.md` §16 item 2's named residue, which was this document's one-line edit and is now made):** the number is declared **once**, at §9's `PumpkinDriveToPose.kDefaultTolerance` / `kDefaultAngularTolerance`, and the three sites that used to retype it read it by name instead — §10's worked example, §9's builder-default comment, and §6.5's `alignToTagAtEnd` fused fallback. §6.7.1 still *states* 5 cm / 2.0°, because that is the section that derives it, and it now says so explicitly rather than reading like a second declaration. **Verified 2026-08-08:** `grep -n 'tolerance(Meters\.of(0\.05)' design/05-drivetrain-auto.md` returns **zero**, and `grep -c 'kDefaultTolerance\|kDefaultAngularTolerance' design/05-drivetrain-auto.md` returns **11** lines — the 2-line declaration (§9), the 2-line DSL fused fallback (§6.5), the 2-line builder-default comment (§9), the 2-line §10 call site, §6.7.1's derivation pointer, §15.2 row 12's record, and this cell. **The count is not the gate**; the gate is that the *literal* count is zero, which is the grep above it. `DESIGN.md` §10B was independently closed at that document's revision 7 and also reads the constants by name, so the tolerance is now a literal in exactly one place in the whole design. |
+| R1 | The MegaTag2 gyro→field-offset contract (`design/03` §2.2, D16/D16a) was ordered on this document and never applied: `getGyroHeading()` still ships, no `getRawGyro()`, no `m_gyroFieldOffset`, no `getGyroFieldHeading()`, no ninth `DriveSelfCheck`, no `PoseProvider`/`AlignableDrive`/`VisionConsumer` in `org.rootstock.drive`. `[SUPERSEDED-NAME]` | blocking | ~~**CONTRACT-PENDING.**~~ **APPLIED IN FULL, revision 3.2 (2026-08-08), by the contract-reconciliation pass.** `DriveBackend.getGyroHeading()` is deleted and replaced by `getRawGyro()` (§3.2); the four D16 interfaces are declared in **§3.3.2 and nowhere else in the design**; the offset, its exactly-two writers, the conversion and the never-writes prohibition are owned by **§3.3.3**; `DriveSelfCheck` check **9** is added (§3.8) with `design/03`'s alert text unparaphrased; §2's package layout lists all four types. Revision 3.1 deliberately did not apply this, to avoid a conflicting parallel edit on the highest-stakes seam in the library; that reason expired when the reconciliation pass took the seam. |
+| R2 | Binding **D17** deleted `VisionObservation`; this document still defines it and still declares `addVisionMeasurement(VisionObservation)`. `[SUPERSEDED-NAME]` | major | ~~**CONTRACT-PENDING** for the type change~~ — **APPLIED, revision 3.2 (2026-08-08).** The record is deleted from §1.3, `VisionConsumer` is declared in §3.3.2, `RootstockDrive implements … VisionConsumer` and its sink is `accept(Pose2d, double, Matrix<N3,N1>)` (§3.3), and §8.3's timestamp paragraph names the method. **The part that needed a design answer rather than a mechanical edit was answered in full at revision 3.1** — `tagCount`/`avgTagDistanceMeters` do not survive D17's three-argument signature, and §8.3 says where they go and why widening the signature would be wrong. |
+| R3 | The auto DSL claimed **2 cm** from `alignAtEnd`, a fused-pose controller; `design/03` §13.3 states as an invariant that 2 cm "is achievable [in `alignToTag`] and nowhere else," and `alignToTag` was unreachable from `AutoStep`. | major | **APPLIED, both halves.** `AutoStep.alignToTagAtEnd(...)` added (§6.4) with a documented fallback to `alignAtEnd` when vision is absent, wired through `RootstockAuto.withVision(...)` (§5.1) so `org.rootstock.auto` imports nothing from `org.rootstock.vision`; **and** every 2 cm claim on the fused-pose path is corrected with the arithmetic shown (§6.7, §9). +0.2 pw booked against M11 (§13). |
+| R4 | `design/03` §13.2's *"required change, not a suggestion"* — `RootstockDriveToPose` default `tolerance(0.02 m, 1.5°)` → `tolerance(0.05 m, 2.0°)` — was never made, in the builder or in either worked example. | major | **APPLIED** at §9's builder and §10's example, with `design/03` §13.2's javadoc and the sigma derivation reproduced at the builder (§9). The third site, `DESIGN.md` §10B line 1112, belongs to that document — requested, not edited here. **Extended 2026-08-08 (`DESIGN.md` §16 item 2's named residue, which was this document's one-line edit and is now made):** the number is declared **once**, at §9's `RootstockDriveToPose.kDefaultTolerance` / `kDefaultAngularTolerance`, and the three sites that used to retype it read it by name instead — §10's worked example, §9's builder-default comment, and §6.5's `alignToTagAtEnd` fused fallback. §6.7.1 still *states* 5 cm / 2.0°, because that is the section that derives it, and it now says so explicitly rather than reading like a second declaration. **Verified 2026-08-08:** `grep -n 'tolerance(Meters\.of(0\.05)' design/05-drivetrain-auto.md` returns **zero**, and `grep -c 'kDefaultTolerance\|kDefaultAngularTolerance' design/05-drivetrain-auto.md` returns **11** lines — the 2-line declaration (§9), the 2-line DSL fused fallback (§6.5), the 2-line builder-default comment (§9), the 2-line §10 call site, §6.7.1's derivation pointer, §15.2 row 12's record, and this cell. **The count is not the gate**; the gate is that the *literal* count is zero, which is the grep above it. `DESIGN.md` §10B was independently closed at that document's revision 7 and also reads the constants by name, so the tolerance is now a literal in exactly one place in the whole design. |
 | R5 | Raw literal `9_999_999` for vision heading trust where `design/03` §8.0 Rule 1 establishes `StdDevModels.UNTRUSTED_SIGMA = 1e6` as the library-wide named sentinel. | minor | **APPLIED** at all four sites (§3.4.4, §8.2, §8.3 ×2), and §8.3's competing std-dev *formula* is retired in favour of `design/03` §8.4's model, which that domain owns (§0.2). |
 
 Four further items that name this document elsewhere in the review, and are applied here because nothing else edits this file:
 
-- **REVIEW M5 / binding D10** — `MatchImpact` is required at every alert call site with no default and no single-argument overload. This document used a two-argument `org.pumpkinlib.config.PumpkinAlerts` facade throughout. Swept to `org.pumpkinlib.core.alert.Alerts.error/warning(group, text, MatchImpact)` (§1.4, §3.4.2, §5.2, §9.1's `end()`), with each site's impact chosen and justified. *(Corrected 2026-08-08: this line previously wrote the sweep target as `error/warning/info(group, text, MatchImpact)`. `info` takes **two** arguments — `design/06` owns the facade and `design/01`/`design/03` agree — and §1.4's mirror is corrected to match. `design/03` §2.7 contract **C13**; no call site is affected, because this document raises no INFO alert.)*
-- **REVIEW §5 / ArchUnit rule 10** — §0.3 rule 4 named `RobotBase.isSimulation()` and §8.1.1 named `DriverStation.isFMSAttached()` directly. Only `org.pumpkinlib.core.match..` may read `DriverStation`; everything else goes through `MatchContext`/`Platform`. Both corrected.
-- **`DESIGN.md` §16 item 2 (a)–(d)** — four corrections that document ordered on this one and tracked as outstanding. All four applied: `PumpkinDriveConfig.v01Competition()` (§3.7), the four-argument `driverNudge` (§9), the `TunerConstants.kFrontLeftXPos`/`kFrontLeftYPos` + four-argument `CtreSwerveBackend` fix to §10's example, and the `OdometryReport`-ships-with-the-funnel note (§13, already M9).
+- **REVIEW M5 / binding D10** — `MatchImpact` is required at every alert call site with no default and no single-argument overload. This document used a two-argument `org.rootstock.config.RootstockAlerts` facade throughout. Swept to `org.rootstock.core.alert.Alerts.error/warning(group, text, MatchImpact)` (§1.4, §3.4.2, §5.2, §9.1's `end()`), with each site's impact chosen and justified. *(Corrected 2026-08-08: this line previously wrote the sweep target as `error/warning/info(group, text, MatchImpact)`. `info` takes **two** arguments — `design/06` owns the facade and `design/01`/`design/03` agree — and §1.4's mirror is corrected to match. `design/03` §2.7 contract **C13**; no call site is affected, because this document raises no INFO alert.)*
+- **REVIEW §5 / ArchUnit rule 10** — §0.3 rule 4 named `RobotBase.isSimulation()` and §8.1.1 named `DriverStation.isFMSAttached()` directly. Only `org.rootstock.core.match..` may read `DriverStation`; everything else goes through `MatchContext`/`Platform`. Both corrected.
+- **`DESIGN.md` §16 item 2 (a)–(d)** — four corrections that document ordered on this one and tracked as outstanding. All four applied: `RootstockDriveConfig.v01Competition()` (§3.7), the four-argument `driverNudge` (§9), the `TunerConstants.kFrontLeftXPos`/`kFrontLeftYPos` + four-argument `CtreSwerveBackend` fix to §10's example, and the `OdometryReport`-ships-with-the-funnel note (§13, already M9).
 - The `~6 cm` trajectory-terminal-error figure in §6.7 was uncited. Under Principle 10 it is now tagged and pointed at `OdometryReport.trajectoryTest`, the routine in this document that measures it.
 
-> **The `[SUPERSEDED-NAME]` marker — why three deleted names still appear in this document (added 2026-08-08).** `getGyroHeading`, `VisionObservation` and `PumpkinAlerts.` are all dead, and every one of them still occurs here, in a **labelled supersession or review-log site**. `[SUPERSEDED-NAME]` Deleting those occurrences would delete the record of the correction — R1, R2, §15.2 rows 9/10 and §15.3 row 14 exist precisely to say that this document *used to* declare `getGyroHeading()` and *used to* declare the `VisionObservation` record, which is the finding, not a residue of it. So [`DESIGN.md`](../DESIGN.md) §16 items **6** and **7** carve them out with the literal marker above, and this document now carries it.
+> **The `[SUPERSEDED-NAME]` marker — why three deleted names still appear in this document (added 2026-08-08).** `getGyroHeading`, `VisionObservation` and `RootstockAlerts.` are all dead, and every one of them still occurs here, in a **labelled supersession or review-log site**. `[SUPERSEDED-NAME]` Deleting those occurrences would delete the record of the correction — R1, R2, §15.2 rows 9/10 and §15.3 row 14 exist precisely to say that this document *used to* declare `getGyroHeading()` and *used to* declare the `VisionObservation` record, which is the finding, not a residue of it. So [`DESIGN.md`](../DESIGN.md) §16 items **6** and **7** carve them out with the literal marker above, and this document now carries it.
 >
 > **Marker scope is [`design/02`](02-tuning.md) §0's, not a second definition:** the same line; or any line of the same **fenced code block**, the same **block-quote**, or the same **markdown table**, plus the block-quote immediately preceding a fence. **This document places every marker on the same line as the name it carves** — the strictest reading — except for this definition block, which relies on the block-quote clause for its own second paragraph.
 >
 > **Both directions run by hand, 2026-08-08, and stated as a relation rather than as literal counts** — a note that quotes its own grep changes the number it quotes, which is how a marker block becomes its own extra hit. **Forward:** every line matching one of the three carved names also matches the marker **on the same line**, with exactly one exception — the union clause below, which the block-quote clause carves. The ten correction sites are §0 rows R1/R2, §1.3's deletion paragraph, §1.4's revision-3.1 alert note, §3.2's *"deleted, not renamed for taste"* note, §3.3.2's `VisionConsumer` javadoc, §8.3's metadata note, and §15.2 rows 9/10 plus §15.3 row 14. **Reverse:** every line matching the marker has a carved name in its scope. **No unmarked literal, no orphaned marker.**
 >
-> **The reverse gate must be defined over the *union* of every carved name set**, never over one document's — `design/02` §0 states this and `DESIGN.md` §16 item 4(f) adopts it. A marker standing over `getGyroHeading`, `VisionObservation` or `PumpkinAlerts.` is **correct** and must not be reported as an orphan by a gate written against `design/02`'s five names.
+> **The reverse gate must be defined over the *union* of every carved name set**, never over one document's — `design/02` §0 states this and `DESIGN.md` §16 item 4(f) adopts it. A marker standing over `getGyroHeading`, `VisionObservation` or `RootstockAlerts.` is **correct** and must not be reported as an orphan by a gate written against `design/02`'s five names.
 
 ---
 
@@ -51,54 +51,54 @@ Four further items that name this document elsewhere in the review, and are appl
 
 | # | Responsibility | Public entry point |
 |---|---|---|
-| 1 | One vendor-neutral drivetrain façade with exactly **one actuation funnel** | `org.pumpkinlib.drive.PumpkinDrive` |
-| 2 | Backend adapters: CTRE Tuner-X swerve, AdvantageKit swerve template, YAGSL, hand-rolled swerve, differential/tank | `org.pumpkinlib.drive.backend.*` |
-| 3 | Traction/slip limiting, skid detection, slew shaping — applied to **teleop and auto identically** | `org.pumpkinlib.drive.traction.*` |
-| 4 | Driver-input DSL: deadband, expo, heading lock, aim-at, alliance-relative, drive-to-pose | `org.pumpkinlib.drive.input.DriveInputStream` |
-| 5 | **The single owner of alliance handling** — field-centric perspective, pose flipping, path mirroring | `org.pumpkinlib.field.PumpkinField` / `AlliancePerspective` |
-| 6 | One auto API over **both** PathPlanner 2026.1.2 and Choreo 2026 | `org.pumpkinlib.auto.PumpkinAuto` |
-| 7 | One trigger/composition surface identical across both trajectory sources | `org.pumpkinlib.auto.PumpkinTrajectory` |
-| 8 | Mechanism-action coordination during autos (the explicit user ask) | `org.pumpkinlib.auto.PumpkinAutoRoutine` + `AutoStep` |
-| 9 | Auto composition, dependent-question selection, per-step budgets, fallbacks, retries | `org.pumpkinlib.auto.PumpkinAutoSelector` |
-| 10 | Pathfinding façade with replay determinism and warmup | `org.pumpkinlib.nav.PumpkinNav` |
-| 11 | Production drive-to-pose / scoring alignment | `org.pumpkinlib.nav.PumpkinDriveToPose` |
-| 12 | Drivetrain characterization + an odometry-error **measurement** report | `org.pumpkinlib.characterization.*` |
-| 13 | Headless auto validation harness | `org.pumpkinlib.auto.test.PumpkinAutoTest` |
+| 1 | One vendor-neutral drivetrain façade with exactly **one actuation funnel** | `org.rootstock.drive.RootstockDrive` |
+| 2 | Backend adapters: CTRE Tuner-X swerve, AdvantageKit swerve template, YAGSL, hand-rolled swerve, differential/tank | `org.rootstock.drive.backend.*` |
+| 3 | Traction/slip limiting, skid detection, slew shaping — applied to **teleop and auto identically** | `org.rootstock.drive.traction.*` |
+| 4 | Driver-input DSL: deadband, expo, heading lock, aim-at, alliance-relative, drive-to-pose | `org.rootstock.drive.input.DriveInputStream` |
+| 5 | **The single owner of alliance handling** — field-centric perspective, pose flipping, path mirroring | `org.rootstock.field.RootstockField` / `AlliancePerspective` |
+| 6 | One auto API over **both** PathPlanner 2026.1.2 and Choreo 2026 | `org.rootstock.auto.RootstockAuto` |
+| 7 | One trigger/composition surface identical across both trajectory sources | `org.rootstock.auto.RootstockTrajectory` |
+| 8 | Mechanism-action coordination during autos (the explicit user ask) | `org.rootstock.auto.RootstockAutoRoutine` + `AutoStep` |
+| 9 | Auto composition, dependent-question selection, per-step budgets, fallbacks, retries | `org.rootstock.auto.RootstockAutoSelector` |
+| 10 | Pathfinding façade with replay determinism and warmup | `org.rootstock.nav.RootstockNav` |
+| 11 | Production drive-to-pose / scoring alignment | `org.rootstock.nav.RootstockDriveToPose` |
+| 12 | Drivetrain characterization + an odometry-error **measurement** report | `org.rootstock.characterization.*` |
+| 13 | Headless auto validation harness | `org.rootstock.auto.test.RootstockAutoTest` |
 
 ### 0.2 What this domain explicitly does NOT own
 
 - Motor wrappers, gearing types, mechanism subsystems, PID tuning UI (mechanism + tuner domains).
 - Vision pipelines, camera fusion, std-dev models (vision domain). **We implement `VisionConsumer` and expose exactly one sink**, and consume whatever the vision domain pushes into it. **Std-dev models are theirs, not ours** — `design/03` §8.4 owns the formulas and `StdDevModels.UNTRUSTED_SIGMA`; §8.3 below consumes them and no longer restates a competing model.
-- **We DO own the four drive-facing interfaces** — `PoseProvider`, `AlignableDrive`, `DriveTelemetry`, `VisionConsumer` — because binding **D16** puts all four in `org.pumpkinlib.drive`. They are **declared in §3.3.2 of this document and nowhere else**; `design/03` §2.2/§13.1 and `design/04` §1.2 carry consumed-surface mirrors that say so explicitly and defer to this document on disagreement.
+- **We DO own the four drive-facing interfaces** — `PoseProvider`, `AlignableDrive`, `DriveTelemetry`, `VisionConsumer` — because binding **D16** puts all four in `org.rootstock.drive`. They are **declared in §3.3.2 of this document and nowhere else**; `design/03` §2.2/§13.1 and `design/04` §1.2 carry consumed-surface mirrors that say so explicitly and defer to this document on disagreement.
 - **We own the gyro→field offset (§3.3.3), and nothing else in the library does.** That is the one piece of state D16a assigns by name. `design/03` §2.2 owns the *frame convention* the offset must produce; this document owns the *arithmetic* that produces it. Neither restates the other.
 
-- Logging transport (logging domain). We consume the `PumpkinLog` facade and never call `Logger` or `SignalLogger` directly. *(Revision 3: `PumpkinLog` is a facade over one required backend, not a fan-out SPI — see §1.1.)*
+- Logging transport (logging domain). We consume the `RootstockLog` facade and never call `Logger` or `SignalLogger` directly. *(Revision 3: `RootstockLog` is a facade over one required backend, not a fan-out SPI — see §1.1.)*
 - The superstructure state graph itself (mechanism domain). We define the **request-bus contract** we need from it and nothing more.
 
 ### 0.3 Non-negotiable design rules for this domain
 
-1. **We adapt; we do not reimplement.** No PumpkinLib swerve library, no PumpkinLib trajectory generator, no PumpkinLib pathfinder, no PumpkinLib odometry math beyond what WPILib/vendors do not provide.
+1. **We adapt; we do not reimplement.** No Rootstock swerve library, no Rootstock trajectory generator, no Rootstock pathfinder, no Rootstock odometry math beyond what WPILib/vendors do not provide.
 2. **Every abstraction has a visible escape hatch.** `drive.backend()`, `drive.raw(CommandSwerveDrivetrain.class)`, `auto.pathPlannerBuilderConfigured()`, `auto.choreoFactory()`. A team that outgrows the façade is never trapped.
-3. **Zero-mystery failure.** Every guard failure raises a WPILib `Alert` with the *fix*, not just the symptom, and logs to `Pumpkin/Alerts`. We never `throw` from a constructor at boot.
-4. **Sim-first.** Every command in this document runs with `Platform.isSimulation() == true` and no hardware. `PumpkinAutoTest` runs faster than real time with no HAL sim GUI. *(Revision 3.1: this rule previously named `RobotBase.isSimulation()`. Domain 06's `volatileApiIsConfined` ArchUnit rule requires `Platform.isSimulation()/isReal()`; `DESIGN.md` §16 item 3 tracks this class of call site.)*
-5. **No vendor type in a public signature.** WPILib geometry/kinematics types (`Pose2d`, `ChassisSpeeds`, `SwerveModuleState`) *are* allowed and encouraged — students must learn them, and the 2027 `edu.wpi.first` → `org.wpilib` / `ChassisSpeeds` → `ChassisVelocities` change is a mechanical rename. `PathPlannerPath`, `AutoTrajectory`, `SwerveSample`, `DriveFeedforwards`, `SwerveRequest`, `SwerveDrive` (YAGSL) must **never** appear in a PumpkinLib public signature — those are the types that will break in ways a rename cannot fix. This is a deliberate departure from the "PumpkinLib-owned value types everywhere" suggestion in `deep-drivetrain.json`: hiding `ChassisSpeeds` violates "never hide WPILib" for zero 2027 benefit.
-6. **Java 17 subset only.** Records, sealed interfaces, `var`, arrow switch: yes. Pattern-matching `switch`, record patterns: no (preview in 17). No `Math.clamp` (Java 21). We ship `PumpkinMath.clamp`.
+3. **Zero-mystery failure.** Every guard failure raises a WPILib `Alert` with the *fix*, not just the symptom, and logs to `Rootstock/Alerts`. We never `throw` from a constructor at boot.
+4. **Sim-first.** Every command in this document runs with `Platform.isSimulation() == true` and no hardware. `RootstockAutoTest` runs faster than real time with no HAL sim GUI. *(Revision 3.1: this rule previously named `RobotBase.isSimulation()`. Domain 06's `volatileApiIsConfined` ArchUnit rule requires `Platform.isSimulation()/isReal()`; `DESIGN.md` §16 item 3 tracks this class of call site.)*
+5. **No vendor type in a public signature.** WPILib geometry/kinematics types (`Pose2d`, `ChassisSpeeds`, `SwerveModuleState`) *are* allowed and encouraged — students must learn them, and the 2027 `edu.wpi.first` → `org.wpilib` / `ChassisSpeeds` → `ChassisVelocities` change is a mechanical rename. `PathPlannerPath`, `AutoTrajectory`, `SwerveSample`, `DriveFeedforwards`, `SwerveRequest`, `SwerveDrive` (YAGSL) must **never** appear in a Rootstock public signature — those are the types that will break in ways a rename cannot fix. This is a deliberate departure from the "Rootstock-owned value types everywhere" suggestion in `deep-drivetrain.json`: hiding `ChassisSpeeds` violates "never hide WPILib" for zero 2027 benefit.
+6. **Java 17 subset only.** Records, sealed interfaces, `var`, arrow switch: yes. Pattern-matching `switch`, record patterns: no (preview in 17). No `Math.clamp` (Java 21). We ship `RootstockMath.clamp`.
 7. **Conventions:** private fields `m_name`, constants `kName` or `UPPER_SNAKE_CASE`, WPILib `Units` (`Measure`) types in config APIs with raw-`double` overloads as the escape hatch (8793's team code is raw doubles today — `repo-8793.json` constraints).
-8. **One clock.** No code in this domain calls `Timer.getFPGATimestamp()`, and no code in this domain constructs an `edu.wpi.first.wpilibj.Timer`. Time comes from `org.pumpkinlib.core.compat.Clock.now()` and elapsed time comes from `org.pumpkinlib.core.util.PumpkinStopwatch`, which is `Clock`-backed. This is DESIGN.md Principle 9 / D12, `02 §5.6` rule 1, and the ArchUnit hard rule 3 in `06`. A `Timer` instance is **not** an exemption: `Timer` reads the FPGA clock internally, so an AdvantageKit replay run advances it in wall-clock time while the log advances in log time, and every `atTime`/`settleTime`/`deadline` trigger in this document desynchronizes. See §6.2.1.
+8. **One clock.** No code in this domain calls `Timer.getFPGATimestamp()`, and no code in this domain constructs an `edu.wpi.first.wpilibj.Timer`. Time comes from `org.rootstock.core.compat.Clock.now()` and elapsed time comes from `org.rootstock.core.util.RootstockStopwatch`, which is `Clock`-backed. This is DESIGN.md Principle 9 / D12, `02 §5.6` rule 1, and the ArchUnit hard rule 3 in `06`. A `Timer` instance is **not** an exemption: `Timer` reads the FPGA clock internally, so an AdvantageKit replay run advances it in wall-clock time while the log advances in log time, and every `atTime`/`settleTime`/`deadline` trigger in this document desynchronizes. See §6.2.1.
 9. **No hardcoded match constants.** The autonomous period length is `FieldMap.autoPeriodSeconds()`, never a literal `15.0`. Binding decision D15.
 
 ---
 
-## 1. Integration Points — what I need from other PumpkinLib domains
+## 1. Integration Points — what I need from other Rootstock domains
 
 These are the **only** cross-domain surfaces this design touches. Each is a small interface I need someone else to own.
 
-### 1.1 From the logging domain — `org.pumpkinlib.telemetry.PumpkinLog`
+### 1.1 From the logging domain — `org.rootstock.telemetry.RootstockLog`
 
 **Declared by Telemetry, not here.** `design/04` §2.2/§2.3 owns this facade and has now specified it in full. The block below is the *consumed subset* — the calls this document actually makes — reproduced for readability. **If it disagrees with `design/04`, `design/04` wins.**
 
 ```java
-package org.pumpkinlib.telemetry;
+package org.rootstock.telemetry;
 
 /** Tiered STATIC facade over AdvantageKit's Logger. AdvantageKit is a REQUIRED dependency
  *  (maintainer decision 3), so this is NOT a fan-out SPI: the AdvantageKitSink /
@@ -106,7 +106,7 @@ package org.pumpkinlib.telemetry;
  *  DELETED, along with the LogBackend SPI itself. One path, one behaviour, and
  *  deterministic replay is a GUARANTEE rather than a property of the sink a team picked --
  *  which is what LocalADStarAK (§8), the trigger engine (§6.2) and OdometryReport rely on. */
-public final class PumpkinLog {
+public final class RootstockLog {
 
   // Tier is EXPLICIT at every call site. critical(...) survives the FMS byte governor;
   // log(...) is the STANDARD default; debug(...) is dropped when FMS-attached.
@@ -124,18 +124,18 @@ public final class PumpkinLog {
 }
 ```
 
-> **Revision 3.2 correction — this document was calling an API that does not exist.** Every log site here previously read `PumpkinLog.get().put(key, value)`. Both halves of that are wrong under `design/04`'s specified surface: there is no `get()` (the facade is `final class` with static methods, not an `interface` with a process-wide instance), and **`put(...)` does not exist and will not be added** — `design/04` §2.2 states that verbatim, on the grounds that a tier-implicit call is exactly how a key ends up in the wrong tier and vanishes on FMS. Every call site in this document is now `critical(...)` or `log(...)`, with the tier taken from `design/04` §3.2's key table where that table names the key, and chosen here where it does not. The package moved with it: `org.pumpkinlib.log` → `org.pumpkinlib.telemetry`. REVIEW **B10**, `design/05` half.
+> **Revision 3.2 correction — this document was calling an API that does not exist.** Every log site here previously read `RootstockLog.get().put(key, value)`. Both halves of that are wrong under `design/04`'s specified surface: there is no `get()` (the facade is `final class` with static methods, not an `interface` with a process-wide instance), and **`put(...)` does not exist and will not be added** — `design/04` §2.2 states that verbatim, on the grounds that a tier-implicit call is exactly how a key ends up in the wrong tier and vanishes on FMS. Every call site in this document is now `critical(...)` or `log(...)`, with the tier taken from `design/04` §3.2's key table where that table names the key, and chosen here where it does not. The package moved with it: `org.rootstock.log` → `org.rootstock.telemetry`. REVIEW **B10**, `design/05` half.
 
-**Why I need it:** every log key this domain emits — module states, the funnel's four stages, `Pumpkin/Auto/**`, `OdometryReport` output — must land in the same replayable stream as everything else, on one schema, with one budget governor.
+**Why I need it:** every log key this domain emits — module states, the funnel's four stages, `Rootstock/Auto/**`, `OdometryReport` output — must land in the same replayable stream as everything else, on one schema, with one budget governor.
 
-> **Revision 3, and it is a reversal worth stating rather than editing away.** Revision 2 justified the fan-out SPI with: *"8793 logs through CTRE `SignalLogger` + NT (`repo-8793.json` constraint: **do not design the library around AdvantageKit**); 9143 and 4738 log through AdvantageKit `Logger`. This domain must work with all three and must not force an IO-layer architecture."* **Maintainer decision 3 overrides that constraint, including 8793's own.** AdvantageKit is required; 8793 migrates. What this buys the drivetrain domain specifically is that `LocalADStarAK`'s replay determinism, the trigger engine's `atTime`/`atPose`/`atEvent` timing, and `PumpkinAutoTest`'s headless reproducibility stop being conditional on a team's logging choice. What it costs is stated in [`ROADMAP.md` §4.2](../ROADMAP.md) and is not softened here: a team on DogLog or plain Epilogue cannot adopt PumpkinLib, and nothing installs before AdvantageKit publishes for the season.
+> **Revision 3, and it is a reversal worth stating rather than editing away.** Revision 2 justified the fan-out SPI with: *"8793 logs through CTRE `SignalLogger` + NT (`repo-8793.json` constraint: **do not design the library around AdvantageKit**); 9143 and 4738 log through AdvantageKit `Logger`. This domain must work with all three and must not force an IO-layer architecture."* **Maintainer decision 3 overrides that constraint, including 8793's own.** AdvantageKit is required; 8793 migrates. What this buys the drivetrain domain specifically is that `LocalADStarAK`'s replay determinism, the trigger engine's `atTime`/`atPose`/`atEvent` timing, and `RootstockAutoTest`'s headless reproducibility stop being conditional on a team's logging choice. What it costs is stated in [`ROADMAP.md` §4.2](../ROADMAP.md) and is not softened here: a team on DogLog or plain Epilogue cannot adopt Rootstock, and nothing installs before AdvantageKit publishes for the season.
 
-### 1.2 From the mechanism/superstructure domain — `org.pumpkinlib.mechanism.GoalBus`
+### 1.2 From the mechanism/superstructure domain — `org.rootstock.mechanism.GoalBus`
 
 This is the single most important cross-domain contract in this document. Auto mechanism coordination is **impossible to get right** without it, because PathPlanner's documented #1 footgun is that a `NamedCommand` sharing subsystem requirements with the auto group **cancels the auto group** (`deep-auto.json` pitfalls).
 
 ```java
-package org.pumpkinlib.mechanism;
+package org.rootstock.mechanism;
 
 /**
  * A superstructure exposed as a single asynchronous request target.
@@ -165,7 +165,7 @@ public interface GoalBus<G extends Enum<G>> {
 
 **`VisionObservation` is deleted.** `[SUPERSEDED-NAME]` Binding **D17** (`DESIGN.md` §5.3) reads verbatim: *"Both records deleted. `VisionFrame` is the one vision value type. Vision pushes into the drive through `VisionConsumer.accept(Pose2d bluePose, double fpgaTimestampSeconds, Matrix<N3,N1> stdDevs)` — byte-identical to AdvantageKit's signature, so an AdvantageKit template port is import-only."* This document previously declared the record here and `design/04` §1.3 declared a second copy; **both are gone**, and neither document re-declares it. Applied 2026-08-08 by the contract-reconciliation pass (REVIEW **B4** / this document's R2).
 
-The sink is **`VisionConsumer`, declared in §3.3.2 of this document** (D16 puts it in `org.pumpkinlib.drive`) and implemented by `PumpkinDrive` (§3.3). `design/03` §2.2 mirrors it as a consumed surface and says so.
+The sink is **`VisionConsumer`, declared in §3.3.2 of this document** (D16 puts it in `org.rootstock.drive`) and implemented by `RootstockDrive` (§3.3). `design/03` §2.2 mirrors it as a consumed surface and says so.
 
 `tagCount` and `avgTagDistanceMeters` do **not** survive into D17's three-argument signature, and that is correct rather than a loss — **§8.3 is where that is answered**, including the documented `OdometryTrust.withFrameMetadata(...)` side channel for teams that genuinely need the raw counts drive-side.
 
@@ -181,24 +181,24 @@ public interface OdometryTrustListener { void onSkid(SkidReport report); }
 ### 1.4 From the config/tuning domain
 
 ```java
-org.pumpkinlib.config.Tunable        // TunableDouble/TunableBoolean, NT-backed, no-op when TUNING_MODE==false and FMS attached
-org.pumpkinlib.config.PumpkinConfigStore  // read/write deploy/pumpkin/*.json, with a /home/lvuser write path at runtime
+org.rootstock.config.Tunable        // TunableDouble/TunableBoolean, NT-backed, no-op when TUNING_MODE==false and FMS attached
+org.rootstock.config.RootstockConfigStore  // read/write deploy/rootstock/*.json, with a /home/lvuser write path at runtime
 ```
 
-**Alerts come from the platform domain, not from config.** Binding **D10** (`DESIGN.md` §5.2) puts them at `org.pumpkinlib.core.alert`:
+**Alerts come from the platform domain, not from config.** Binding **D10** (`DESIGN.md` §5.2) puts them at `org.rootstock.core.alert`:
 
 ```java
-package org.pumpkinlib.core.alert;
+package org.rootstock.core.alert;
 
 public final class Alerts {
-  public static PumpkinAlert error  (String group, String text, MatchImpact impact);
-  public static PumpkinAlert warning(String group, String text, MatchImpact impact);
-  public static PumpkinAlert info   (String group, String text);   // INFO is PIT_ONLY by definition
+  public static RootstockAlert error  (String group, String text, MatchImpact impact);
+  public static RootstockAlert warning(String group, String text, MatchImpact impact);
+  public static RootstockAlert info   (String group, String text);   // INFO is PIT_ONLY by definition
 }
 public enum MatchImpact { BLOCKS_MATCH, PIT_ONLY }
 ```
 
-> **`info` takes TWO arguments, and revision 3.1 of this document was the outlier that said otherwise — corrected 2026-08-08 (`design/03` §2.7 contract **C13**).** This mirror previously declared `info(String group, String text, MatchImpact impact)`, i.e. three arguments. `design/06` **owns** the alert facade under **D10**, and `design/06`, `design/01` and `design/03` §2.4 all declare `public static PumpkinAlert info(String group, String text);` with the same comment: *INFO is PIT_ONLY by definition — an informational alert cannot stop a match.* Three documents to one, and the one is a labelled mirror rather than the declaration site, so **this document conforms.** A `MatchImpact` parameter on `info` is not a question the author can meaningfully answer — the only answer the type permits that is consistent with the severity is `PIT_ONLY` — and a parameter with one legal value is a parameter that teaches a student to type a word instead of make a decision, which is the exact failure D10 exists to prevent on `error`/`warning`.
+> **`info` takes TWO arguments, and revision 3.1 of this document was the outlier that said otherwise — corrected 2026-08-08 (`design/03` §2.7 contract **C13**).** This mirror previously declared `info(String group, String text, MatchImpact impact)`, i.e. three arguments. `design/06` **owns** the alert facade under **D10**, and `design/06`, `design/01` and `design/03` §2.4 all declare `public static RootstockAlert info(String group, String text);` with the same comment: *INFO is PIT_ONLY by definition — an informational alert cannot stop a match.* Three documents to one, and the one is a labelled mirror rather than the declaration site, so **this document conforms.** A `MatchImpact` parameter on `info` is not a question the author can meaningfully answer — the only answer the type permits that is consistent with the severity is `PIT_ONLY` — and a parameter with one legal value is a parameter that teaches a student to type a word instead of make a decision, which is the exact failure D10 exists to prevent on `error`/`warning`.
 >
 > **This does not weaken D10.** D10's requirement is that `MatchImpact` be *"required at every call site with no default and no single-argument overload"*, and it binds `error` and `warning`, which are the two that can mean *do not take the field*. Both keep the third argument here and everywhere. **`DESIGN.md` §16 item 7 still owes the one sentence that records which way this was adjudicated** — its Required text spells the sweep target as three-argument `info` — and that sentence is `DESIGN.md`'s to write, not this document's; it is named here so the residue is not lost.
 >
@@ -206,7 +206,7 @@ public enum MatchImpact { BLOCKS_MATCH, PIT_ONLY }
 >
 > **Zero call sites were affected, verified with a call-shaped grep rather than a bare-string one:** `grep -rn 'Alerts\.info([^)]*)[[:space:]]*;' design/ DESIGN.md README.md` returns **zero** (2026-08-08). *(The bare `Alerts\.info(` grep returns 4 and rising — D10's cell, D32's cell, `DESIGN.md` §16 item 7 and `design/04` §2's ownership sentence — all **prose about the signature**. A gate that counts documents correctly describing a method is not a gate, which is the lesson `DESIGN.md` §16 draws four times over.)* This document raises no INFO alert; every entry in the impact table below is an `error` or a `warning`, and every one carries its `MatchImpact`.
 
-> **Revision 3.1, and it is a correction rather than a rename.** `[SUPERSEDED-NAME]` This document previously used a two-argument `org.pumpkinlib.config.PumpkinAlerts.error/warn(group, text)` facade at every guard. D10 states that **`MatchImpact` is required at every call site with no default and no single-argument overload** — the whole point being that the author of a guard must answer "does this stop us taking the field?" while writing it, rather than leaving it to a triage conversation on Saturday morning. A two-argument facade dodges exactly that question, in five domains at once (REVIEW M5). Every alert in this document now carries an impact and the choice is stated where it is made:
+> **Revision 3.1, and it is a correction rather than a rename.** `[SUPERSEDED-NAME]` This document previously used a two-argument `org.rootstock.config.RootstockAlerts.error/warn(group, text)` facade at every guard. D10 states that **`MatchImpact` is required at every call site with no default and no single-argument overload** — the whole point being that the author of a guard must answer "does this stop us taking the field?" while writing it, rather than leaving it to a triage conversation on Saturday morning. A two-argument facade dodges exactly that question, in five domains at once (REVIEW M5). Every alert in this document now carries an impact and the choice is stated where it is made:
 
 | Call site | Impact | Why |
 |---|---|---|
@@ -219,38 +219,38 @@ public enum MatchImpact { BLOCKS_MATCH, PIT_ONLY }
 | `drive.traction.noRobotConfig` (§3.7) | `PIT_ONLY` | Traction control silently unavailable — worth a loud pit finding, not a scratch. |
 | `char.refused.<routine>` (§8.1.1) | `PIT_ONLY` | Characterization is a pit activity by construction; it cannot run with FMS attached at all. |
 
-Every gain in `PumpkinDriveToPose`, `DriveInputStream.headingLock`, and the path-following controllers is a `Tunable`. This directly addresses the biggest pain point in all three surveyed repos: **zero tunable numbers exist in 8793 or 9143, and 4738 built a tunable stack and then commented out 30+ declarations for competition**.
+Every gain in `RootstockDriveToPose`, `DriveInputStream.headingLock`, and the path-following controllers is a `Tunable`. This directly addresses the biggest pain point in all three surveyed repos: **zero tunable numbers exist in 8793 or 9143, and 4738 built a tunable stack and then commented out 30+ declarations for competition**.
 
 ### 1.5 From the sim domain
 
 ```java
-org.pumpkinlib.sim.PumpkinSim.field(int year)   // maple-sim world, or a null world
-org.pumpkinlib.sim.HeadlessClock                // steps SimHooks + CommandScheduler faster than real time
+org.rootstock.sim.RootstockSim.field(int year)   // maple-sim world, or a null world
+org.rootstock.sim.HeadlessClock                  // steps SimHooks + CommandScheduler faster than real time
 ```
 
 ### 1.6 From the field-constants domain
 
 ```java
-org.pumpkinlib.field.FieldMap.year()            // e.g. 2026
-org.pumpkinlib.field.FieldMap.lengthMeters() / widthMeters()
-org.pumpkinlib.field.FieldMap.symmetry()        // FieldSymmetry.ROTATIONAL | MIRRORED for this year
-org.pumpkinlib.field.FieldMap.tagLayout()       // AprilTagFieldLayout
-org.pumpkinlib.field.FieldMap.autoPeriodSeconds()   // 15.0 in 2026 REBUILT. NEVER hardcoded — D15.
+org.rootstock.field.FieldMap.year()            // e.g. 2026
+org.rootstock.field.FieldMap.lengthMeters() / widthMeters()
+org.rootstock.field.FieldMap.symmetry()        // FieldSymmetry.ROTATIONAL | MIRRORED for this year
+org.rootstock.field.FieldMap.tagLayout()       // AprilTagFieldLayout
+org.rootstock.field.FieldMap.autoPeriodSeconds()   // 15.0 in 2026 REBUILT. NEVER hardcoded — D15.
 ```
 
-`autoPeriodSeconds()` is a hard requirement of this domain, not a nicety: `PumpkinAutoRoutine.skipToAfter`, every `AutoStep.deadline` default, and `PumpkinAutoTest`'s period all read it. If the field-constants domain slips, ship it as a one-line constant holder — but ship the *accessor*, because `skipToAfter` is specified in terms of seconds **remaining**, which is meaningless without it.
+`autoPeriodSeconds()` is a hard requirement of this domain, not a nicety: `RootstockAutoRoutine.skipToAfter`, every `AutoStep.deadline` default, and `RootstockAutoTest`'s period all read it. If the field-constants domain slips, ship it as a one-line constant holder — but ship the *accessor*, because `skipToAfter` is specified in terms of seconds **remaining**, which is meaningless without it.
 
 ### 1.7 From the dashboard domain
 
-`PumpkinAutoSelector` publishes stable NT topics; the dashboard domain owns generating the Elastic layout JSON that displays them. Shuffleboard and SmartDashboard are removed in WPILib 2027, so we publish raw NT4 topics + a `SendableChooser`-compatible surface, never `SmartDashboard.putData` from library code.
+`RootstockAutoSelector` publishes stable NT topics; the dashboard domain owns generating the Elastic layout JSON that displays them. Shuffleboard and SmartDashboard are removed in WPILib 2027, so we publish raw NT4 topics + a `SendableChooser`-compatible surface, never `SmartDashboard.putData` from library code.
 
 ### 1.8 From the core/compat domain — the clock
 
 ```java
-package org.pumpkinlib.core.compat;
+package org.rootstock.core.compat;
 
 /**
- * The one time source in PumpkinLib. Under AdvantageKit replay this returns LOG time, so every
+ * The one time source in Rootstock. Under AdvantageKit replay this returns LOG time, so every
  * trigger, timeout and settle window replays bit-identically. Never Timer.getFPGATimestamp().
  */
 public final class Clock {
@@ -264,14 +264,14 @@ public final class Clock {
 This domain also needs one 40-line utility, which lives in `core` because the mechanism and vision domains need it too:
 
 ```java
-package org.pumpkinlib.core.util;
+package org.rootstock.core.util;
 
 /**
  * Replay-safe stopwatch. Drop-in shape-compatible with edu.wpi.first.wpilibj.Timer for the five
- * methods PumpkinLib uses, but every read is Clock.now(). PumpkinLib code NEVER constructs a
+ * methods Rootstock uses, but every read is Clock.now(). Rootstock code NEVER constructs a
  * wpilibj Timer — see §0.3 rule 8.
  */
-public final class PumpkinStopwatch {
+public final class RootstockStopwatch {
   public void   restart();          // reset + start
   public void   start();
   public void   stop();
@@ -293,11 +293,11 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 @ArchTest
 static final ArchRule kOneClock =
-    noClasses().that().resideInAPackage("org.pumpkinlib..")
+    noClasses().that().resideInAPackage("org.rootstock..")
         .should().callMethodWhere(target(name("getFPGATimestamp")))
         .orShould().callConstructorWhere(
             target(owner(assignableTo(edu.wpi.first.wpilibj.Timer.class))))
-        .because("Principle 9 / D12: Clock.now() and PumpkinStopwatch only. A wpilibj Timer reads "
+        .because("Principle 9 / D12: Clock.now() and RootstockStopwatch only. A wpilibj Timer reads "
                + "the FPGA clock internally and desynchronizes under AdvantageKit replay.");
 ```
 
@@ -311,20 +311,20 @@ static final ArchRule kOneClock =
 > `…core.domain.properties.HasName.Predicates`, `…core.domain.properties.HasOwner.Predicates.With`,
 > `…core.domain.JavaClass.Predicates.assignableTo`) — <https://www.archunit.org/userguide/html/000_Index.html>.
 
-`04`'s `PumpkinReplay` runtime tripwire traps the same call at runtime. Both stay: the ArchUnit rule fails the build, the tripwire catches a vendor library dragging it in transitively.
+`04`'s `RootstockReplay` runtime tripwire traps the same call at runtime. Both stay: the ArchUnit rule fails the build, the tripwire catches a vendor library dragging it in transitively.
 
 ---
 
 ## 2. Package layout
 
 ```
-org.pumpkinlib.drive
-  PumpkinDrive              (final class — THE funnel; implements all four interfaces below)
+org.rootstock.drive
+  RootstockDrive              (final class — THE funnel; implements all four interfaces below)
   PoseProvider              (interface — D16; declared in §3.3.2, consumed by design/03)
   AlignableDrive            (interface — D16; declared in §3.3.2, consumed by design/03 §13.1)
   VisionConsumer            (interface — D16/D17; declared in §3.3.2, the one vision→drive sink)
   DriveTelemetry            (interface — D16; declared in §3.3.2, consumed by design/04 §1.2)
-  PumpkinDriveConfig        (record)
+  RootstockDriveConfig        (record)
   DriveGeometry             (record)
   DriveLimits               (record)
   WheelForces               (record)
@@ -332,45 +332,45 @@ org.pumpkinlib.drive
   DiscretizationPolicy      (enum)
   TractionMode              (enum)
   OdometryMode              (enum)
-org.pumpkinlib.drive.backend
+org.rootstock.drive.backend
   DriveBackend              (SPI interface — implement once per vendor)
   CtreSwerveBackend
   AdvantageKitSwerveBackend
   YagslBackend
   HandRolledSwerveBackend
   DifferentialBackend
-org.pumpkinlib.drive.traction
+org.rootstock.drive.traction
   TractionLayer
   SkidDetector, SkidReport
-org.pumpkinlib.drive.input
+org.rootstock.drive.input
   DriveInputStream
   HeadingController
-org.pumpkinlib.field
-  PumpkinField, AlliancePerspective, FieldSymmetry, AllianceValue
-org.pumpkinlib.auto
-  PumpkinAuto, PumpkinTrajectory, PumpkinAutoRoutine, AutoStep, AutoStepResult
-  PumpkinAutoSelector, AutoQuestion, AutoResponses
-  PumpkinAutoMode           (abstract base, 1678 shape)
-org.pumpkinlib.auto.source
+org.rootstock.field
+  RootstockField, AlliancePerspective, FieldSymmetry, AllianceValue
+org.rootstock.auto
+  RootstockAuto, RootstockTrajectory, RootstockAutoRoutine, AutoStep, AutoStepResult
+  RootstockAutoSelector, AutoQuestion, AutoResponses
+  RootstockAutoMode           (abstract base, 1678 shape)
+org.rootstock.auto.source
   TrajectorySource, TrajectoryHandle, ChoreoSource, PathPlannerSource
-org.pumpkinlib.nav
-  PumpkinNav, PumpkinDriveToPose, PumpkinConstraints
-org.pumpkinlib.characterization
-  PumpkinCharacterization, DriveCharacterization (record), OdometryReport
-org.pumpkinlib.auto.test
-  PumpkinAutoTest, AutoTestResult
-org.pumpkinlib.pure.math        (Tier 0: HAL-free, WPILib-geometry-only, unit-testable off-robot)
-  PumpkinMath   (clamp, deadband2d, expo, epsilonEquals)
-org.pumpkinlib.core.util
-  PumpkinStopwatch                (Clock-backed; see §1.8)
+org.rootstock.nav
+  RootstockNav, RootstockDriveToPose, RootstockConstraints
+org.rootstock.characterization
+  RootstockCharacterization, DriveCharacterization (record), OdometryReport
+org.rootstock.auto.test
+  RootstockAutoTest, AutoTestResult
+org.rootstock.pure.math        (Tier 0: HAL-free, WPILib-geometry-only, unit-testable off-robot)
+  RootstockMath   (clamp, deadband2d, expo, epsilonEquals)
+org.rootstock.core.util
+  RootstockStopwatch                (Clock-backed; see §1.8)
 ```
 
-**`PumpkinMath` — the two shaping helpers this domain depends on.** These live in Tier 0 (`org.pumpkinlib.pure.math`) so they compile without the HAL and port to `org.wpilib` by find/replace.
+**`RootstockMath` — the two shaping helpers this domain depends on.** These live in Tier 0 (`org.rootstock.pure.math`) so they compile without the HAL and port to `org.wpilib` by find/replace.
 
 ```java
-package org.pumpkinlib.pure.math;
+package org.rootstock.pure.math;
 
-public final class PumpkinMath {
+public final class RootstockMath {
 
   /** Java 21's Math.clamp, for Java 17. */
   public static double clamp(double v, double lo, double hi) { return Math.max(lo, Math.min(hi, v)); }
@@ -406,10 +406,10 @@ Expo shaping uses WPILib directly — `MathUtil.copySignPow(double value, double
 ### 3.1 Core value types
 
 ```java
-package org.pumpkinlib.drive;
+package org.rootstock.drive;
 
 /**
- * Physical layout. Module locations are ALWAYS in PumpkinLib module order:
+ * Physical layout. Module locations are ALWAYS in Rootstock module order:
  * FRONT_LEFT, FRONT_RIGHT, BACK_LEFT, BACK_RIGHT. This matches PathPlanner's output
  * order and WPILib's kinematics contract. Any backend whose native order differs must
  * permute in its adapter, not leak the difference upward.
@@ -440,12 +440,12 @@ public record DriveLimits(
 
   public static DriveLimits of(LinearVelocity v, LinearAcceleration a,
                                AngularVelocity w, AngularAcceleration alpha) { /* ... */ }
-  /** Derived from a PumpkinLib RobotMass/COF config when the team has run characterization. */
+  /** Derived from a Rootstock RobotMass/COF config when the team has run characterization. */
   public DriveLimits withSlipForce(double newtons) { /* ... */ }
 }
 
 /**
- * Per-module wheel force feedforwards, robot-relative, newtons, in PumpkinLib module order.
+ * Per-module wheel force feedforwards, robot-relative, newtons, in Rootstock module order.
  * This is the neutral shape that both PathPlanner's DriveFeedforwards
  * (robotRelativeForcesXNewtons()/Y) and Choreo's SwerveSample (moduleForcesX()/Y) map onto.
  */
@@ -459,7 +459,7 @@ public record WheelForces(double[] xNewtons, double[] yNewtons) {
 public enum DiscretizationPolicy {
   /** Backend already discretizes internally (e.g. CTRE FieldCentric/RobotCentric requests). */
   BACKEND,
-  /** PumpkinDrive's funnel must discretize before handing off (e.g. CTRE ApplyRobotSpeeds,
+  /** RootstockDrive's funnel must discretize before handing off (e.g. CTRE ApplyRobotSpeeds,
    *  hand-rolled kinematics, YAGSL raw ChassisSpeeds entry). */
   FUNNEL
 }
@@ -474,7 +474,7 @@ public enum OdometryMode { NATIVE_250HZ, THREADED_100HZ, LOOP_50HZ }
 This is the *only* thing a new backend implements. It is deliberately dumb: no traction, no discretization decisions, no alliance logic, no logging.
 
 ```java
-package org.pumpkinlib.drive.backend;
+package org.rootstock.drive.backend;
 
 public interface DriveBackend {
 
@@ -487,7 +487,7 @@ public interface DriveBackend {
    *   - AdvantageKitSwerveBackend wraps the template's Drive extends SubsystemBase -> present
    *   - YagslBackend wraps swervelib.SwerveDrive, which is NOT a Subsystem       -> EMPTY
    *   - HandRolledSwerveBackend / DifferentialBackend own raw IO objects         -> usually EMPTY
-   * When empty, PumpkinDrive creates and registers exactly one synthetic requirement. Never
+   * When empty, RootstockDrive creates and registers exactly one synthetic requirement. Never
    * return a Subsystem you did not construct — see §3.3.
    */
   default Optional<Subsystem> existingSubsystem() { return Optional.empty(); }
@@ -502,10 +502,10 @@ public interface DriveBackend {
   /**
    * The UNMODIFIED IMU yaw. CCW-positive, referenced to wherever the gyro happened to be zeroed
    * at power-on — the underside of a cart, a pit table, the wrong alliance wall. This is
-   * explicitly NOT the blue-origin field frame, and this is the ONLY place in PumpkinLib where
+   * explicitly NOT the blue-origin field frame, and this is the ONLY place in Rootstock where
    * the raw value is legal. It must never be written to robot_orientation_set. Everything else,
    * including every MegaTag2 / PNP-trig / constrained-solvepnp consumer, calls
-   * PumpkinDrive.getGyroFieldHeading() — see §3.3.3, which owns the offset that separates them.
+   * RootstockDrive.getGyroFieldHeading() — see §3.3.3, which owns the offset that separates them.
    */
   Rotation2d getRawGyro();
 
@@ -513,7 +513,7 @@ public interface DriveBackend {
   SwerveModuleState[] getModuleStates();          // length 0 when !geometry().holonomic()
   SwerveModulePosition[] getModulePositions();
 
-  // ---- actuation (called at most once per loop, by PumpkinDrive only) -------
+  // ---- actuation (called at most once per loop, by RootstockDrive only) -------
   void applyRobotRelative(ChassisSpeeds robotRelative, WheelForces forces);
   void stop();
   void brake();                                   // swerve: X-lock; diff: neutral-brake
@@ -529,7 +529,7 @@ public interface DriveBackend {
 
   // ---- characterization (10 lines each, implemented once per backend) -------
   void runCharacterizationVolts(double volts);
-  /** Per-module drive rotation in RADIANS, PumpkinLib module order. */
+  /** Per-module drive rotation in RADIANS, Rootstock module order. */
   double[] getWheelRadiusCharacterizationPositionsRad();
   /** Mean absolute drive angular velocity, rad/s. */
   double getFFCharacterizationVelocityRadPerSec();
@@ -543,27 +543,27 @@ public interface DriveBackend {
 }
 ```
 
-> **Revision 3.2 — `getGyroHeading()` is deleted, not renamed for taste.** `[SUPERSEDED-NAME]` This interface previously declared `Rotation2d getGyroHeading(); // raw gyro, CCW+, blue-origin frame`. `design/03` §2.2 states verbatim that the line *"is deleted. It is a contradiction inside a single line: a raw gyro is by definition not in the blue-origin frame."* It is now `getRawGyro()`, and the blue-origin field heading is a **different method on a different type** — `PumpkinDrive.getGyroFieldHeading()`, §3.3.3 — precisely so that no backend author can satisfy the type checker by returning the wrong quantity. Binding **D16**/**D16a**; REVIEW **B4**.
+> **Revision 3.2 — `getGyroHeading()` is deleted, not renamed for taste.** `[SUPERSEDED-NAME]` This interface previously declared `Rotation2d getGyroHeading(); // raw gyro, CCW+, blue-origin frame`. `design/03` §2.2 states verbatim that the line *"is deleted. It is a contradiction inside a single line: a raw gyro is by definition not in the blue-origin frame."* It is now `getRawGyro()`, and the blue-origin field heading is a **different method on a different type** — `RootstockDrive.getGyroFieldHeading()`, §3.3.3 — precisely so that no backend author can satisfy the type checker by returning the wrong quantity. Binding **D16**/**D16a**; REVIEW **B4**.
 
-### 3.3 `PumpkinDrive` — the one funnel
+### 3.3 `RootstockDrive` — the one funnel
 
-`PumpkinDrive` is a **final class, not a Subsystem, and not an interface.** This is a deliberate decision:
+`RootstockDrive` is a **final class, not a Subsystem, and not an interface.** This is a deliberate decision:
 
-- 8793's `CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Subsystem` (`repo-8793.json` constraint). If `PumpkinDrive` were also a `Subsystem`, we would register a *second* subsystem for the same hardware and every requirement calculation would be wrong.
-- Instead `PumpkinDrive.requirement()` returns the backend's existing `Subsystem` **when it has one**, and every command factory in this document declares that.
+- 8793's `CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Subsystem` (`repo-8793.json` constraint). If `RootstockDrive` were also a `Subsystem`, we would register a *second* subsystem for the same hardware and every requirement calculation would be wrong.
+- Instead `RootstockDrive.requirement()` returns the backend's existing `Subsystem` **when it has one**, and every command factory in this document declares that.
 
 #### 3.3.1 `requirement()` is total — it never returns `null`
 
 Half the backends do not wrap a `Subsystem`. `swervelib.SwerveDrive` is not one; a hand-rolled backend built from raw `SwerveModuleIO`s is not one; a `DifferentialConfig` built from four `DoubleConsumer`s is not one. Returning `null` there would `NullPointerException` inside `m_drive.requirement().setDefaultCommand(...)` — which is the *first line of driver code every team writes* (DESIGN.md §10.3, and §10 of this document). That is unacceptable for a library whose stance is zero-mystery failure.
 
 ```java
-public final class PumpkinDrive {
+public final class RootstockDrive {
 
   private Subsystem m_synthetic;   // created at most once, lazily
 
   /**
    * The ONE Subsystem that owns this drivetrain's hardware, for the whole match.
-   * Total: never null, always the same instance, always exactly one per PumpkinDrive.
+   * Total: never null, always the same instance, always exactly one per RootstockDrive.
    */
   public Subsystem requirement() {
     return m_backend.existingSubsystem().orElseGet(this::syntheticRequirement);
@@ -575,12 +575,12 @@ public final class PumpkinDrive {
       // SmartDashboard, which is removed in WPILib 2027 (§12). We implement the interface
       // directly and register ourselves with the scheduler.
       m_synthetic = new Subsystem() {
-        @Override public void periodic()           { }              // PumpkinDrive.periodic() owns this
+        @Override public void periodic()           { }              // RootstockDrive.periodic() owns this
         @Override public void simulationPeriodic() { }
-        @Override public String getName()          { return "PumpkinDrive[" + m_backend.name() + "]"; }
+        @Override public String getName()          { return "RootstockDrive[" + m_backend.name() + "]"; }
       };
       CommandScheduler.getInstance().registerSubsystem(m_synthetic);
-      PumpkinLog.critical("Pumpkin/Drive/RequirementOwner", "synthetic:" + m_backend.name());
+      RootstockLog.critical("Rootstock/Drive/RequirementOwner", "synthetic:" + m_backend.name());
     }
     return m_synthetic;
   }
@@ -591,20 +591,20 @@ When the backend *does* supply one, we log its identity instead:
 
 ```java
 m_backend.existingSubsystem().ifPresent(s ->
-    PumpkinLog.critical("Pumpkin/Drive/RequirementOwner", "backend:" + s.getName()));
+    RootstockLog.critical("Rootstock/Drive/RequirementOwner", "backend:" + s.getName()));
 ```
 
-`Pumpkin/Drive/RequirementOwner` is a **CRITICAL**-level string topic, so it is present in the match log even at the most aggressive log-filter setting. A double-registration — the classic "I made `Drive extends SubsystemBase` *and* let PumpkinLib synthesize one" mistake — shows up as a `DriveSelfCheck` failure at boot (§3.8 check 8) and as a visible owner name in post-match triage, instead of as a default command that mysteriously never runs.
+`Rootstock/Drive/RequirementOwner` is a **CRITICAL**-level string topic, so it is present in the match log even at the most aggressive log-filter setting. A double-registration — the classic "I made `Drive extends SubsystemBase` *and* let Rootstock synthesize one" mistake — shows up as a `DriveSelfCheck` failure at boot (§3.8 check 8) and as a visible owner name in post-match triage, instead of as a default command that mysteriously never runs.
 
 #### 3.3.2 The four drive-facing interfaces — **declared here, and only here**
 
-Binding **D16** (`DESIGN.md` §5.3): *"Drive owns all four, in `org.pumpkinlib.drive`. `PumpkinDrive` implements `PoseProvider`, `AlignableDrive` and `DriveTelemetry`, and accepts a `VisionConsumer`."* This subsection is that declaration. `design/03` §2.2 and §13.1 and `design/04` §1.2 carry consumed-surface mirrors, each labelled as a mirror and each deferring to this document; **there is no second declaration anywhere in the design.**
+Binding **D16** (`DESIGN.md` §5.3): *"Drive owns all four, in `org.rootstock.drive`. `RootstockDrive` implements `PoseProvider`, `AlignableDrive` and `DriveTelemetry`, and accepts a `VisionConsumer`."* This subsection is that declaration. `design/03` §2.2 and §13.1 and `design/04` §1.2 carry consumed-surface mirrors, each labelled as a mirror and each deferring to this document; **there is no second declaration anywhere in the design.**
 
 ```java
-package org.pumpkinlib.drive;
+package org.rootstock.drive;
 
-/** Everything the vision domain needs to know about robot state. Implemented by PumpkinDrive;
- *  hand-writable in about six lines by a team that does not use PumpkinLib's drivetrain. */
+/** Everything the vision domain needs to know about robot state. Implemented by RootstockDrive;
+ *  hand-writable in about six lines by a team that does not use Rootstock's drivetrain. */
 public interface PoseProvider {
   Pose2d getPose();                                    // blue-origin, ALWAYS
   Optional<Pose2d> sampleAt(double timestampSeconds);  // delegates to PoseEstimator.sampleAt
@@ -663,7 +663,7 @@ public interface VisionConsumer {
   void accept(Pose2d visionRobotPoseMeters, double timestampSeconds, Matrix<N3, N1> stdDevs);
 }
 
-/** The read-only surface design/04 §1.2 consumes to publish the Pumpkin/Drive/ key block. */
+/** The read-only surface design/04 §1.2 consumes to publish the Rootstock/Drive/ key block. */
 public interface DriveTelemetry {
   Pose2d pose();                          // fused estimate
   Pose2d odometryOnlyPose();              // no vision — used for the divergence metric
@@ -673,7 +673,7 @@ public interface DriveTelemetry {
   SwerveModuleState[] setpointStates();
   SwerveModulePosition[] modulePositions();
   boolean gyroConnected();
-  /** Telemetry mirror of DriveBackend.getRawGyro(), logged as Pumpkin/Drive/Gyro/RawYawRad
+  /** Telemetry mirror of DriveBackend.getRawGyro(), logged as Rootstock/Drive/Gyro/RawYawRad
    *  next to Gyro/YawRad (the field heading) — design/04 §1.2. The two traces being identical
    *  is a one-glance diagnosis of an unseeded offset. */
   Rotation2d rawGyroYaw();
@@ -682,12 +682,12 @@ public interface DriveTelemetry {
 
 #### 3.3.3 The gyro→field offset — **this document owns it, and nothing else does**
 
-This subsection is the **single ownership site** for the gyro→field offset in all of PumpkinLib. Binding **D16a**. Every other document references it; none restates the arithmetic.
+This subsection is the **single ownership site** for the gyro→field offset in all of Rootstock. Binding **D16a**. Every other document references it; none restates the arithmetic.
 
 **The problem it exists to solve.** MegaTag2 (and PNP-distance-trig, and constrained-solvepnp) require the robot's yaw *in the blue-origin field frame* — CCW-positive, 0° facing the RED alliance wall. `DriveBackend.getRawGyro()` is contractually the **raw** IMU yaw, referenced to wherever the gyro was zeroed at power-on. Feed the raw value to MegaTag2 and it returns a **confidently wrong** translation that no residual, no ambiguity metric and no std-dev model can detect, because MegaTag2 treats the yaw as *known*. The two frames differ by a constant, and that constant needs an owner. It is here.
 
 ```java
-// PumpkinDrive — the offset, its two writers, and the conversion. Nothing else touches it.
+// RootstockDrive — the offset, its two writers, and the conversion. Nothing else touches it.
 
 private Rotation2d m_gyroFieldOffset       = Rotation2d.kZero;
 private boolean    m_gyroFieldOffsetSeeded = false;
@@ -721,31 +721,31 @@ public void resetPose(Pose2d bluePose) {
 
 **The prohibition, which is the part with teeth.** `accept(Pose2d, double, Matrix<N3,N1>)` — the `VisionConsumer` sink — **never** writes `m_gyroFieldOffset`. Not on any code path, not behind any flag, and **there is no opt-out, because an opt-out here *is* the MegaTag2 feedback loop.** This is stated in the sink's javadoc as well as here, because it is the one invariant a well-meaning patch would remove first.
 
-**`getHeading()` and `getGyroFieldHeading()` are two different quantities and both must exist.** `getHeading()` is the pose estimator's *fused* blue-origin heading; `getGyroFieldHeading()` is gyro-only and never vision-fed. Do not collapse them: `design/03` §7.3 logs `Pumpkin/Vision/GyroFieldHeadingDeg` beside `Pumpkin/Vision/FusedHeadingDeg` precisely so that "these two traces are identical" is a one-glance diagnosis of a miswiring — which requires them to be two traces.
+**`getHeading()` and `getGyroFieldHeading()` are two different quantities and both must exist.** `getHeading()` is the pose estimator's *fused* blue-origin heading; `getGyroFieldHeading()` is gyro-only and never vision-fed. Do not collapse them: `design/03` §7.3 logs `Rootstock/Vision/GyroFieldHeadingDeg` beside `Rootstock/Vision/FusedHeadingDeg` precisely so that "these two traces are identical" is a one-glance diagnosis of a miswiring — which requires them to be two traces.
 
 **Detection when nobody seeds it.** An offset that is still identity is caught twice, deliberately: `DriveSelfCheck` check 9 here (§3.8) and `VisionDiagnostics.GYRO_OFFSET_UNSEEDED` in `design/03` §11.3. Two detectors, one fact — a team may have configured only one of the two subsystems.
 
 ```java
-package org.pumpkinlib.drive;
+package org.rootstock.drive;
 
-public final class PumpkinDrive
+public final class RootstockDrive
     implements PoseProvider, AlignableDrive, DriveTelemetry, VisionConsumer {   // D16; §3.3.2
 
   // ---------- construction -------------------------------------------------
-  public static PumpkinDrive of(DriveBackend backend) { return of(backend, PumpkinDriveConfig.v01Competition()); }
-  public static PumpkinDrive of(DriveBackend backend, PumpkinDriveConfig config);
+  public static RootstockDrive of(DriveBackend backend) { return of(backend, RootstockDriveConfig.v01Competition()); }
+  public static RootstockDrive of(DriveBackend backend, RootstockDriveConfig config);
 
   /** CTRE Tuner-X generated swerve. `drivetrain` is your CommandSwerveDrivetrain. */
-  public static PumpkinDrive fromCtre(SwerveDrivetrain<?, ?, ?> drivetrain, Subsystem requirement,
+  public static RootstockDrive fromCtre(SwerveDrivetrain<?, ?, ?> drivetrain, Subsystem requirement,
                                       DriveGeometry geometry, DriveLimits limits);
   /** Convenience for the exact Tuner-X shape 8793 uses. */
-  public static PumpkinDrive fromTunerX(Object commandSwerveDrivetrain);   // reflective; see 3.4.1
+  public static RootstockDrive fromTunerX(Object commandSwerveDrivetrain);   // reflective; see 3.4.1
 
-  public static PumpkinDrive fromAdvantageKit(AdvantageKitSwerveBackend.Adapter adapter);
-  public static PumpkinDrive fromYagsl(java.io.File deploySwerveDir);
-  public static PumpkinDrive fromYagsl(Object yagslSwerveDrive);
-  public static PumpkinDrive swerve(HandRolledSwerveConfig cfg);
-  public static PumpkinDrive differential(DifferentialConfig cfg);
+  public static RootstockDrive fromAdvantageKit(AdvantageKitSwerveBackend.Adapter adapter);
+  public static RootstockDrive fromYagsl(java.io.File deploySwerveDir);
+  public static RootstockDrive fromYagsl(Object yagslSwerveDrive);
+  public static RootstockDrive swerve(HandRolledSwerveConfig cfg);
+  public static RootstockDrive differential(DifferentialConfig cfg);
 
   // ---------- state (pass-through) -----------------------------------------
   public Subsystem requirement();
@@ -773,7 +773,7 @@ public final class PumpkinDrive
    *   2. traction   (SETPOINT_GENERATOR | SLEW_RATE | none)
    *   3. discretize (ONLY if traction != SETPOINT_GENERATOR AND policy == FUNNEL)
    *   4. backend.applyRobotRelative(speeds, forces)
-   *   5. log        (Pumpkin/Drive/Commanded*, Pumpkin/Drive/Traction*)
+   *   5. log        (Rootstock/Drive/Commanded*, Rootstock/Drive/Traction*)
    */
   public void driveRobotRelative(ChassisSpeeds robotRelative, WheelForces forces);
   public void driveRobotRelative(ChassisSpeeds robotRelative);
@@ -801,7 +801,7 @@ public final class PumpkinDrive
   /** Call from robotPeriodic. Runs skid detection, alliance perspective, logging, alerts. */
   public void periodic();
 
-  // ---------- characterization hooks (used by PumpkinCharacterization) ------
+  // ---------- characterization hooks (used by RootstockCharacterization) ------
   public void runCharacterizationVolts(double volts);
   public double[] getWheelRadiusCharacterizationPositionsRad();
   public double getFFCharacterizationVelocityRadPerSec();
@@ -859,20 +859,20 @@ public void driveRobotRelative(ChassisSpeeds desired, WheelForces forces) {
 
   m_backend.applyRobotRelative(speeds, ff);
 
-  PumpkinLog.critical("Pumpkin/Drive/Commanded", speeds);            // == ChassisSpeeds/Setpoint, 04 §3.2
-  PumpkinLog.log     ("Pumpkin/Drive/CommandedRaw", desired);        // pre-traction, diagnostic
-  PumpkinLog.log     ("Pumpkin/Drive/FeedforwardPresent", ff.isPresent());
+  RootstockLog.critical("Rootstock/Drive/Commanded", speeds);            // == ChassisSpeeds/Setpoint, 04 §3.2
+  RootstockLog.log     ("Rootstock/Drive/CommandedRaw", desired);        // pre-traction, diagnostic
+  RootstockLog.log     ("Rootstock/Drive/FeedforwardPresent", ff.isPresent());
 }
 ```
 
-**This single method is the whole architectural argument for PumpkinLib's drivetrain layer.** Slip limiting, discretization correctness, feedforward plumbing, and NaN safety are applied to teleop and auto identically, on every backend, for free. Most teams get slip limiting only in auto because PathPlanner applies it inside `FollowPathCommand`; here the driver gets it too, which is where a small team feels the biggest gain (`deep-drivetrain.json`, TractionLayer capability).
+**This single method is the whole architectural argument for Rootstock's drivetrain layer.** Slip limiting, discretization correctness, feedforward plumbing, and NaN safety are applied to teleop and auto identically, on every backend, for free. Most teams get slip limiting only in auto because PathPlanner applies it inside `FollowPathCommand`; here the driver gets it too, which is where a small team feels the biggest gain (`deep-drivetrain.json`, TractionLayer capability).
 
 ### 3.4 The backends
 
 #### 3.4.1 `CtreSwerveBackend` — CTRE Tuner-X generated swerve (8793's stack)
 
 ```java
-package org.pumpkinlib.drive.backend;
+package org.rootstock.drive.backend;
 
 public final class CtreSwerveBackend implements DriveBackend {
 
@@ -886,7 +886,7 @@ public final class CtreSwerveBackend implements DriveBackend {
   private final SysIdSwerveTranslation m_charReq = new SysIdSwerveTranslation();
 
   /** `requirement` is your CommandSwerveDrivetrain itself in the Tuner-X shape. May be null:
-   *  PumpkinDrive then synthesizes one (§3.3.1). */
+   *  RootstockDrive then synthesizes one (§3.3.1). */
   public CtreSwerveBackend(SwerveDrivetrain<?, ?, ?> dt, Subsystem requirement,
                            DriveGeometry geometry, DriveLimits limits) { /* ... */ }
 
@@ -931,8 +931,8 @@ public final class CtreSwerveBackend implements DriveBackend {
 **Notes and guards:**
 - 8793 already overrides `addVisionMeasurement` in `CommandSwerveDrivetrain` to do the FPGA→Phoenix conversion. If the wrapped object already converts, we would double-convert. Guard: `CtreSwerveBackend.Builder.assumeCallerConvertsTimestamps(boolean)`, default `false`, and a boot-time `Alert` that names the file to check.
 - `getWheelRadiusCharacterizationPositionsRad()` reads `m_dt.getModule(i).getDriveMotor().getPosition().getValueAsDouble()` × 2π ÷ (gear ratio), using the ratio the team supplies in `DriveGeometry`. **[UNVERIFIED]** — `SwerveDrivetrain.getModule(int)` returning a `SwerveModule` with `getDriveMotor()` is the 26.x shape per CTRE's swerve API; confirm the accessor name against `api.ctr-electronics.com/phoenix6/stable` before implementing. Fallback that is definitely correct: read `getState().ModulePositions[i].distanceMeters / wheelRadiusMeters` — this is in radians of wheel rotation and needs no vendor accessor at all. **Ship the fallback.**
-- Sim: `updateSimState` must be driven from a **4 ms `Notifier`**, not the 20 ms loop. `CtreSwerveBackend.startSimThread()` does this; if the team's `CommandSwerveDrivetrain` already starts one (8793's does), we detect the duplicate by a static registry keyed on the drivetrain identity and skip, logging `Pumpkin/Drive/SimThread = "external"`.
-- 2027: `ApplyRobotSpeeds` becomes `ApplyRobotVelocity` in Phoenix 6 26.50+. This is the *only* file in PumpkinLib that names it.
+- Sim: `updateSimState` must be driven from a **4 ms `Notifier`**, not the 20 ms loop. `CtreSwerveBackend.startSimThread()` does this; if the team's `CommandSwerveDrivetrain` already starts one (8793's does), we detect the duplicate by a static registry keyed on the drivetrain identity and skip, logging `Rootstock/Drive/SimThread = "external"`.
+- 2027: `ApplyRobotSpeeds` becomes `ApplyRobotVelocity` in Phoenix 6 26.50+. This is the *only* file in Rootstock that names it.
 
 #### 3.4.2 `AdvantageKitSwerveBackend` — 6328 template (the 9143/template stack)
 
@@ -1003,7 +1003,7 @@ public final class YagslBackend implements DriveBackend {
   /** YAGSL's SwerveDrive.drive(ChassisSpeeds) desaturates but does NOT discretize. */
   @Override public DiscretizationPolicy discretization() { return DiscretizationPolicy.FUNNEL; }
 
-  /** swervelib.SwerveDrive is NOT a Subsystem. PumpkinDrive synthesizes the requirement (§3.3.1).
+  /** swervelib.SwerveDrive is NOT a Subsystem. RootstockDrive synthesizes the requirement (§3.3.1).
    *  If your team wrapped it in your own `SwerveSubsystem extends SubsystemBase` (the YAGSL
    *  example-project shape), pass that in so we use yours instead of making a second one. */
   @Override public Optional<Subsystem> existingSubsystem() { return Optional.ofNullable(m_userSubsystem); }
@@ -1014,15 +1014,15 @@ public final class YagslBackend implements DriveBackend {
 We deliberately do **not** re-expose `SwerveInputStream`. YAGSL's input DSL is the best in FRC and is exactly why `DriveInputStream` (§3.6) exists — ported to be backend-agnostic so a CTRE or AdvantageKit team gets the same ergonomics.
 
 **Boot-time Alert (informational, not an error):** if the backend is YAGSL *and* every device is CTRE, log
-> `YAGSL detected with an all-CTRE drivetrain. YAGSL's own docs recommend Tuner X for this hardware, and YAGSL's odometry runs at the 20 ms loop rate rather than a 100-250 Hz thread. Switching to PumpkinDrive.fromTunerX(...) is a one-line change and typically cuts odometry std dev by ~80%.`
+> `YAGSL detected with an all-CTRE drivetrain. YAGSL's own docs recommend Tuner X for this hardware, and YAGSL's odometry runs at the 20 ms loop rate rather than a 100-250 Hz thread. Switching to RootstockDrive.fromTunerX(...) is a one-line change and typically cuts odometry std dev by ~80%.`
 
 #### 3.4.4 `HandRolledSwerveBackend`
 
-The value here is that PumpkinLib **forces the correct order of operations** so a team cannot get it wrong. WPILib 2026 silently changed `SwerveModuleState.optimize` to a *void mutating instance method* and deprecated the static; teams that half-migrate delete the call and lose optimization.
+The value here is that Rootstock **forces the correct order of operations** so a team cannot get it wrong. WPILib 2026 silently changed `SwerveModuleState.optimize` to a *void mutating instance method* and deprecated the static; teams that half-migrate delete the call and lose optimization.
 
 ```java
 public record HandRolledSwerveConfig(
-    SwerveModuleIO[] modules,          // PumpkinLib module order, length 4
+    SwerveModuleIO[] modules,          // Rootstock module order, length 4
     GyroIO gyro,
     DriveGeometry geometry,
     DriveLimits limits,
@@ -1052,7 +1052,7 @@ public final class HandRolledSwerveBackend implements DriveBackend {
 }
 ```
 
-`SwerveModuleIO` / `GyroIO` are PumpkinLib interfaces shaped to be `@AutoLog`-compatible so an AdvantageKit team can drop them in and keep replay. They are defined in the mechanism/hardware domain; this domain only consumes them.
+`SwerveModuleIO` / `GyroIO` are Rootstock interfaces shaped to be `@AutoLog`-compatible so an AdvantageKit team can drop them in and keep replay. They are defined in the mechanism/hardware domain; this domain only consumes them.
 
 #### 3.4.5 `DifferentialBackend` — first-class tank
 
@@ -1068,7 +1068,7 @@ public record DifferentialConfig(
     DoubleSupplier leftVelocityMpsGetter,
     DoubleSupplier rightVelocityMpsGetter,
     Supplier<Rotation2d> gyro,
-    @Nullable Subsystem requirement,     // null is legal: PumpkinDrive synthesizes one (§3.3.1)
+    @Nullable Subsystem requirement,     // null is legal: RootstockDrive synthesizes one (§3.3.1)
     DriveGeometry geometry,
     DriveLimits limits,
     SimpleMotorFeedforward feedforward) {}
@@ -1095,9 +1095,9 @@ public final class DifferentialBackend implements DriveBackend {
 
 Differential path following uses **`PPLTVController`** (PathPlanner) and, for hand-rolled following, **`LTVUnicycleController`** — never `RamseteController` (deprecated for removal) and never `RamseteCommand` / `SwerveControllerCommand` / `MecanumControllerCommand` (all three **removed in WPILib 2027**). `LTVUnicycleController` guardrails to respect: default tolerances x=0.0625 m, y=0.125 m, heading=2 rad; default max velocity 9 m/s; throws `IllegalArgumentException` if `maxVelocity <= 0 || >= 15`.
 
-Mecanum: `MecanumBackend` would have the same shape (`MecanumDriveKinematics` + `MecanumDrivePoseEstimator`). **Revision 3: it is in no milestone M1–M24 and is therefore outside v0.1** — the `DriveBackend` SPI it would plug into is documented and stable, so a team or a later contributor can write it, but PumpkinLib does not ship one. Designed for, not designed out, and not scheduled (§13, open question 9).
+Mecanum: `MecanumBackend` would have the same shape (`MecanumDriveKinematics` + `MecanumDrivePoseEstimator`). **Revision 3: it is in no milestone M1–M24 and is therefore outside v0.1** — the `DriveBackend` SPI it would plug into is documented and stable, so a team or a later contributor can write it, but Rootstock does not ship one. Designed for, not designed out, and not scheduled (§13, open question 9).
 
-### 3.5 What PumpkinLib actually layers on top
+### 3.5 What Rootstock actually layers on top
 
 | Layer | Where it lives | Off-the-shelf equivalent | Why we add it |
 |---|---|---|---|
@@ -1106,23 +1106,23 @@ Mecanum: `MecanumBackend` would have the same shape (`MecanumDriveKinematics` + 
 | Skid detection → odometry trust | `SkidDetector` | 1690's algorithm (video only), 135 Consul (unpublished) | No library ships it. See §7.4. |
 | Heading lock | `HeadingController` | CTRE `FieldCentricFacingAngle`, YAGSL `headingWhile` | Backend-agnostic, one tuning, `ProfiledPIDController` not raw P. |
 | Alliance-aware field-centric | `AlliancePerspective` | CTRE only | See §4 — the entire point. |
-| Drive-to-pose | `PumpkinDriveToPose` | 6328's `DriveToPose` (copy-paste) | Packaged, tunable, tolerance/timeout/abort. §8. |
-| Wheel-radius characterization | `PumpkinCharacterization` | 6328 (copy-paste), 4738 (copy-paste) | Packaged + writes back to `settings.json`. §7. |
-| Setpoint-generator inputs | `PumpkinCharacterization.momentOfInertia` / `.slipCurrent` | nothing | Everyone copies MOI 6.883 from the 6328 template. |
+| Drive-to-pose | `RootstockDriveToPose` | 6328's `DriveToPose` (copy-paste) | Packaged, tunable, tolerance/timeout/abort. §8. |
+| Wheel-radius characterization | `RootstockCharacterization` | 6328 (copy-paste), 4738 (copy-paste) | Packaged + writes back to `settings.json`. §7. |
+| Setpoint-generator inputs | `RootstockCharacterization.momentOfInertia` / `.slipCurrent` | nothing | Everyone copies MOI 6.883 from the 6328 template. |
 
 ### 3.6 `DriveInputStream` — the driver-feel DSL
 
 Backend-agnostic port of the best idea in YAGSL. Every method returns `this`.
 
 ```java
-package org.pumpkinlib.drive.input;
+package org.rootstock.drive.input;
 
 public final class DriveInputStream implements Supplier<ChassisSpeeds> {
 
-  public static DriveInputStream of(PumpkinDrive drive, DoubleSupplier x, DoubleSupplier y);
+  public static DriveInputStream of(RootstockDrive drive, DoubleSupplier x, DoubleSupplier y);
 
   // shaping
-  /** RADIAL deadband on the (x, y) vector — PumpkinMath.deadband2d (§2). There is no 2-D
+  /** RADIAL deadband on the (x, y) vector — RootstockMath.deadband2d (§2). There is no 2-D
    *  applyDeadband overload in WPILib 2026.2.2 MathUtil; only applyDeadband(double, double) and
    *  applyDeadband(double, double, double) exist, and per-axis deadbanding a joystick vector
    *  produces the square-corner feel students complain about. The rotation channel uses the
@@ -1164,10 +1164,10 @@ controller.enableContinuousInput(-Math.PI, Math.PI);
 
 `slewRate` ships **off**. REV removed the slew limiter from the MAXSwerve template because MAXSwerve 2.0 wheels no longer need it; slew limiting is a traction band-aid that adds latency the driver feels. `TractionMode.SETPOINT_GENERATOR` is the correct fix and is what `competition()` enables.
 
-### 3.7 `PumpkinDriveConfig`
+### 3.7 `RootstockDriveConfig`
 
 ```java
-public record PumpkinDriveConfig(
+public record RootstockDriveConfig(
     OdometryMode odometry,
     TractionMode traction,
     double loopPeriodSeconds,
@@ -1184,22 +1184,22 @@ public record PumpkinDriveConfig(
    * It is scheduled for deletion at M15, at which point the examples move back to competition().
    * (DESIGN.md §16 item 2(a) ordered this; revision 3.1 applies it.)
    */
-  public static PumpkinDriveConfig v01Competition() {
-    return new PumpkinDriveConfig(OdometryMode.NATIVE_250HZ, TractionMode.NONE,
+  public static RootstockDriveConfig v01Competition() {
+    return new RootstockDriveConfig(OdometryMode.NATIVE_250HZ, TractionMode.NONE,
                                   0.02, false, true, Units.rotationsToRadians(10.0));
   }
 
   /** The full competition profile. Requires M15. See the persistent Alert note below. */
-  public static PumpkinDriveConfig competition() {
-    return new PumpkinDriveConfig(OdometryMode.NATIVE_250HZ, TractionMode.SETPOINT_GENERATOR,
+  public static RootstockDriveConfig competition() {
+    return new RootstockDriveConfig(OdometryMode.NATIVE_250HZ, TractionMode.SETPOINT_GENERATOR,
                                   0.02, true, true, Units.rotationsToRadians(10.0));
   }
-  public static PumpkinDriveConfig rookie() {
-    return new PumpkinDriveConfig(OdometryMode.THREADED_100HZ, TractionMode.NONE,
+  public static RootstockDriveConfig rookie() {
+    return new RootstockDriveConfig(OdometryMode.THREADED_100HZ, TractionMode.NONE,
                                   0.02, false, true, Units.rotationsToRadians(10.0));
   }
-  public static PumpkinDriveConfig tank() {
-    return new PumpkinDriveConfig(OdometryMode.LOOP_50HZ, TractionMode.NONE,
+  public static RootstockDriveConfig tank() {
+    return new RootstockDriveConfig(OdometryMode.LOOP_50HZ, TractionMode.NONE,
                                   0.02, false, false, 0.0);
   }
 }
@@ -1207,9 +1207,9 @@ public record PumpkinDriveConfig(
 
 `TractionMode.SETPOINT_GENERATOR` requires a PathPlanner `RobotConfig`. If `RobotConfig.fromGUISettings()` fails or `hasValidConfig()` is false, we **downgrade to `NONE`** and raise `Alerts.warning("drive.traction.noRobotConfig", …, MatchImpact.PIT_ONLY)`:
 
-> `Traction control disabled: deploy/pathplanner/settings.json is missing or invalid. Open the PathPlanner GUI once to generate it, then run PumpkinCharacterization.all(drive) to fill in mass, MOI and wheel COF.`
+> `Traction control disabled: deploy/pathplanner/settings.json is missing or invalid. Open the PathPlanner GUI once to generate it, then run RootstockCharacterization.all(drive) to fill in mass, MOI and wheel COF.`
 
-**Before M15, `competition()` does not silently downgrade — it complains.** `TractionLayer` and `SkidDetector` are built at M15; the funnel is M9. A `PumpkinDriveConfig` that asks for a capability the installed library has not yet implemented raises a **persistent** `Alerts.warning("drive.config.notYetBuilt", …, MatchImpact.PIT_ONLY)` naming `TractionLayer`/`SkidDetector`, the milestone, and `v01Competition()` as the profile that says what it means. Silent degradation is the failure mode this document's entire `DriveSelfCheck` section exists to prevent, and it would be perverse for the config factory to be the one place that does it. *(DESIGN.md §16 item 2(a).)*
+**Before M15, `competition()` does not silently downgrade — it complains.** `TractionLayer` and `SkidDetector` are built at M15; the funnel is M9. A `RootstockDriveConfig` that asks for a capability the installed library has not yet implemented raises a **persistent** `Alerts.warning("drive.config.notYetBuilt", …, MatchImpact.PIT_ONLY)` naming `TractionLayer`/`SkidDetector`, the milestone, and `v01Competition()` as the profile that says what it means. Silent degradation is the failure mode this document's entire `DriveSelfCheck` section exists to prevent, and it would be perverse for the config factory to be the one place that does it. *(DESIGN.md §16 item 2(a).)*
 
 Similarly `NATIVE_250HZ` without a CANivore degrades to `THREADED_100HZ` with a logged warning — never silently underperform.
 
@@ -1218,11 +1218,11 @@ Similarly `NATIVE_250HZ` without a CANivore degrades to `THREADED_100HZ` with a 
 8793 has **three disagreeing sources of truth** for drivetrain geometry (`tuner-project.json` vs `TunerConstants.java` vs `deploy/pathplanner/settings.json`); 9143-B's `kSpeedAt12Volts = 5.96` disagrees with `settings.json` `maxDriveSpeed = 5.364` and its stator limit 60 A disagrees with `driveCurrentLimit = 100`. This is a silent-wrong-auto bug class.
 
 ```java
-package org.pumpkinlib.drive;
+package org.rootstock.drive;
 
 public final class DriveSelfCheck {
-  /** Called automatically from PumpkinDrive.of(...). ~40 lines. Never throws. */
-  public static List<String> run(PumpkinDrive drive);
+  /** Called automatically from RootstockDrive.of(...). ~40 lines. Never throws. */
+  public static List<String> run(RootstockDrive drive);
 }
 ```
 
@@ -1234,11 +1234,11 @@ Checks, each producing one `Alert` naming both values and both files:
 5. Module order sanity: FL is +x/+y, FR is +x/−y, BL is −x/+y, BR is −x/−y — a wrong permutation is otherwise invisible until the robot rotates.
 6. `deploy/pathplanner/navgrid.json` exists if pathfinding is enabled (it is only created by opening the PathPlanner GUI once — a Choreo-primary team will otherwise fail at the event).
 7. If a `.chor` project is present, its robot-config block vs `RobotConfig` (tol 2 %).
-8. **Exactly one `Subsystem` claims the drive hardware.** We walk `CommandScheduler.getInstance()`'s registered subsystems and count those that are (a) the backend's `existingSubsystem()`, (b) `PumpkinDrive`'s synthetic requirement, or (c) any registered subsystem whose `getName()` matches the backend's raw object's class simple name. More than one is a hard `Alert`:
+8. **Exactly one `Subsystem` claims the drive hardware.** We walk `CommandScheduler.getInstance()`'s registered subsystems and count those that are (a) the backend's `existingSubsystem()`, (b) `RootstockDrive`'s synthetic requirement, or (c) any registered subsystem whose `getName()` matches the backend's raw object's class simple name. More than one is a hard `Alert`:
 
    > `Two subsystems claim the drivetrain: "CommandSwerveDrivetrain" (from CtreSwerveBackend) and "DriveSubsystem" (registered separately). Default commands and requirement-based cancellation will behave unpredictably. Pass the one you want into the backend constructor and delete the other.`
 
-   The winning owner is logged once at boot as `Pumpkin/Drive/RequirementOwner` (String, **CRITICAL**) so a double-registration is visible in a match log without reproducing it in the shop.
+   The winning owner is logged once at boot as `Rootstock/Drive/RequirementOwner` (String, **CRITICAL**) so a double-registration is visible in a match log without reproducing it in the shop.
 
 9. **The gyro→field offset has been seeded, if anything gyro-fused is configured.** If any configured camera reports a gyro-fused `PoseSource` (`MEGATAG_2`, `PNP_DISTANCE_TRIG`, `CONSTRAINED_SOLVEPNP`) and `drive.gyroFieldOffsetSeeded() == false`, raise:
 
@@ -1252,7 +1252,7 @@ Checks, each producing one `Alert` naming both values and both files:
        .set(true);
    ```
 
-   `PumpkinVision` mirrors the same condition as `VisionDiagnostics.GYRO_OFFSET_UNSEEDED` (`design/03` §11.3) so it is visible from either domain. Two detectors, one fact — that is deliberate, because a team may have configured only one of the two subsystems. The offset itself is owned by §3.3.3; this check only reads `gyroFieldOffsetSeeded()`.
+   `RootstockVision` mirrors the same condition as `VisionDiagnostics.GYRO_OFFSET_UNSEEDED` (`design/03` §11.3) so it is visible from either domain. Two detectors, one fact — that is deliberate, because a team may have configured only one of the two subsystems. The offset itself is owned by §3.3.3; this check only reads `gyroFieldOffsetSeeded()`.
 
 > **The number is 9, and the off-by-one is worth recording rather than leaving for the implementer to trip over.** `design/03` §2.2a(3) calls this *"an eighth check,"* because it was written against a version of this list that stopped at seven. This list already had eight — check 8, subsystem ownership, was added by the previous adversarial review — so the new one is **check 9**, and `design/03` §2.2a(3) now says so too. The alert **text** is `design/03`'s, with the `MatchImpact` argument added per D10 and this document's alert-key convention applied; it is deliberately not paraphrased, because the wording *is* the diagnosis. Applied 2026-08-08 by the contract-reconciliation pass (`design/03` §2.7 contract **C3**; REVIEW **B4**).
 
@@ -1264,22 +1264,22 @@ This is the highest value-per-line item in the whole domain and it costs almost 
 
 ### 4.1 The three concepts teams conflate
 
-| Concept | Who uses it | What it means | PumpkinLib API |
+| Concept | Who uses it | What it means | Rootstock API |
 |---|---|---|---|
-| **Pose origin** | odometry, vision, autos, every `Pose2d` in the library | **Always blue.** Never flips. Ever. | implicit — every `Pose2d` in a PumpkinLib signature is blue-origin |
+| **Pose origin** | odometry, vision, autos, every `Pose2d` in the library | **Always blue.** Never flips. Ever. | implicit — every `Pose2d` in a Rootstock signature is blue-origin |
 | **Operator perspective** | the human driver's "forward" | `kZero` on blue, `k180deg` on red | `AlliancePerspective.operatorForward()` |
-| **Field geometry transform** | authored blue poses → this-alliance poses; trajectory flipping | rotate 180° (rotational field) or mirror over the midline (mirrored field) | `PumpkinField.apply(Pose2d)` |
+| **Field geometry transform** | authored blue poses → this-alliance poses; trajectory flipping | rotate 180° (rotational field) or mirror over the midline (mirrored field) | `RootstockField.apply(Pose2d)` |
 
 Every red-alliance-only bug in FRC comes from mixing two of these three.
 
 ### 4.2 API
 
 ```java
-package org.pumpkinlib.field;
+package org.rootstock.field;
 
 public enum FieldSymmetry { ROTATIONAL, MIRRORED }
 
-public final class PumpkinField {
+public final class RootstockField {
 
   /** Call once in robotInit, before anything else. Defaults to FieldMap.symmetry() for the year. */
   public static void configure(FieldSymmetry symmetry);
@@ -1297,7 +1297,7 @@ public final class PumpkinField {
   public static Pose2d flip(Pose2d bluePose);
   public static Pose2d mirrorAboutMidline(Pose2d bluePose);   // driver-perspective left<->right variant
 
-  /** Called once per loop from PumpkinDrive.periodic(). Idempotent and cheap. */
+  /** Called once per loop from RootstockDrive.periodic(). Idempotent and cheap. */
   static void updateCache();
 }
 
@@ -1313,8 +1313,8 @@ public final class AllianceValue<T> {
 
 public final class AlliancePerspective {
 
-  /** Call from robotPeriodic (PumpkinDrive.periodic() does it for you). */
-  public static void update(PumpkinDrive drive);
+  /** Call from robotPeriodic (RootstockDrive.periodic() does it for you). */
+  public static void update(RootstockDrive drive);
 
   public static Rotation2d operatorForward();   // Rotation2d.kZero | Rotation2d.k180deg
 
@@ -1322,80 +1322,80 @@ public final class AlliancePerspective {
    * The driver-facing "zero the gyro" button. Resets the OPERATOR PERSPECTIVE ONLY.
    * It does NOT touch the pose. Binding this to a button can never corrupt an auto or vision.
    */
-  public static Command zeroDriverHeading(PumpkinDrive drive);
+  public static Command zeroDriverHeading(RootstockDrive drive);
 
   /**
    * Absolute, blue-origin heading reset. For autos, vision seeding, and the pit only.
    * Deliberately NOT a Command — it must be awkward to bind to a driver button.
    */
-  public static void resetFieldRotation(PumpkinDrive drive, Rotation2d blueHeading);
+  public static void resetFieldRotation(RootstockDrive drive, Rotation2d blueHeading);
 }
 ```
 
 ### 4.3 How it is made impossible to get wrong
 
-1. **Names carry the frame.** Every parameter that is blue-origin is named `bluePose`, `blueTarget`, `blueHeading`. Anything without the prefix is alliance-corrected. There is no unprefixed `Pose2d` parameter anywhere in a PumpkinLib public API.
+1. **Names carry the frame.** Every parameter that is blue-origin is named `bluePose`, `blueTarget`, `blueHeading`. Anything without the prefix is alliance-corrected. There is no unprefixed `Pose2d` parameter anywhere in a Rootstock public API.
 2. **`driveFieldRelative(ChassisSpeeds)` is blue-origin and documented as such.** The alliance-aware path is `DriveInputStream.allianceRelative(...)`, which applies `operatorForward()` and nothing else.
 3. **`resetPose` never flips.** Autos call `trajectory.resetOdometry()`, which flips the *trajectory's* start pose using the source's own flipping and then calls `resetPose` with a blue pose.
-4. **One flip supplier, library-wide.** `PumpkinAuto` passes `PumpkinField::isRed` to `AutoBuilder.configure(...)` as `shouldFlipPath`, and `true` to `new AutoFactory(..., useAllianceFlipping, ...)`. A team never writes the lambda.
+4. **One flip supplier, library-wide.** `RootstockAuto` passes `RootstockField::isRed` to `AutoBuilder.configure(...)` as `shouldFlipPath`, and `true` to `new AutoFactory(..., useAllianceFlipping, ...)`. A team never writes the lambda.
 5. **Symmetry is declared once per season, in one place**, and both libraries are configured from it:
    ```java
-   PumpkinField.configure(FieldSymmetry.ROTATIONAL);
+   RootstockField.configure(FieldSymmetry.ROTATIONAL);
    // internally, once:
    FlippingUtil.symmetryType = FlippingUtil.FieldSymmetry.kRotational;  // PathPlanner
    FlippingUtil.fieldSizeX = FieldMap.lengthMeters();
    FlippingUtil.fieldSizeY = FieldMap.widthMeters();
    ```
-   Note PathPlanner's `FlippingUtil.flipFeedforwardXs/Ys` and `DriveFeedforwards.flip()` **only do anything under mirrored symmetry** — under rotational symmetry the robot-relative forces are unchanged. PumpkinLib's `WheelForces` conversion respects this automatically because it converts *after* PathPlanner has already flipped.
+   Note PathPlanner's `FlippingUtil.flipFeedforwardXs/Ys` and `DriveFeedforwards.flip()` **only do anything under mirrored symmetry** — under rotational symmetry the robot-relative forces are unchanged. Rootstock's `WheelForces` conversion respects this automatically because it converts *after* PathPlanner has already flipped.
 6. **Startup verification, printed to the log and rendered in AdvantageScope:**
    ```java
-   PumpkinAuto.verifyAlliance();
-   // logs Pumpkin/Auto/Verify/<autoName>/BlueStart and /RedStart as Pose2d
-   // logs Pumpkin/Auto/Verify/<autoName>/BluePath and /RedPath as Pose2d[]
+   RootstockAuto.verifyAlliance();
+   // logs Rootstock/Auto/Verify/<autoName>/BlueStart and /RedStart as Pose2d
+   // logs Rootstock/Auto/Verify/<autoName>/BluePath and /RedPath as Pose2d[]
    ```
    Ten seconds of eyeballing in AdvantageScope before an event replaces the entire class of red-alliance-only bugs. This runs automatically for every registered auto during `robotInit` when `TUNING_MODE` is on, and on demand otherwise.
 
 ### 4.4 The one thing we forbid
 
-**Duplicated per-alliance trajectory files.** 2910 shipped `BLUE_*` / `RED_*` `.traj` pairs; that doubles regeneration cost and guarantees drift. `PumpkinTrajectory` refuses to load a trajectory whose name starts with `BLUE_` or `RED_` and raises:
+**Duplicated per-alliance trajectory files.** 2910 shipped `BLUE_*` / `RED_*` `.traj` pairs; that doubles regeneration cost and guarantees drift. `RootstockTrajectory` refuses to load a trajectory whose name starts with `BLUE_` or `RED_` and raises:
 
-> `Trajectory "RED_ScoreLeft" looks alliance-specific. PumpkinLib flips at runtime — author on blue only. Rename to "ScoreLeft" and delete the red variant.`
+> `Trajectory "RED_ScoreLeft" looks alliance-specific. Rootstock flips at runtime — author on blue only. Rename to "ScoreLeft" and delete the red variant.`
 
 ---
 
 ## 5. Path following — one auto API over PathPlanner **and** Choreo
 
-### 5.1 `PumpkinAuto` — three lines of config
+### 5.1 `RootstockAuto` — three lines of config
 
 ```java
-package org.pumpkinlib.auto;
+package org.rootstock.auto;
 
-public final class PumpkinAuto {
+public final class RootstockAuto {
 
-  public static PumpkinAuto of(PumpkinDrive drive);
+  public static RootstockAuto of(RootstockDrive drive);
 
   /** RobotConfig.fromGUISettings() + AutoBuilder.configure(...) with the correct overload. */
-  public PumpkinAuto withPathPlanner();
-  public PumpkinAuto withPathPlanner(PIDConstants translation, PIDConstants rotation);
-  public PumpkinAuto withPathPlanner(RobotConfig cfg, PIDConstants translation, PIDConstants rotation);
+  public RootstockAuto withPathPlanner();
+  public RootstockAuto withPathPlanner(PIDConstants translation, PIDConstants rotation);
+  public RootstockAuto withPathPlanner(RobotConfig cfg, PIDConstants translation, PIDConstants rotation);
 
-  /** Builds a ChoreoLib AutoFactory bound to the SAME PumpkinDrive. */
-  public PumpkinAuto withChoreo();
+  /** Builds a ChoreoLib AutoFactory bound to the SAME RootstockDrive. */
+  public RootstockAuto withChoreo();
 
   /** LocalADStar, or LocalADStarAK when AdvantageKit is on the classpath. Warms up at init. */
-  public PumpkinAuto withPathfinding();
+  public RootstockAuto withPathfinding();
 
   /** Registers a GoalBus so trajectory triggers can fire mechanism requests safely. */
-  public <G extends Enum<G>> PumpkinAuto withGoals(GoalBus<G> bus);
+  public <G extends Enum<G>> RootstockAuto withGoals(GoalBus<G> bus);
 
   /**
    * Registers the tag-relative alignment factory that makes AutoStep.alignToTagAtEnd(...) real
    * (§6.4). Optional: without it, alignToTagAtEnd falls back to alignAtEnd with the fused-pose
    * tolerance and logs which path it took, once, per step.
    *
-   * This is a FACTORY rather than a direct dependency on purpose. `org.pumpkinlib.auto` imports
-   * nothing from `org.pumpkinlib.vision` — a team that runs autos with no vision at all should
-   * not have PumpkinVision on their construction path, and the "vision is absent" branch should
+   * This is a FACTORY rather than a direct dependency on purpose. `org.rootstock.auto` imports
+   * nothing from `org.rootstock.vision` — a team that runs autos with no vision at all should
+   * not have RootstockVision on their construction path, and the "vision is absent" branch should
    * be structural rather than a null check on a vision object. One line wires it:
    *
    *   auto.withVision((cam, ids, goal) ->
@@ -1404,23 +1404,23 @@ public final class PumpkinAuto {
    * All three parameters are WPILib or primitive types, so this seam carries no vendor type and
    * no cross-domain type (§0.3 rule 5).
    */
-  public PumpkinAuto withVision(VisionAlignFactory factory);
+  public RootstockAuto withVision(VisionAlignFactory factory);
   public boolean visionAlignAvailable();
 
   /** Registers named commands into BOTH PathPlanner NamedCommands and Choreo factory.bind(). */
-  public PumpkinAuto action(String name, Command command);
-  public PumpkinAuto actions(Map<String, Command> commands);
+  public RootstockAuto action(String name, Command command);
+  public RootstockAuto actions(Map<String, Command> commands);
 
   // ---- trajectory resolution ------------------------------------------------
   /** Resolves from Choreo first, then PathPlanner. Fails loudly and names both search paths. */
-  public PumpkinTrajectory traj(String name);
-  public PumpkinTrajectory traj(String name, int splitIndex);
-  public PumpkinTrajectory choreo(String name);
-  public PumpkinTrajectory choreo(String name, int splitIndex);
-  public PumpkinTrajectory pathplanner(String pathName);
+  public RootstockTrajectory traj(String name);
+  public RootstockTrajectory traj(String name, int splitIndex);
+  public RootstockTrajectory choreo(String name);
+  public RootstockTrajectory choreo(String name, int splitIndex);
+  public RootstockTrajectory pathplanner(String pathName);
 
   // ---- routines -------------------------------------------------------------
-  public PumpkinAutoRoutine routine(String name);
+  public RootstockAutoRoutine routine(String name);
 
   // ---- lifecycle ------------------------------------------------------------
   /** Loads and JIT-warms every trajectory and every registered auto. Call from robotInit. */
@@ -1435,11 +1435,11 @@ public final class PumpkinAuto {
 ```
 
 ```java
-package org.pumpkinlib.auto;
+package org.rootstock.auto;
 
 /**
  * The auto domain's one-method view of tag-relative alignment. Implemented by the team in one
- * lambda over `VisionCommands.alignToTag` (design/03 §13.3); implemented by PumpkinAutoTest with
+ * lambda over `VisionCommands.alignToTag` (design/03 §13.3); implemented by RootstockAutoTest with
  * a deterministic fake so an auto that ends in a vision align is still headlessly testable.
  *
  * @param cameraIndex      which camera owns this alignment
@@ -1467,8 +1467,8 @@ private void configurePathPlanner(RobotConfig cfg, PIDConstants trans, PIDConsta
   // 1. Named commands FIRST. Every one is wrapped so it cannot cancel the auto group.
   m_actions.forEach((name, cmd) -> NamedCommands.registerCommand(name, wrapAction(name, cmd)));
 
-  // 2. Field symmetry, once, from PumpkinField.
-  FlippingUtil.symmetryType = (PumpkinField.symmetry() == FieldSymmetry.ROTATIONAL)
+  // 2. Field symmetry, once, from RootstockField.
+  FlippingUtil.symmetryType = (RootstockField.symmetry() == FieldSymmetry.ROTATIONAL)
       ? FlippingUtil.FieldSymmetry.kRotational : FlippingUtil.FieldSymmetry.kMirrored;
   FlippingUtil.fieldSizeX = FieldMap.lengthMeters();
   FlippingUtil.fieldSizeY = FieldMap.widthMeters();
@@ -1484,7 +1484,7 @@ private void configurePathPlanner(RobotConfig cfg, PIDConstants trans, PIDConsta
             new WheelForces(ff.robotRelativeForcesXNewtons(), ff.robotRelativeForcesYNewtons())),
         new PPHolonomicDriveController(trans, rot),
         cfg,
-        PumpkinField::isRed,                   // <- the ONE flip supplier
+        RootstockField::isRed,                   // <- the ONE flip supplier
         m_drive.requirement());
   } else {
     AutoBuilder.configure(
@@ -1494,17 +1494,17 @@ private void configurePathPlanner(RobotConfig cfg, PIDConstants trans, PIDConsta
         (Consumer<ChassisSpeeds>) m_drive::driveRobotRelative,
         new PPLTVController(m_config.loopPeriodSeconds()),
         cfg,
-        PumpkinField::isRed,
+        RootstockField::isRed,
         m_drive.requirement());
   }
 
-  // 4. Logging bridge -> PumpkinLog -> AdvantageScope.
+  // 4. Logging bridge -> RootstockLog -> AdvantageScope.
   PathPlannerLogging.setLogActivePathCallback(
-      poses -> PumpkinLog.log("Pumpkin/Auto/ActivePath", poses.toArray(new Pose2d[0])));
+      poses -> RootstockLog.log("Rootstock/Auto/ActivePath", poses.toArray(new Pose2d[0])));
   PathPlannerLogging.setLogTargetPoseCallback(
-      p -> PumpkinLog.log("Pumpkin/Auto/TargetPose", p));
+      p -> RootstockLog.log("Rootstock/Auto/TargetPose", p));
   PathPlannerLogging.setLogCurrentPoseCallback(
-      p -> PumpkinLog.log("Pumpkin/Auto/CurrentPose", p));
+      p -> RootstockLog.log("Rootstock/Auto/CurrentPose", p));
 }
 ```
 
@@ -1527,7 +1527,7 @@ private Command wrapAction(String name, Command cmd) {
       + "goals.requestAsync(...) or goals.request(...) instead — those never take requirements.",
         MatchImpact.BLOCKS_MATCH);
   }
-  return cmd.withName("Pumpkin/Action/" + name);
+  return cmd.withName("Rootstock/Action/" + name);
 }
 ```
 
@@ -1539,10 +1539,10 @@ private void configureChoreo() {
       m_drive::getPose,
       m_drive::resetPose,
       this::followChoreoSample,       // Consumer<SwerveSample> or Consumer<DifferentialSample>
-      true,                           // useAllianceFlipping — ALWAYS true; PumpkinField owns policy
+      true,                           // useAllianceFlipping — ALWAYS true; RootstockField owns policy
       m_drive.requirement(),
-      (traj, starting) -> PumpkinLog.log(
-          "Pumpkin/Auto/ChoreoTraj", traj.getPoses()));
+      (traj, starting) -> RootstockLog.log(
+          "Rootstock/Auto/ChoreoTraj", traj.getPoses()));
 
   m_actions.forEach((name, cmd) -> m_choreoFactory.bind(name, wrapAction(name, cmd)));
 }
@@ -1578,13 +1578,13 @@ m_thetaController = new PIDController(kThetaP.get(), 0.0, kThetaD.get());     //
 m_thetaController.enableContinuousInput(-Math.PI, Math.PI);
 ```
 
-> **Do not copy these three lines into `PumpkinDriveToPose`.** Drive-to-pose has no trajectory and therefore must generate its own profile, so §9 uses `ProfiledPIDController` — a *different type* with a *different* `getSetpoint()` return (`TrapezoidProfile.State`, not `double`). Mixing the two is the single most common compile break when a team hand-rolls this. `PumpkinDriveToPose`'s controllers are declared explicitly in §9.1.
+> **Do not copy these three lines into `RootstockDriveToPose`.** Drive-to-pose has no trajectory and therefore must generate its own profile, so §9 uses `ProfiledPIDController` — a *different type* with a *different* `getSetpoint()` return (`TrapezoidProfile.State`, not `double`). Mixing the two is the single most common compile break when a team hand-rolls this. `RootstockDriveToPose`'s controllers are declared explicitly in §9.1.
 
-Choreo warmup at init: `m_choreoFactory.warmupCmd().schedule()`, PathPlanner: `FollowPathCommand.warmupCommand().schedule()`, pathfinding: `PathfindingCommand.warmupCommand().schedule()`. All three are fired by `PumpkinAuto.warmup()`.
+Choreo warmup at init: `m_choreoFactory.warmupCmd().schedule()`, PathPlanner: `FollowPathCommand.warmupCommand().schedule()`, pathfinding: `PathfindingCommand.warmupCommand().schedule()`. All three are fired by `RootstockAuto.warmup()`.
 
 ### 5.4 Decision guide — which should a team pick?
 
-Ship this table in the docs *and* print it from `./gradlew pumpkinDoctor`.
+Ship this table in the docs *and* print it from `./gradlew rootstockDoctor`.
 
 | If your situation is… | Use | Why |
 |---|---|---|
@@ -1593,9 +1593,9 @@ Ship this table in the docs *and* print it from `./gradlew pumpkinDoctor`.
 | The field is dynamic (defenders, on-the-fly targets, "go to nearest scoring pose") | **PathPlanner** | It is the only library with pathfinding (AD*/`LocalADStar` over `navgrid.json`). Choreo has none. |
 | Your robot start pose is not repeatable (bumped by a partner, no wall to square on) | **PathPlanner** for the first path | PathPlanner regenerates from the actual start state; Choreo cannot, so a 10 cm start error means the feedforward is wrong from sample 0. |
 | You run AdvantageKit replay | either, but install `LocalADStarAK` | Pathfinding is the #1 silent replay divergence. |
-| You want zoned events ("while in this region, spin up") | **PathPlanner** | Choreo markers are instants only. PumpkinLib synthesizes zones for Choreo (§6.3) but PathPlanner does it natively. |
-| You have a strong Java student and 20 auto variants | **Choreo** + `PumpkinAutoRoutine` | Composition is 100% Java anyway; lazy generation + dependent questions scales. |
-| **You cannot decide** | **PathPlanner first, add Choreo for your two fastest autos in week 4** | This is PumpkinLib's official recommendation. `withPathPlanner().withChoreo()` costs nothing, and `auto.traj(name)` resolves from either source, so you can migrate one path at a time. |
+| You want zoned events ("while in this region, spin up") | **PathPlanner** | Choreo markers are instants only. Rootstock synthesizes zones for Choreo (§6.3) but PathPlanner does it natively. |
+| You have a strong Java student and 20 auto variants | **Choreo** + `RootstockAutoRoutine` | Composition is 100% Java anyway; lazy generation + dependent questions scales. |
+| **You cannot decide** | **PathPlanner first, add Choreo for your two fastest autos in week 4** | This is Rootstock's official recommendation. `withPathPlanner().withChoreo()` costs nothing, and `auto.traj(name)` resolves from either source, so you can migrate one path at a time. |
 
 **A note we print at boot if only Choreo is configured:** pathfinding requires `deploy/pathplanner/navgrid.json`, which is only created by opening the PathPlanner GUI once. A Choreo-primary team that never opens PathPlanner will have pathfinding fail at the event.
 
@@ -1605,14 +1605,14 @@ Ship this table in the docs *and* print it from `./gradlew pumpkinDoctor`.
 
 > *"Drive here while raising the elevator, start the intake 0.3 s before arrival, score on arrival, abort to the next piece if we didn't get one."*
 
-This section specifies exactly that, and it is the reason `PumpkinTrajectory` exists.
+This section specifies exactly that, and it is the reason `RootstockTrajectory` exists.
 
-### 6.1 `PumpkinTrajectory` — one trigger surface, two sources
+### 6.1 `RootstockTrajectory` — one trigger surface, two sources
 
-The two vocabularies are ~90 % isomorphic. Rather than delegate triggers to whichever library is underneath (which would give subtly different semantics), **PumpkinLib implements one trigger engine over a small `TrajectoryHandle` SPI**, so `atTimeBeforeEnd(0.3)` means the identical thing on PathPlanner and Choreo.
+The two vocabularies are ~90 % isomorphic. Rather than delegate triggers to whichever library is underneath (which would give subtly different semantics), **Rootstock implements one trigger engine over a small `TrajectoryHandle` SPI**, so `atTimeBeforeEnd(0.3)` means the identical thing on PathPlanner and Choreo.
 
 ```java
-package org.pumpkinlib.auto.source;
+package org.rootstock.auto.source;
 
 /** Everything the trigger engine needs. Implemented by ChoreoSource and PathPlannerSource. */
 public interface TrajectoryHandle {
@@ -1633,14 +1633,14 @@ public interface TrajectoryHandle {
 ```
 
 ```java
-package org.pumpkinlib.auto;
+package org.rootstock.auto;
 
 /**
  * A trajectory plus a trigger vocabulary. Triggers are bound to the OWNING ROUTINE'S EventLoop,
  * so they are only polled while that routine is running — the same lifetime rule ChoreoLib's
  * AutoRoutine enforces, applied uniformly to PathPlanner trajectories too.
  */
-public final class PumpkinTrajectory {
+public final class RootstockTrajectory {
 
   // ---- running it ---------------------------------------------------------
   public Command cmd();
@@ -1679,18 +1679,18 @@ public final class PumpkinTrajectory {
 
   // ---- transforms ---------------------------------------------------------
   /** Driver-perspective left<->right variant of the SAME trajectory. */
-  public PumpkinTrajectory mirroredAboutMidline();
+  public RootstockTrajectory mirroredAboutMidline();
   /** Chain: this trajectory's end pose seeds the next one's start (Choreo semantics). */
-  public PumpkinTrajectory chain(PumpkinTrajectory next);
+  public RootstockTrajectory chain(RootstockTrajectory next);
 }
 ```
 
 **Source mapping:**
 
-| PumpkinLib | Choreo backing | PathPlanner backing |
+| Rootstock | Choreo backing | PathPlanner backing |
 |---|---|---|
 | `totalTimeSeconds()` | `Trajectory.getTotalTime()` | `path.getIdealTrajectory(robotConfig).get().getTotalTimeSeconds()` |
-| `initialPose()` | `Trajectory.getInitialPose(PumpkinField.isRed())` | `path.getStartingHolonomicPose()` then `FlippingUtil.flipFieldPose` if red |
+| `initialPose()` | `Trajectory.getInitialPose(RootstockField.isRed())` | `path.getStartingHolonomicPose()` then `FlippingUtil.flipFieldPose` if red |
 | `cmd()` | `AutoFactory.trajectoryCmd(name[, split])` | `AutoBuilder.followPath(path)` |
 | `resetOdometry()` | `AutoFactory.resetOdometry(name[, split])` | `AutoBuilder.resetOdom(initialPose())` |
 | `eventTimes(n)` | `Trajectory.getEvents(n)` → marker timestamps | parse `path` event markers via `PathPlannerAuto.event` fallback; see note |
@@ -1698,18 +1698,18 @@ public final class PumpkinTrajectory {
 | `atPose/atTranslation` | our engine (uses `drive.getPose()`) | our engine (identical code) |
 | `atTime*` | our engine (elapsed timer started by `cmd()`) | our engine (identical code) |
 
-**[UNVERIFIED]** — PathPlannerLib 2026 does not expose a clean public accessor for a single path's event-marker *times* outside of a running `PathPlannerAuto` (the trigger API `PathPlannerAuto.event(String)` / `beforeEvent(String, double)` covers the running case). `PathPlannerSource.eventTimes()` therefore does one of two things, in order: (1) read `path.getEventMarkers()` if that accessor exists in 2026.1.2 and convert waypoint-relative positions to times against `getIdealTrajectory`, or (2) parse `deploy/pathplanner/paths/<name>.path` JSON directly at load time. **Ship (2)** — it is 30 lines, has no vendor-API risk, and it is what the implementer should do unless (1) is confirmed. Mark the parsed source in the log as `Pumpkin/Auto/<name>/EventSource = "json"`.
+**[UNVERIFIED]** — PathPlannerLib 2026 does not expose a clean public accessor for a single path's event-marker *times* outside of a running `PathPlannerAuto` (the trigger API `PathPlannerAuto.event(String)` / `beforeEvent(String, double)` covers the running case). `PathPlannerSource.eventTimes()` therefore does one of two things, in order: (1) read `path.getEventMarkers()` if that accessor exists in 2026.1.2 and convert waypoint-relative positions to times against `getIdealTrajectory`, or (2) parse `deploy/pathplanner/paths/<name>.path` JSON directly at load time. **Ship (2)** — it is 30 lines, has no vendor-API risk, and it is what the implementer should do unless (1) is confirmed. Mark the parsed source in the log as `Rootstock/Auto/<name>/EventSource = "json"`.
 
 ### 6.2 The trigger engine
 
 ```java
-import org.pumpkinlib.core.compat.Clock;
-import org.pumpkinlib.core.util.PumpkinStopwatch;
+import org.rootstock.core.compat.Clock;
+import org.rootstock.core.util.RootstockStopwatch;
 
 final class TrajectoryRuntime {
   private final TrajectoryHandle m_handle;
   private final EventLoop m_loop;              // the owning routine's loop
-  private final PumpkinStopwatch m_timer = new PumpkinStopwatch();   // Clock-backed, NOT wpilibj Timer
+  private final RootstockStopwatch m_timer = new RootstockStopwatch();   // Clock-backed, NOT wpilibj Timer
   private boolean m_active, m_wasActive, m_finished;
   private double m_doneAt = Double.NaN;
 
@@ -1720,9 +1720,9 @@ final class TrajectoryRuntime {
           m_active = false;
           m_finished = !interrupted;
           m_doneAt = Clock.now();             // §0.3 rule 8 — never Timer.getFPGATimestamp()
-          PumpkinLog.critical("Pumpkin/Auto/Traj/" + m_handle.name() + "/Completed", !interrupted);
-          PumpkinLog.critical("Pumpkin/Auto/Traj/" + m_handle.name() + "/Elapsed", m_timer.get());
-          PumpkinLog.log     ("Pumpkin/Auto/Traj/" + m_handle.name() + "/Planned",
+          RootstockLog.critical("Rootstock/Auto/Traj/" + m_handle.name() + "/Completed", !interrupted);
+          RootstockLog.critical("Rootstock/Auto/Traj/" + m_handle.name() + "/Elapsed", m_timer.get());
+          RootstockLog.log     ("Rootstock/Auto/Traj/" + m_handle.name() + "/Planned",
                               m_handle.totalTimeSeconds());
         });
   }
@@ -1744,24 +1744,24 @@ final class TrajectoryRuntime {
   }
 
   Trigger atTranslation(Translation2d blue, double tolMeters) {
-    Translation2d target = PumpkinField.apply(blue);
+    Translation2d target = RootstockField.apply(blue);
     return new Trigger(m_loop, () ->
         m_active && m_pose.get().getTranslation().getDistance(target) <= tolMeters);
   }
 }
 ```
 
-The `EventLoop` scoping is essential and is the pitfall `deep-auto.json` names for ChoreoLib: a `Trigger` on the default loop is polled forever and will fire outside the routine's lifetime. `PumpkinAutoRoutine.poll()` is called from the routine command's `execute()`; nothing else polls that loop.
+The `EventLoop` scoping is essential and is the pitfall `deep-auto.json` names for ChoreoLib: a `Trigger` on the default loop is polled forever and will fire outside the routine's lifetime. `RootstockAutoRoutine.poll()` is called from the routine command's `execute()`; nothing else polls that loop.
 
-#### 6.2.1 Why every timer in this document is `PumpkinStopwatch`
+#### 6.2.1 Why every timer in this document is `RootstockStopwatch`
 
-`TrajectoryRuntime.m_timer`, `PumpkinDriveToPose.m_timer`, and `PumpkinDriveToPose.m_settleTimer` were all `edu.wpi.first.wpilibj.Timer` in the first draft. They are all `PumpkinStopwatch` now. The reason is not stylistic:
+`TrajectoryRuntime.m_timer`, `RootstockDriveToPose.m_timer`, and `RootstockDriveToPose.m_settleTimer` were all `edu.wpi.first.wpilibj.Timer` in the first draft. They are all `RootstockStopwatch` now. The reason is not stylistic:
 
 - `Timer` reads the FPGA clock internally on every `get()`. Under AdvantageKit replay the log advances in *log* time while the FPGA clock advances in *wall-clock* time, so `atTimeBeforeEnd(0.30)` fires at a different sample index in replay than it did on the robot. A replay that does not reproduce the match is worse than no replay: it produces confident wrong conclusions.
-- `Timer.getFPGATimestamp()` is banned by DESIGN.md Principle 9 / D12, `02 §5.6` rule 1, `06`'s `Clock` javadoc, and DESIGN §8 ArchUnit hard rule 3. Shipping it here would mean the library trips its own determinism guard — `04`'s `PumpkinReplay` runtime tripwire is specified to trap exactly this call.
+- `Timer.getFPGATimestamp()` is banned by DESIGN.md Principle 9 / D12, `02 §5.6` rule 1, `06`'s `Clock` javadoc, and DESIGN §8 ArchUnit hard rule 3. Shipping it here would mean the library trips its own determinism guard — `04`'s `RootstockReplay` runtime tripwire is specified to trap exactly this call.
 - The ArchUnit rule in §1.8 bans the constructor too, not just the static, precisely so this cannot come back as "well, an *instance* is fine."
 
-`PumpkinStopwatch` is a 40-line class with the same five methods. There is no reason to keep the WPILib type and every reason not to.
+`RootstockStopwatch` is a 40-line class with the same five methods. There is no reason to keep the WPILib type and every reason not to.
 
 ### 6.3 Zone triggers on Choreo
 
@@ -1779,53 +1779,53 @@ public Trigger inZone(String zoneName) {
 }
 ```
 
-### 6.4 `PumpkinAutoRoutine` and `AutoStep` — the declarative auto DSL
+### 6.4 `RootstockAutoRoutine` and `AutoStep` — the declarative auto DSL
 
 ```java
-package org.pumpkinlib.auto;
+package org.rootstock.auto;
 
-public final class PumpkinAutoRoutine {
+public final class RootstockAutoRoutine {
 
-  public PumpkinAutoRoutine startAt(PumpkinTrajectory first);  // resetOdometry from its initial pose
-  public PumpkinAutoRoutine startAt(Pose2d bluePose);
+  public RootstockAutoRoutine startAt(RootstockTrajectory first);  // resetOdometry from its initial pose
+  public RootstockAutoRoutine startAt(Pose2d bluePose);
 
-  public PumpkinAutoRoutine step(String name, Consumer<AutoStep> body);
-  public PumpkinAutoRoutine step(Consumer<AutoStep> body);      // name derived from the trajectory
+  public RootstockAutoRoutine step(String name, Consumer<AutoStep> body);
+  public RootstockAutoRoutine step(Consumer<AutoStep> body);      // name derived from the trajectory
 
   /** Conditional fork. Both branches are built eagerly; selection is at runtime. */
-  public PumpkinAutoRoutine branch(BooleanSupplier condition,
-                                   Consumer<PumpkinAutoRoutine> ifTrue,
-                                   Consumer<PumpkinAutoRoutine> ifFalse);
+  public RootstockAutoRoutine branch(BooleanSupplier condition,
+                                   Consumer<RootstockAutoRoutine> ifTrue,
+                                   Consumer<RootstockAutoRoutine> ifFalse);
 
   /** Repeat the enclosed steps while the condition holds, up to maxCycles. */
-  public PumpkinAutoRoutine cycle(int maxCycles, BooleanSupplier keepGoing,
-                                  Consumer<PumpkinAutoRoutine> body);
+  public RootstockAutoRoutine cycle(int maxCycles, BooleanSupplier keepGoing,
+                                  Consumer<RootstockAutoRoutine> body);
 
   /**
    * 254's hard budget, expressed in the unit a driveteam actually reasons in: SECONDS LEFT.
    * When fewer than `secondsRemaining` of the autonomous period remain, abandon the current step
    * and jump to `stepName`. Measured against FieldMap.autoPeriodSeconds() — there is no hardcoded
-   * 15.0 anywhere in PumpkinLib (D15), so a 2027 period change is a one-line FieldMap edit.
+   * 15.0 anywhere in Rootstock (D15), so a 2027 period change is a one-line FieldMap edit.
    *
    * Implementation: the routine records its own start at Clock.now() in the built command's
    * initialize(); the guard fires when
    *   Clock.now() - start >= FieldMap.autoPeriodSeconds() - secondsRemaining.
    * The zero point is the ROUTINE's start, not the FMS autonomous transition — those differ by at
    * most one scheduler loop (20 ms), and using the routine's own start keeps the guard meaningful
-   * in PumpkinAutoTest and in a teleop-scheduled dry run, where DriverStation is not in autonomous
-   * at all. The 20 ms is logged as Pumpkin/Auto/RoutineStartLatency so it is never a mystery.
+   * in RootstockAutoTest and in a teleop-scheduled dry run, where DriverStation is not in autonomous
+   * at all. The 20 ms is logged as Rootstock/Auto/RoutineStartLatency so it is never a mystery.
    */
-  public PumpkinAutoRoutine skipToAfter(double secondsRemaining, String stepName);
+  public RootstockAutoRoutine skipToAfter(double secondsRemaining, String stepName);
 
   /** One registered skipToAfter guard. Read by build() validation and by the routine at runtime. */
   public record SkipGuard(double secondsRemaining, String stepName) {}
   public List<SkipGuard> skipGuards();
 
   /** Raw escape hatch for anything the DSL does not express. */
-  public PumpkinAutoRoutine raw(Command command);
+  public RootstockAutoRoutine raw(Command command);
 
   /** Always runs, interrupted or not. Use for stow/park/stop-rollers. */
-  public PumpkinAutoRoutine onEnd(Command command);
+  public RootstockAutoRoutine onEnd(Command command);
 
   public Command build();
   public EventLoop loop();
@@ -1835,8 +1835,8 @@ public final class PumpkinAutoRoutine {
 public final class AutoStep {
 
   // ---- what to drive ------------------------------------------------------
-  public AutoStep follow(PumpkinTrajectory traj);
-  public AutoStep driveTo(Supplier<Pose2d> blueTarget);      // PumpkinDriveToPose
+  public AutoStep follow(RootstockTrajectory traj);
+  public AutoStep driveTo(Supplier<Pose2d> blueTarget);      // RootstockDriveToPose
   public AutoStep pathfindTo(Pose2d blueTarget, PathConstraints c);
   public AutoStep hold();                                    // no drive motion this step
 
@@ -1857,7 +1857,7 @@ public final class AutoStep {
   public AutoStep when(Trigger trigger, Command command);
   public AutoStep whenWithin(double meters, Pose2d blueTarget, Command command);
   /**
-   * FUSED-POSE fine align at the trajectory's scoring waypoint. Appends a PumpkinDriveToPose
+   * FUSED-POSE fine align at the trajectory's scoring waypoint. Appends a RootstockDriveToPose
    * AFTER follow() completes and BEFORE then(), so the score command runs from a converged pose
    * rather than from wherever the trajectory happened to leave the robot.
    *
@@ -1901,9 +1901,9 @@ public final class AutoStep {
    * The fused-pose path shares none of that cancellation. design/03 §13.3 states it as an
    * invariant: 2 cm "is achievable here and nowhere else."
    *
-   * <p><b>Fallback is structural, not optional.</b> If `PumpkinAuto.withVision(...)` was never
+   * <p><b>Fallback is structural, not optional.</b> If `RootstockAuto.withVision(...)` was never
    * called, this step compiles to `alignAtEnd(trajectoryFinalPose, 0.05 m, 2.0 deg, timeout)` and
-   * logs `Pumpkin/Auto/Steps/&lt;i&gt;/AlignPath = "fused-fallback"` once. The auto still runs and
+   * logs `Rootstock/Auto/Steps/&lt;i&gt;/AlignPath = "fused-fallback"` once. The auto still runs and
    * still scores; it scores at the tolerance the sensor supports. `build()` does NOT reject the
    * missing factory — an auto that refuses to build because a camera is unplugged is a worse
    * failure than an auto that aligns 3 cm loose.
@@ -1923,11 +1923,11 @@ public final class AutoStep {
    *  step does not end until this does. */
   public AutoStep then(Command command);
 
-  // ---- introspection used by PumpkinAutoRoutine.build() validation ---------
+  // ---- introspection used by RootstockAutoRoutine.build() validation ---------
   // Every accessor build() calls is declared here. A validation block that calls methods the
   // type does not expose is how a "validated" DSL ships with the validation commented out.
   public boolean hasBefore();
-  public @Nullable PumpkinTrajectory trajectory();
+  public @Nullable RootstockTrajectory trajectory();
   public String name();
   public int index();                    // position in the routine; the log-key prefix
   public boolean hasAlignAtEnd();
@@ -1999,11 +1999,11 @@ public Command build() {
       throw new IllegalStateException("Step '" + step.name()
           + "': alignAtEnd(...) and alignToTagAtEnd(...) are both set. Pick one. alignToTagAtEnd "
           + "is the tighter of the two (2 cm vs 5 cm) and already falls back to alignAtEnd when "
-          + "PumpkinAuto.withVision(...) was not called, so setting both is never what you want.");
+          + "RootstockAuto.withVision(...) was not called, so setting both is never what you want.");
     }
 
     // 2c. alignToTagAtEnd's fallback needs a pose to fall back TO. With no trajectory and no
-    //     explicit target there is nothing to hand PumpkinDriveToPose if vision is absent, and
+    //     explicit target there is nothing to hand RootstockDriveToPose if vision is absent, and
     //     "silently does nothing on the practice field" is exactly the failure class this
     //     validation block exists for.
     if (step.hasAlignToTagAtEnd() && step.trajectory() == null && step.alignTarget() == null) {
@@ -2063,24 +2063,24 @@ Validation rule 4's second clause is the migration guard for the old `skipToAfte
 **Every step publishes**, for post-match triage:
 
 ```
-Pumpkin/Auto/Steps/<i>/Name          String
-Pumpkin/Auto/Steps/<i>/PlannedSec    double
-Pumpkin/Auto/Steps/<i>/ActualSec     double
-Pumpkin/Auto/Steps/<i>/Overrun       boolean
-Pumpkin/Auto/Steps/<i>/Succeeded     boolean
-Pumpkin/Auto/Steps/<i>/Retries       double
-Pumpkin/Auto/Steps/<i>/EndPoseError  double   (meters, vs the trajectory's final pose)
-Pumpkin/Auto/Steps/<i>/AlignPath     String   CRITICAL: "tag-relative" | "fused" | "fused-fallback"
-Pumpkin/Auto/Steps/<i>/AlignError    double   (meters, at the moment the align ended)
-Pumpkin/Auto/StepIndex               double
-Pumpkin/Auto/StepName                String
-Pumpkin/Auto/Name                    String
+Rootstock/Auto/Steps/<i>/Name          String
+Rootstock/Auto/Steps/<i>/PlannedSec    double
+Rootstock/Auto/Steps/<i>/ActualSec     double
+Rootstock/Auto/Steps/<i>/Overrun       boolean
+Rootstock/Auto/Steps/<i>/Succeeded     boolean
+Rootstock/Auto/Steps/<i>/Retries       double
+Rootstock/Auto/Steps/<i>/EndPoseError  double   (meters, vs the trajectory's final pose)
+Rootstock/Auto/Steps/<i>/AlignPath     String   CRITICAL: "tag-relative" | "fused" | "fused-fallback"
+Rootstock/Auto/Steps/<i>/AlignError    double   (meters, at the moment the align ended)
+Rootstock/Auto/StepIndex               double
+Rootstock/Auto/StepName                String
+Rootstock/Auto/Name                    String
 ```
 
 ### 6.5 How a step compiles to a `Command`
 
 ```java
-// The routine's copy of the factory registered by PumpkinAuto.withVision(...) (§5.1).
+// The routine's copy of the factory registered by RootstockAuto.withVision(...) (§5.1).
 // Null when the team never called it, which is the whole "vision is absent" branch below.
 private final @Nullable VisionAlignFactory m_visionAlign;
 
@@ -2109,14 +2109,14 @@ Command compile(AutoStep s) {
         m_visionAlign.alignToTag(s.alignCameraIndex(), s.alignAcceptableTagIds(),
                                  s.alignTagRelativeGoal())
             .withTimeout(s.alignTimeoutSeconds())
-            .beforeStarting(() -> PumpkinLog.critical(
-                "Pumpkin/Auto/Steps/" + s.index() + "/AlignPath", "tag-relative")));
+            .beforeStarting(() -> RootstockLog.critical(
+                "Rootstock/Auto/Steps/" + s.index() + "/AlignPath", "tag-relative")));
 
   } else if (s.hasAlignToTagAtEnd()) {
     // Vision absent. Fall back to the fused-pose align at the tolerance that path can hold —
     // NOT at the tag-relative tolerance, which would time out on every step. Logged, once.
-    body = body.andThen(fusedAlign(s, PumpkinDriveToPose.kDefaultTolerance,
-                                      PumpkinDriveToPose.kDefaultAngularTolerance, "fused-fallback"));
+    body = body.andThen(fusedAlign(s, RootstockDriveToPose.kDefaultTolerance,
+                                      RootstockDriveToPose.kDefaultAngularTolerance, "fused-fallback"));
 
   } else if (s.hasAlignAtEnd()) {
     body = body.andThen(fusedAlign(s, s.alignTolerance(), s.alignAngularTolerance(), "fused"));
@@ -2140,18 +2140,18 @@ private Command fusedAlign(AutoStep s, Distance tol, Angle angTol, String pathLa
   Supplier<Pose2d> target = s.alignTarget() != null
       ? s.alignTarget()
       : () -> s.trajectory().finalPose().orElseThrow();
-  return PumpkinDriveToPose.builder(m_drive)
+  return RootstockDriveToPose.builder(m_drive)
       .target(target)
       .tolerance(tol, angTol)
       .timeout(s.alignTimeoutSeconds())
       .build()
       .asCommand()
-      .beforeStarting(() -> PumpkinLog.critical(
-          "Pumpkin/Auto/Steps/" + s.index() + "/AlignPath", pathLabel));
+      .beforeStarting(() -> RootstockLog.critical(
+          "Rootstock/Auto/Steps/" + s.index() + "/AlignPath", pathLabel));
 }
 ```
 
-`Pumpkin/Auto/Steps/<i>/AlignPath` is a **CRITICAL** string topic. Which of the three paths a step actually took — `"tag-relative"`, `"fused"`, `"fused-fallback"` — is the first question anyone asks about an auto that scored a few centimetres off, and it must be answerable from a match log rather than by reproducing the camera state in the shop.
+`Rootstock/Auto/Steps/<i>/AlignPath` is a **CRITICAL** string topic. Which of the three paths a step actually took — `"tag-relative"`, `"fused"`, `"fused-fallback"` — is the first question anyone asks about an auto that scored a few centimetres off, and it must be answerable from a match log rather than by reproducing the camera state in the shop.
 
 `retry` wraps this in a bounded loop using `Commands.repeatingSequence(...).until(...)` with an explicit counter; `orSkipTo` sets an index on a shared `RoutineState` that the outer `Commands.select(...)` reads.
 
@@ -2161,14 +2161,14 @@ Both libraries support overriding only the rotation channel while following.
 
 ```java
 // PathPlanner: static overrides. MUST be cleared in finallyDo or they leak into the next command.
-public static Command aimWhileFollowing(PumpkinTrajectory traj, DoubleSupplier omegaFeedback) {
+public static Command aimWhileFollowing(RootstockTrajectory traj, DoubleSupplier omegaFeedback) {
   return traj.cmd()
       .beforeStarting(() -> PPHolonomicDriveController.overrideRotationFeedback(omegaFeedback))
       .finallyDo(interrupted -> PPHolonomicDriveController.clearRotationFeedbackOverride());
 }
 ```
 
-For Choreo, `followChoreoSample` consults `PumpkinAuto`'s `omegaOverride` supplier before adding the theta PID term:
+For Choreo, `followChoreoSample` consults `RootstockAuto`'s `omegaOverride` supplier before adding the theta PID term:
 
 ```java
 OptionalDouble override = m_omegaOverride.get();
@@ -2177,7 +2177,7 @@ double omega = override.isPresent()
     : s.omega + m_thetaController.calculate(pose.getRotation().getRadians(), s.heading);
 ```
 
-`PumpkinAuto.omegaOverride(Supplier<OptionalDouble>)` sets it once; `AutoStep.aimWhileDriving(Supplier<OptionalDouble>)` scopes it to a step with automatic clearing.
+`RootstockAuto.omegaOverride(Supplier<OptionalDouble>)` sets it once; `AutoStep.aimWhileDriving(Supplier<OptionalDouble>)` scopes it to a step with automatic clearing.
 
 Wrapped as a one-liner:
 
@@ -2193,9 +2193,9 @@ This is the 6328 structure (`DriveTrajectory(Trajectory, Supplier<Optional<Doubl
 
 ```java
 // ---- one-time setup, in RobotContainer ----------------------------------------
-PumpkinDrive drive = PumpkinDrive.fromTunerX(TunerConstants.createDrivetrain());
+RootstockDrive drive = RootstockDrive.fromTunerX(TunerConstants.createDrivetrain());
 
-PumpkinAuto auto = PumpkinAuto.of(drive)
+RootstockAuto auto = RootstockAuto.of(drive)
     .withPathPlanner()
     .withChoreo()
     .withPathfinding()
@@ -2206,10 +2206,10 @@ PumpkinAuto auto = PumpkinAuto.of(drive)
         VisionCommands.alignToTag(drive, vision, cam, ids, goal, AlignGains.tagRelative()));
 
 // ---- the auto ------------------------------------------------------------------
-PumpkinTrajectory toReef   = auto.traj("StartToReef");
-PumpkinTrajectory toPiece2 = auto.traj("ReefToPiece2");
-PumpkinTrajectory retry2   = auto.traj("Piece2Retry");
-PumpkinTrajectory toReef2  = auto.traj("Piece2ToReef");
+RootstockTrajectory toReef   = auto.traj("StartToReef");
+RootstockTrajectory toPiece2 = auto.traj("ReefToPiece2");
+RootstockTrajectory retry2   = auto.traj("Piece2Retry");
+RootstockTrajectory toReef2  = auto.traj("Piece2ToReef");
 
 Command threePiece = auto.routine("3pc Left")
     .startAt(toReef)
@@ -2254,7 +2254,7 @@ Command threePiece = auto.routine("3pc Left")
 - `superstructure.request(...)` and `.goal(...)` never take the drive requirement, so they cannot cancel the auto (the PathPlanner NamedCommand footgun is structurally unreachable).
 - `before(0.30, ...)` means the same thing whether `StartToReef` is a Choreo `.traj` or a PathPlanner `.path` — and because `before()` is only legal on a step that has a trajectory, it can never be a trigger that silently never fires.
 - `alignToTagAtEnd(...)` closes the loop on the scoring *tag*. The trajectory's job is to get there fast; the align's job is to get there *right*. This is the single change in this document that most raises real-world auto scoring reliability — and §6.7.1 is the arithmetic that says why it has to be the tag and not the pose.
-- Every pose is blue-authored; red flipping happens once, in `PumpkinField`.
+- Every pose is blue-authored; red flipping happens once, in `RootstockField`.
 - `skipToAfter(2.0, "park")` reads "with 2 seconds left, go park" and is computed against `FieldMap.autoPeriodSeconds()`. Nothing here knows that 2026 REBUILT's auto is 15 s, so nothing here breaks when 2027's isn't.
 - Every step has a hard deadline. A stuck intake costs 1 s, not the match.
 - The whole auto emits a per-step timeline you can read in AdvantageScope after the match, including which align path each step actually took.
@@ -2263,7 +2263,7 @@ Command threePiece = auto.routine("3pc Left")
 
 **This subsection exists because revision 3 of this document claimed 2 cm from a controller that cannot produce it.** The old comment read *"the trajectory gets us within ~6 cm, the align gets us within 2 cm."* Both halves were wrong: the 6 cm was uncited, and the 2 cm was a tolerance the *sensor* cannot satisfy on the path the DSL could actually reach. `design/03` §13.3 states the invariant plainly — 2 cm "is achievable [in `alignToTag`] and nowhere else" — and `design/03` §13.2 ordered this document to change its default. Here is the arithmetic behind both.
 
-**Term 1 — vision standard deviation at scoring range.** `design/03` §8.4's `StdDevModels.pumpkinDefault()` is `advantageKit(0.02, 0.06)`: `σ_xy = linearBaseline · d² / n`, with MegaTag2 taking an additional 0.5× on the linear term. At the range `design/03` §13.2 fixes as the reference case — **d = 3 m, n = 2 tags, MegaTag2**:
+**Term 1 — vision standard deviation at scoring range.** `design/03` §8.4's `StdDevModels.rootstockDefault()` is `advantageKit(0.02, 0.06)`: `σ_xy = linearBaseline · d² / n`, with MegaTag2 taking an additional 0.5× on the linear term. At the range `design/03` §13.2 fixes as the reference case — **d = 3 m, n = 2 tags, MegaTag2**:
 
 ```
 σ_xy = 0.5 · 0.02 · d² / n
@@ -2286,7 +2286,7 @@ The distance dependence is steep enough to be worth writing out, because it is a
 
 **Term 2 — and this is the one that makes the close-range column misleading — field-layout error.** The fused pose is expressed in the *published* field frame; the scoring pose is authored in that same frame; the tag is a *physical object* that may not be where the layout says. On a fused-pose align, any difference between the published layout and the as-built field is a pure, uncorrectable bias — it moves the goal without moving the estimate. FIRST's own 2025 Team Update 12 documents that on an AndyMark field perimeter the PROCESSOR opening and its AprilTags shift about **2.7 in (6.9 cm)** in X relative to the published layout, and that the CORAL STATION connection varies overall field width and those tags in both X and Y ([Team Update 12](https://firstfrc.blob.core.windows.net/frc2025/Manual/TeamUpdates/TeamUpdate12.pdf)). **[UNVERIFIED — this figure comes from a search summary of the primary PDF; the PDF could not be machine-read in this pass. Re-read it before quoting the number in published docs.]** The existence of WPILib's **WPIcal** tool, and `design/03`'s `FieldLayouts` WPIcal-ingestion + delta-logging path, are themselves evidence that this term is real and non-trivial ([WPIcal docs](https://docs.wpilib.org/en/stable/docs/software/wpilib-tools/wpical/index.html)). On the tag-relative path this term is **exactly zero**: the goal is expressed relative to the tag we are looking at, so a mislocated tag moves the measurement and the goal together.
 
-**Term 3 — heading.** Vision never corrects heading in PumpkinLib: `σ_θ` is pinned to `StdDevModels.UNTRUSTED_SIGMA` for every gyro-fused source (§8.2, §8.3), so field heading is the gyro plus the offset seeded at the last `resetPose`. A residual heading error `ε` displaces a control point offset `r` from the robot centre by `r · sin ε` — at `r = 0.35 m` and `ε = 1.0°` that is `0.35 · sin(1°) = 0.0061 m ≈ 6 mm`. Small, but it is a *bias*, and it is one more term the tag-relative path does not carry, because the tag-relative controller measures its own yaw error against the tag face directly.
+**Term 3 — heading.** Vision never corrects heading in Rootstock: `σ_θ` is pinned to `StdDevModels.UNTRUSTED_SIGMA` for every gyro-fused source (§8.2, §8.3), so field heading is the gyro plus the offset seeded at the last `resetPose`. A residual heading error `ε` displaces a control point offset `r` from the robot centre by `r · sin ε` — at `r = 0.35 m` and `ε = 1.0°` that is `0.35 · sin(1°) = 0.0061 m ≈ 6 mm`. Small, but it is a *bias*, and it is one more term the tag-relative path does not carry, because the tag-relative controller measures its own yaw error against the tag face directly.
 
 **The budget, and the two numbers that come out of it.**
 
@@ -2295,7 +2295,7 @@ The distance dependence is steep enough to be worth writing out, because it is a
 | `alignAtEnd` (fused pose) | 4.5 cm | present, uncorrected | 6 mm | **5 cm / 2.0°** |
 | `alignToTagAtEnd` (tag-relative) | not applicable — the loop closes on `cameraToTag` | **cancels** | **cancels** | **2 cm / 1.0°** |
 
-So: `PumpkinDriveToPose`'s builder default becomes 5 cm / 2.0°, matching `AlignGains.defaults()`. **This paragraph derives the number; it does not declare it.** §9 declares it exactly once, as `PumpkinDriveToPose.kDefaultTolerance` (`Meters.of(0.05)`) and `kDefaultAngularTolerance` (`Degrees.of(2.0)`), and every other site in this document, in `DESIGN.md` §10B and in the `alignToTagAtEnd` fused fallback reads those two constants **by name** rather than retyping the literal. 2 cm is reserved for `AlignGains.tagRelative()` behind `alignToTagAtEnd`; and both worked examples in this document say which one they are using and why.
+So: `RootstockDriveToPose`'s builder default becomes 5 cm / 2.0°, matching `AlignGains.defaults()`. **This paragraph derives the number; it does not declare it.** §9 declares it exactly once, as `RootstockDriveToPose.kDefaultTolerance` (`Meters.of(0.05)`) and `kDefaultAngularTolerance` (`Degrees.of(2.0)`), and every other site in this document, in `DESIGN.md` §10B and in the `alignToTagAtEnd` fused fallback reads those two constants **by name** rather than retyping the literal. 2 cm is reserved for `AlignGains.tagRelative()` behind `alignToTagAtEnd`; and both worked examples in this document say which one they are using and why.
 
 **On the deleted "~6 cm" trajectory figure.** It was never measured. The honest statement is that a trajectory's terminal error is a property of the team's own feedforwards, wheel radius and odometry health, which is exactly what `OdometryReport.trajectoryTest(drive, traj)` (§8.5) exists to measure — it reports pose error against the trajectory's own samples, per run, on that robot. **Ship the routine, not the folklore number.** Until a team has run it, the correct thing to say is "the trajectory's terminal error is whatever `trajectoryTest` says it is on your robot, and the align is what makes the step insensitive to it."
 
@@ -2304,11 +2304,11 @@ So: `PumpkinDriveToPose`'s builder default becomes 5 cm / 2.0°, matching `Align
 The DSL is not mandatory. Raw trigger composition works and uses the identical trigger vocabulary:
 
 ```java
-PumpkinAutoRoutine r = auto.routine("3pc trigger style");
-PumpkinTrajectory t1 = auto.choreo("StartToReef");
-PumpkinTrajectory t2 = auto.choreo("ReefToPiece2");
-PumpkinTrajectory t2b = auto.choreo("Piece2Retry");
-PumpkinTrajectory t3 = auto.choreo("Piece2ToReef");
+RootstockAutoRoutine r = auto.routine("3pc trigger style");
+RootstockTrajectory t1 = auto.choreo("StartToReef");
+RootstockTrajectory t2 = auto.choreo("ReefToPiece2");
+RootstockTrajectory t2b = auto.choreo("Piece2Retry");
+RootstockTrajectory t3 = auto.choreo("Piece2ToReef");
 
 r.active().onTrue(Commands.sequence(t1.resetOdometry(), t1.cmd()));
 t1.atTimeBeforeEnd(0.30).onTrue(intake.runIntake());
@@ -2323,21 +2323,21 @@ Command threePiece = r.build();
 
 ## 7. Auto composition & selection
 
-### 7.1 `PumpkinAutoMode` — the class-per-auto base (1678 shape)
+### 7.1 `RootstockAutoMode` — the class-per-auto base (1678 shape)
 
 Dozens of variants become tractable when each auto is a class.
 
 ```java
-package org.pumpkinlib.auto;
+package org.rootstock.auto;
 
-public abstract class PumpkinAutoMode {
+public abstract class RootstockAutoMode {
 
-  protected final PumpkinAuto auto;
-  protected PumpkinAutoMode(PumpkinAuto auto, String name);
+  protected final RootstockAuto auto;
+  protected RootstockAutoMode(RootstockAuto auto, String name);
 
-  protected PumpkinTrajectory traj(String name);
-  protected PumpkinTrajectory traj(String name, int splitIndex);
-  protected PumpkinAutoRoutine routine();
+  protected RootstockTrajectory traj(String name);
+  protected RootstockTrajectory traj(String name, int splitIndex);
+  protected RootstockAutoRoutine routine();
 
   /** Implement this. Called lazily, once, on first selection. */
   protected abstract Command define();
@@ -2347,16 +2347,16 @@ public abstract class PumpkinAutoMode {
   /** For alliance verification and the test harness. */
   public Optional<Pose2d> expectedStartPose();
   public Optional<Pose2d> expectedEndPose();
-  public double expectedScore();          // game pieces; used by PumpkinAutoTest assertions
+  public double expectedScore();          // game pieces; used by RootstockAutoTest assertions
 }
 ```
 
-### 7.2 `PumpkinAutoSelector` — dependent questions, lazy generation, frozen responses
+### 7.2 `RootstockAutoSelector` — dependent questions, lazy generation, frozen responses
 
 A flat 40-entry `SendableChooser` is unusable at an event. 6328 publishes up to 6 dependent question dropdowns per routine and freezes them once auto is enabled.
 
 ```java
-package org.pumpkinlib.auto;
+package org.rootstock.auto;
 
 public record AutoQuestion(String prompt, List<String> responses) {
   public static AutoQuestion of(String prompt, String... responses);
@@ -2369,18 +2369,18 @@ public final class AutoResponses {
   public String key();       // stable, e.g. "MidlineSweep|LEFT|M2|NO" — logged and used as a test id
 }
 
-public final class PumpkinAutoSelector {
+public final class RootstockAutoSelector {
 
-  public PumpkinAutoSelector(String ntTableName);   // default "Pumpkin/Auto"
+  public RootstockAutoSelector(String ntTableName);   // default "Rootstock/Auto"
 
   /** Lazy: the Function is only invoked when the variant is first needed. */
-  public PumpkinAutoSelector addRoutine(String name, List<AutoQuestion> questions,
+  public RootstockAutoSelector addRoutine(String name, List<AutoQuestion> questions,
                                         Function<AutoResponses, Command> builder);
-  public PumpkinAutoSelector addCommand(String name, Supplier<Command> builder);
-  public PumpkinAutoSelector addMode(PumpkinAutoMode mode);
+  public RootstockAutoSelector addCommand(String name, Supplier<Command> builder);
+  public RootstockAutoSelector addMode(RootstockAutoMode mode);
   /** Wraps AutoBuilder.getAllAutoNames() so .auto files appear alongside Java routines. */
-  public PumpkinAutoSelector importPathPlannerAutos();
-  public PumpkinAutoSelector setDefault(String name);
+  public RootstockAutoSelector importPathPlannerAutos();
+  public RootstockAutoSelector setDefault(String name);
 
   /** Bind with RobotModeTriggers.autonomous().whileTrue(selector.selectedCommandScheduler()); */
   public Command selectedCommandScheduler();
@@ -2399,9 +2399,9 @@ public final class PumpkinAutoSelector {
 Behaviour rules, all non-negotiable:
 
 1. **Responses freeze on the first autonomous enable.** A dropdown changed mid-match is a lost match.
-2. **Everything is force-warmed at `robotInit`.** Lazy generation is a chooser convenience, not a reason to load a `.traj` during autonomous — loading is blocking and can cost seconds on a roboRIO. `PumpkinAuto.warmup()` walks `allVariants()`, builds each command once, discards it, and logs total warmup time.
-3. **The resolved variant name is logged** (`Pumpkin/Auto/SelectedKey`) so log replay identifies exactly which auto ran.
-4. **NT topics are stable and dashboard-agnostic**: `Pumpkin/Auto/Routine`, `Pumpkin/Auto/Question1..6`, `Pumpkin/Auto/Question1Options..`, `Pumpkin/Auto/SelectedKey`, `Pumpkin/Auto/Frozen`. Never `SmartDashboard.putData` from library code — SmartDashboard and Shuffleboard are removed in WPILib 2027.
+2. **Everything is force-warmed at `robotInit`.** Lazy generation is a chooser convenience, not a reason to load a `.traj` during autonomous — loading is blocking and can cost seconds on a roboRIO. `RootstockAuto.warmup()` walks `allVariants()`, builds each command once, discards it, and logs total warmup time.
+3. **The resolved variant name is logged** (`Rootstock/Auto/SelectedKey`) so log replay identifies exactly which auto ran.
+4. **NT topics are stable and dashboard-agnostic**: `Rootstock/Auto/Routine`, `Rootstock/Auto/Question1..6`, `Rootstock/Auto/Question1Options..`, `Rootstock/Auto/SelectedKey`, `Rootstock/Auto/Frozen`. Never `SmartDashboard.putData` from library code — SmartDashboard and Shuffleboard are removed in WPILib 2027.
 
 ### 7.3 Dynamic / conditional autos
 
@@ -2421,27 +2421,27 @@ Three levels, all supported:
 **Level 3 — a fully dynamic sequence** (254's pattern: a scoring-sequence string from the dashboard drives pathfinding per step).
 
 ```java
-public PumpkinAutoRoutine dynamic(Supplier<List<String>> stepKeys,
+public RootstockAutoRoutine dynamic(Supplier<List<String>> stepKeys,
                                   Function<String, Consumer<AutoStep>> stepFactory,
                                   int maxSteps);
 ```
 
 Implemented with `Commands.defer(...)` over a bounded step count so the command tree is finite and testable.
 
-### 7.4 Testing 20 auto variants quickly in sim — `PumpkinAutoTest`
+### 7.4 Testing 20 auto variants quickly in sim — `RootstockAutoTest`
 
 This is the single highest-value thing in this document that nobody ships. maple-sim provides the physics; nothing provides the assertion layer.
 
 ```java
-package org.pumpkinlib.auto.test;
+package org.rootstock.auto.test;
 
-public final class PumpkinAutoTest {
+public final class RootstockAutoTest {
 
   public static Builder simulate(AutoVariant variant);
 
   public static final class Builder {
     public Builder withField(SimWorld world);
-    public Builder withDrive(PumpkinDrive drive);
+    public Builder withDrive(RootstockDrive drive);
     /** Inject odometry noise to stress the auto's tolerance to drift. */
     public Builder withOdometryNoise(double metersPerSecondStdDev, Angle headingDriftPerSecond);
     /** Start the robot offset from its nominal pose (bumped by a partner). */
@@ -2482,8 +2482,8 @@ class AutoBudgetTest {
   @Test void everyAutoFitsInTheAutoPeriod() {
     double period = FieldMap.autoPeriodSeconds();      // 15.0 in 2026; NEVER a literal here
     for (AutoVariant v : selector.allVariants()) {
-      AutoTestResult r = PumpkinAutoTest.simulate(v)
-          .withField(PumpkinSim.field(FieldMap.year()))
+      AutoTestResult r = RootstockAutoTest.simulate(v)
+          .withField(RootstockSim.field(FieldMap.year()))
           .withDrive(simDrive)
           .withOdometryNoise(0.02, Degrees.of(0.5))
           .run();
@@ -2496,9 +2496,9 @@ class AutoBudgetTest {
 
   @Test void everyAutoSurvivesA10cmStartBump() {
     for (AutoVariant v : selector.allVariants()) {
-      var r = PumpkinAutoTest.simulate(v)
+      var r = RootstockAutoTest.simulate(v)
           .withStartOffset(new Transform2d(0.10, 0.10, Rotation2d.fromDegrees(5)))
-          .withField(PumpkinSim.field(FieldMap.year())).withDrive(simDrive).run();
+          .withField(RootstockSim.field(FieldMap.year())).withDrive(simDrive).run();
       assertTrue(r.completed());
     }
   }
@@ -2508,42 +2508,42 @@ class AutoBudgetTest {
 Plus a Gradle task:
 
 ```
-./gradlew pumpkinAutoReport
-  -> build/pumpkin/auto-report.html   (variant x {time, completed, pieces, drift, per-step overrun})
-  -> build/pumpkin/autotest/<variant>.wpilog   (open in AdvantageScope)
+./gradlew rootstockAutoReport
+  -> build/rootstock/auto-report.html   (variant x {time, completed, pieces, drift, per-step overrun})
+  -> build/rootstock/autotest/<variant>.wpilog   (open in AdvantageScope)
 ```
 
 Implementation notes:
 - `HeadlessClock` steps `SimHooks.stepTiming(0.02)` and `CommandScheduler.getInstance().run()` in a loop; `DriverStationSim.setAutonomous(true)` + `setEnabled(true)`. No sim GUI, no real-time waiting.
 - Unit tests construct simulated CAN devices; vendor libs reject duplicate device IDs within one JVM. `build.gradle` template ships `test { forkEvery = 1 }` (9143 already learned this).
-- The `PumpkinAutoTest` builder never touches the real `PumpkinDrive` singleton; it takes an injected sim drive.
+- The `RootstockAutoTest` builder never touches the real `RootstockDrive` singleton; it takes an injected sim drive.
 
 ---
 
 ## 8. Odometry accuracy
 
-Odometry sample rate primarily improves **consistency**, not mean accuracy: higher-rate sampling reduces the discretization error accumulated during rotation and acceleration, which is exactly the error that varies run to run. `PumpkinDriveConfig.competition()` defaults to `NATIVE_250HZ` because Phoenix 6 provides it for free on a CANivore and the AdvantageKit TalonFX template uses the same figure (`ODOMETRY_FREQUENCY` 250 Hz on CANivore, else 100 Hz — §8.1). Anything less logs a warning naming what was degraded and why.
+Odometry sample rate primarily improves **consistency**, not mean accuracy: higher-rate sampling reduces the discretization error accumulated during rotation and acceleration, which is exactly the error that varies run to run. `RootstockDriveConfig.competition()` defaults to `NATIVE_250HZ` because Phoenix 6 provides it for free on a CANivore and the AdvantageKit TalonFX template uses the same figure (`ODOMETRY_FREQUENCY` 250 Hz on CANivore, else 100 Hz — §8.1). Anything less logs a warning naming what was degraded and why.
 
 **We ship no quantitative before/after claim until `OdometryReport` (§8.5) has measured one on a real robot.** When 8793 and 9143 have each run `OdometryReport.squareTest` at 50 Hz and at 250 Hz on carpet, the numbers — with path length, speed, vision on/off, and drivetrain stated inline — replace this paragraph, and the raw `.wpilog` goes in the repo next to them. Principle 10 says every performance claim is measured; a library that publishes a folklore statistic to justify its own default has already lost the argument it is trying to win.
 
 > **Revision note.** An earlier draft of this section asserted specific mean/std figures for 50 Hz vs 250 Hz with no citation. They are removed. Beyond being uncited, the 250 Hz figure would have been rated `UNTRUSTWORTHY` by this document's own `OdometryReport.Verdict` scale five sections later — an internal contradiction a hostile reader would find immediately, and R4 already names community rejection as a High risk.
 
-### 8.1 `PumpkinCharacterization` — five commands, plus writeback
+### 8.1 `RootstockCharacterization` — five commands, plus writeback
 
 ```java
-package org.pumpkinlib.characterization;
+package org.rootstock.characterization;
 
-public final class PumpkinCharacterization {
+public final class RootstockCharacterization {
 
   /** 2 s orient at 0 V, then 0.1 V/s ramp; closed-form least-squares fit of kS and kV.
-   *  Prints results to the console AND logs to Pumpkin/Char/FF/*. */
-  public static Command feedforward(PumpkinDrive drive);
+   *  Prints results to the console AND logs to Rootstock/Char/FF/*. */
+  public static Command feedforward(RootstockDrive drive);
 
   /** Spin in place, SlewRateLimiter(0.05) to 0.25 rad/s.
    *  r = (gyroDelta * driveBaseRadius) / meanWheelDelta.
    *  REFUSES TO RUN unless the operator confirms the robot is on CARPET — a hard-floor run
    *  gives a wrong radius, and wheel radius scales odometry, path length, and RobotConfig. */
-  public static Command wheelRadius(PumpkinDrive drive);
+  public static Command wheelRadius(RootstockDrive drive);
 
   /** Wall-push voltage ramp; reports stator amps at the velocity break (the slip point).
    *  Set drive current limits BELOW this. CTRE's Kraken swerve example: slip ~130 A,
@@ -2551,33 +2551,33 @@ public final class PumpkinCharacterization {
    *  THIS IS A STALL TEST. Gated by CharacterizationSafety.armed(drive, SLIP_CURRENT) and bounded
    *  by Envelope.forRoutine(...): stator ceiling, 4 s ramp cap, motor-temp ceiling, and a
    *  displacement abort if the robot was not actually restrained. See §8.1.1. */
-  public static Command slipCurrent(PumpkinDrive drive);
+  public static Command slipCurrent(RootstockDrive drive);
 
   /** Spin-up torque vs measured angular acceleration -> MOI estimate.
    *  Exists because nobody measures MOI and the entire community copies 6.883 from the
    *  6328 template, which makes SwerveSetpointGenerator either useless or crippling.
    *  Requires a confirmed 2 m clear radius and aborts above the angular-velocity ceiling (§8.1.1). */
-  public static Command momentOfInertia(PumpkinDrive drive);
+  public static Command momentOfInertia(RootstockDrive drive);
 
   /** Ramps linear acceleration until wheel-derived velocity diverges from gyro/vision-derived
    *  velocity by a threshold -> effective wheel COF.
    *  Requires a confirmed 8 m clear straight run and a spotter; the robot does NOT self-stop at
    *  the end of the ramp (§8.1.1). */
-  public static Command wheelCof(PumpkinDrive drive);
+  public static Command wheelCof(RootstockDrive drive);
 
   /** All five, in ASCENDING RISK ORDER, with a 3 s pause and a console banner between each, a
    *  driver-abort binding, and a fresh CharacterizationSafety.armed(...) check before each
    *  routine rather than once at the start. See §8.1.1. */
-  public static Command all(PumpkinDrive drive);
+  public static Command all(RootstockDrive drive);
 
   /** WPILib SysId quasistatic fwd/rev + dynamic fwd/rev, chained. For teams who want the
    *  desktop tool. CTRE teams get SysIdSwerveTranslation/Rotation/SteerGains for free. */
-  public static Command sysIdAll(PumpkinDrive drive);
+  public static Command sysIdAll(RootstockDrive drive);
 
   // ---- results -------------------------------------------------------------
   public static Optional<DriveCharacterization> last();
-  /** Writes /home/lvuser/pumpkin/drive_characterization.json at runtime;
-   *  `./gradlew pumpkinPullConfig` copies it back to src/main/deploy/pumpkin/ for commit. */
+  /** Writes /home/lvuser/rootstock/drive_characterization.json at runtime;
+   *  `./gradlew rootstockPullConfig` copies it back to src/main/deploy/rootstock/ for commit. */
   public static void writeResults(DriveCharacterization result);
   /** Patches deploy/pathplanner/settings.json and the .chor robot-config block from the
    *  measured values, then re-runs DriveSelfCheck. Dev-machine only. */
@@ -2600,7 +2600,7 @@ Three of these five routines deliberately drive a mechanism toward its limit. `s
 A comment in a doc does not prevent any of that. **Every guard below is code, enforced in `Command.initialize()`, and a failed precondition means the command ends immediately without ever applying voltage** — it does not warn and proceed.
 
 ```java
-package org.pumpkinlib.characterization;
+package org.rootstock.characterization;
 
 /** Preconditions every characterization command checks before it applies ANY voltage. */
 public final class CharacterizationSafety {
@@ -2608,12 +2608,12 @@ public final class CharacterizationSafety {
   /**
    * Hard gates. Any one false => the command raises
    * Alerts.warning("char.refused." + routine, "<reason>", MatchImpact.PIT_ONLY), publishes
-   * Pumpkin/Char/Refused = "<reason>", and ends WITHOUT actuating.
+   * Rootstock/Char/Refused = "<reason>", and ends WITHOUT actuating.
    *
-   *  1. TuningRegistry.isTuningEnabled() is true.   (D12: there is no Pumpkin.TUNING_MODE)
+   *  1. TuningRegistry.isTuningEnabled() is true.   (D12: there is no Rootstock.TUNING_MODE)
    *  2. MatchContext.isFMSAttached() is FALSE. Characterization never runs at an event on a
    *     field. NOT DriverStation.isFMSAttached() — ArchUnit rule 10 permits only
-   *     org.pumpkinlib.core.match.. to name DriverStation, and MatchContext latches the value on
+   *     org.rootstock.core.match.. to name DriverStation, and MatchContext latches the value on
    *     the DS-connect edge, which is also the behaviour we want here: a DS that drops out
    *     mid-ramp must not silently re-arm a stall test. (Revision 3.1; DESIGN.md §16 item 3.)
    *  3. The operator has acknowledged this specific routine's physical setup THIS BOOT
@@ -2623,13 +2623,13 @@ public final class CharacterizationSafety {
    *     pose (wheelCof, momentOfInertia). A bad pose makes the measurement wrong AND the abort
    *     conditions wrong.
    */
-  public static boolean armed(PumpkinDrive drive, Routine routine);
+  public static boolean armed(RootstockDrive drive, Routine routine);
 
   public enum Routine { FEEDFORWARD, WHEEL_RADIUS, SLIP_CURRENT, MOMENT_OF_INERTIA, WHEEL_COF }
 
   /**
-   * Operator acknowledgement. Set from the dashboard boolean Pumpkin/Char/<Routine>/Confirm,
-   * which PumpkinCharacterization publishes as FALSE at every boot. The prompt text names the
+   * Operator acknowledgement. Set from the dashboard boolean Rootstock/Char/<Routine>/Confirm,
+   * which RootstockCharacterization publishes as FALSE at every boot. The prompt text names the
    * physical setup — this is the whole point:
    *
    *   WHEEL_RADIUS      "Robot on CARPET, 1 m clear on all sides. Hard floor gives a wrong radius."
@@ -2651,7 +2651,7 @@ public final class CharacterizationSafety {
       double maxDisplacementMeters,  // slipCurrent: robot must NOT move; default 0.15 m
       double maxAngularVelocityRadPerSec) {  // momentOfInertia ceiling, default 4 rad/s
 
-    public static Envelope forRoutine(Routine r, PumpkinDrive drive);
+    public static Envelope forRoutine(Routine r, RootstockDrive drive);
   }
 }
 ```
@@ -2659,7 +2659,7 @@ public final class CharacterizationSafety {
 Applied to every command in §8.1:
 
 1. **Any abort stops the drivetrain first and reports second.** `end(interrupted)` calls `drive.stop()` on every path, including the exception path, and the partial result is discarded rather than written — a fit from a truncated ramp is worse than no fit, because it looks like data.
-2. **The driver always wins.** Every characterization command is `.until(() -> driverStickMoved())` and any joystick deflection past 0.2 aborts it. This is bound by `PumpkinCharacterization.all(drive)` automatically; a team cannot forget it.
+2. **The driver always wins.** Every characterization command is `.until(() -> driverStickMoved())` and any joystick deflection past 0.2 aborts it. This is bound by `RootstockCharacterization.all(drive)` automatically; a team cannot forget it.
 3. **`slipCurrent` additionally aborts on movement.** If the robot displaces more than `maxDisplacementMeters`, it was not restrained, and the ramp stops — this is the difference between measuring slip current and launching a robot at a wall.
 4. **`all(drive)` runs the routines in ascending risk order** — `feedforward`, `wheelRadius`, `momentOfInertia`, `wheelCof`, `slipCurrent` — with a 3 s pause and a console banner between each, and it re-checks `armed(...)` before *each* routine rather than once at the start. A motor that heated up during `wheelCof` stops `slipCurrent` from running.
 5. **A 90 s cool-down is enforced between consecutive `slipCurrent` runs.** Repeated stall ramps are how teams destroy a Kraken in the pit.
@@ -2684,10 +2684,10 @@ Verified reference values to seed the table (from the shipped vendor templates, 
 ### 8.2 Gyro drift handling
 
 ```java
-package org.pumpkinlib.drive;
+package org.rootstock.drive;
 
 public final class GyroHealth {
-  /** Logged every loop as Pumpkin/Drive/Gyro/DriftDegPerMin. */
+  /** Logged every loop as Rootstock/Drive/Gyro/DriftDegPerMin. */
   public double driftDegreesPerMinute();
   /** True when the gyro has been still for > 2 s and is still reporting rate. */
   public boolean suspectedDrift();
@@ -2706,7 +2706,7 @@ Policy, deliberately conservative:
 This domain provides the sink and the trust arbitration; the vision domain provides the observations.
 
 ```java
-package org.pumpkinlib.drive;
+package org.rootstock.drive;
 
 public final class OdometryTrust {
   /** Base std devs, per-axis, meters/meters/radians. */
@@ -2751,20 +2751,20 @@ public final class OdometryTrust {
 }
 ```
 
-**Std-dev models are the vision domain's, not this one's (§0.2).** Revision 3 of this section recommended `xy = 0.3 + 0.4 * d² / max(1, tagCount)` — an independently-invented formula that disagrees with `design/03` §8.4's shipped models by more than an order of magnitude at competition range (at `d = 3 m, n = 2` it yields `0.3 + 0.4·9/2 = 2.1 m` against `pumpkinDefault()`'s `4.5 cm`). Two disagreeing models on the two halves of one fusion pipeline is precisely the drift that `design/03` §8.0 Rule 1 argues against for the *sentinel*, and it matters more for the *model*. **That formula is withdrawn.** The canonical values are:
+**Std-dev models are the vision domain's, not this one's (§0.2).** Revision 3 of this section recommended `xy = 0.3 + 0.4 * d² / max(1, tagCount)` — an independently-invented formula that disagrees with `design/03` §8.4's shipped models by more than an order of magnitude at competition range (at `d = 3 m, n = 2` it yields `0.3 + 0.4·9/2 = 2.1 m` against `rootstockDefault()`'s `4.5 cm`). Two disagreeing models on the two halves of one fusion pipeline is precisely the drift that `design/03` §8.0 Rule 1 argues against for the *sentinel*, and it matters more for the *model*. **That formula is withdrawn.** The canonical values are:
 
 - **wheel/odometry base:** `VecBuilder.fill(0.1, 0.1, 0.1)` — this document's, and unchanged; the surveyed repos converged on it independently.
-- **vision, enabled:** whatever `design/03` §8.4's selected `StdDevModel` returns. The default is `StdDevModels.pumpkinDefault()` == `advantageKit(0.02, 0.06)`, i.e. `σ_xy = 0.02·d²/n` with MegaTag2 taking a further 0.5× on the linear term — **4.5 cm at 3 m with two tags**, derived in §6.7.1. `σ_θ` is pinned to `StdDevModels.UNTRUSTED_SIGMA`.
+- **vision, enabled:** whatever `design/03` §8.4's selected `StdDevModel` returns. The default is `StdDevModels.rootstockDefault()` == `advantageKit(0.02, 0.06)`, i.e. `σ_xy = 0.02·d²/n` with MegaTag2 taking a further 0.5× on the linear term — **4.5 cm at 3 m with two tags**, derived in §6.7.1. `σ_θ` is pinned to `StdDevModels.UNTRUSTED_SIGMA`.
 - **vision, disabled, ≥2 tags:** `σ_θ = 0.3`; **disabled, 1 tag:** `σ_θ = 0.9`. This is the one place this domain sets a rotation sigma, because it is the disabled-seed policy (§8.2), not a model.
 
-If a team wants the looser behaviour the withdrawn formula produced, that is `StdDevModels.legacy8793(base)` or a custom `StdDevModel` — selected in the vision domain, in one place, where it is logged.
+If a team wants the looser behaviour the withdrawn formula produced, that is `StdDevModels.quadraticGrowth(base)` or a custom `StdDevModel` — selected in the vision domain, in one place, where it is logged.
 
-**Timestamp discipline:** the `fpgaTimestampSeconds` argument handed to `PumpkinDrive.accept(...)` (§3.3.2's `VisionConsumer`) is preserved byte-for-byte to the estimator. At 4 m/s a 20 ms timestamp error is `4.0 · 0.020 = 0.08 m = 8 cm` — larger than the 5 cm fused-pose alignment tolerance §9 defaults to, and 4× the 2 cm tag-relative one. `accept(...)` never re-timestamps and never buffers; the only legal transformation is the CTRE Phoenix-timebase conversion, which happens one layer down in `CtreSwerveBackend` (§3.4.1) and is unchanged by D17.
+**Timestamp discipline:** the `fpgaTimestampSeconds` argument handed to `RootstockDrive.accept(...)` (§3.3.2's `VisionConsumer`) is preserved byte-for-byte to the estimator. At 4 m/s a 20 ms timestamp error is `4.0 · 0.020 = 0.08 m = 8 cm` — larger than the 5 cm fused-pose alignment tolerance §9 defaults to, and 4× the 2 cm tag-relative one. `accept(...)` never re-timestamps and never buffers; the only legal transformation is the CTRE Phoenix-timebase conversion, which happens one layer down in `CtreSwerveBackend` (§3.4.1) and is unchanged by D17.
 
 ### 8.4 Skid detection
 
 ```java
-package org.pumpkinlib.drive.traction;
+package org.rootstock.drive.traction;
 
 public record SkidReport(double skidRatio, boolean skidding, int worstModuleIndex, double timestamp) {
   public static SkidReport none();
@@ -2782,32 +2782,32 @@ public final class SkidDetector {
    * and the worst module is the largest residual from the mean.
    *
    * Original algorithm published by FRC 1690 (Orbit) in their 2024 software session; this is a
-   * PumpkinLib reimplementation, not vendored code. Documented rather than cited-and-copied
+   * Rootstock reimplementation, not vendored code. Documented rather than cited-and-copied
    * because there is no canonical open-source Java reference.
    */
   public SkidReport update(SwerveModuleState[] measured, double gyroOmegaRadPerSec);
 }
 ```
 
-Policy: **skid inflates odometry std devs; it never rejects.** Practitioners report hard rejection fights `SwerveDrivePoseEstimator`. Off by default in `rookie()`, on in `competition()`. When `skidding` is true for more than 0.25 s we also log `Pumpkin/Drive/Skid/Sustained` and, if traction is `SETPOINT_GENERATOR`, we do *not* back off — preventing skid is better than reacting to it.
+Policy: **skid inflates odometry std devs; it never rejects.** Practitioners report hard rejection fights `SwerveDrivePoseEstimator`. Off by default in `rookie()`, on in `competition()`. When `skidding` is true for more than 0.25 s we also log `Rootstock/Drive/Skid/Sustained` and, if traction is `SETPOINT_GENERATOR`, we do *not* back off — preventing skid is better than reacting to it.
 
 ### 8.5 `OdometryReport` — the routine that MEASURES your error
 
 This is what tells a team whether they can trust their pose at all. Modeled on 3061-lib's tuning autos, packaged with assertions.
 
 ```java
-package org.pumpkinlib.characterization;
+package org.rootstock.characterization;
 
 public final class OdometryReport {
 
   /** Drive a closed square of side `side`, vision disabled, and measure the closure error. */
-  public static Builder squareTest(PumpkinDrive drive, Distance side);
+  public static Builder squareTest(RootstockDrive drive, Distance side);
   /** Drive forward `d`, then back `d`. The classic first check (FRC 334's practice). */
-  public static Builder outAndBack(PumpkinDrive drive, Distance d);
+  public static Builder outAndBack(RootstockDrive drive, Distance d);
   /** Spin in place N full rotations and measure heading closure. */
-  public static Builder spinTest(PumpkinDrive drive, int rotations);
+  public static Builder spinTest(RootstockDrive drive, int rotations);
   /** Follow an existing trajectory and report pose error vs the trajectory's own samples. */
-  public static Builder trajectoryTest(PumpkinDrive drive, PumpkinTrajectory traj);
+  public static Builder trajectoryTest(RootstockDrive drive, RootstockTrajectory traj);
 
   public static final class Builder {
     public Builder withVision(boolean enabled);      // default false for the pure-odometry number
@@ -2841,9 +2841,9 @@ public final class OdometryReport {
 
 `explain()` output is deliberately prescriptive, e.g.:
 
-> `UNTRUSTWORTHY — 12 m square closed 0.94 m off (7.8%), heading drifted 1.2 deg. Closure error is almost entirely radial, which means your wheel radius is too small by about 7%. Run PumpkinCharacterization.wheelRadius(drive) ON CARPET, then re-run this test. Do not tune drive-to-pose until this reads MARGINAL or better.`
+> `UNTRUSTWORTHY — 12 m square closed 0.94 m off (7.8%), heading drifted 1.2 deg. Closure error is almost entirely radial, which means your wheel radius is too small by about 7%. Run RootstockCharacterization.wheelRadius(drive) ON CARPET, then re-run this test. Do not tune drive-to-pose until this reads MARGINAL or better.`
 
-**Gating rule:** `PumpkinDriveToPose` and any score-on-the-move solver log a warning when the last `OdometryReport.Verdict` is `UNTRUSTWORTHY` or absent. SOTM on a 30 cm pose error is worse than stopping to score.
+**Gating rule:** `RootstockDriveToPose` and any score-on-the-move solver log a warning when the last `OdometryReport.Verdict` is `UNTRUSTWORTHY` or absent. SOTM on a 30 cm pose error is worse than stopping to score.
 
 ---
 
@@ -2852,16 +2852,16 @@ public final class OdometryReport {
 The most reused command in every elite codebase and the one small teams write worst (usually a raw P controller that oscillates). 6328's structure is specific and non-obvious; we package it with tolerance, timeout, and abort.
 
 ```java
-package org.pumpkinlib.nav;
+package org.rootstock.nav;
 
-public final class PumpkinDriveToPose {
+public final class RootstockDriveToPose {
 
   /** The fused-pose-honest tolerance, named so §6.5's alignToTagAtEnd fallback and the DSL cannot
    *  drift apart from the builder default. Equal to AlignGains.defaults() (design/03 §13.2). */
   public static final Distance kDefaultTolerance        = Meters.of(0.05);
   public static final Angle    kDefaultAngularTolerance = Degrees.of(2.0);
 
-  public static Builder builder(PumpkinDrive drive);
+  public static Builder builder(RootstockDrive drive);
 
   public static final class Builder {
     /** BLUE-origin target, re-evaluated every loop. */
@@ -2926,7 +2926,7 @@ public final class PumpkinDriveToPose {
      * <p>Suppliers are in DRIVER-PERSPECTIVE units — <b>forward-positive, left-positive</b> — so
      * the `CommandXboxController` sign inversion happens at the call site, once, visibly, rather
      * than being buried in this class where nobody can see it. The builder applies
-     * `PumpkinMath.deadband2d(0.10)` to the pair internally (radial, not per-axis — §2), and when
+     * `RootstockMath.deadband2d(0.10)` to the pair internally (radial, not per-axis — §2), and when
      * `allianceRelative` is true it rotates the nudge by `AlliancePerspective.operatorForward()`
      * so a red-alliance driver's "forward" nudge pushes the robot the way they are looking.
      *
@@ -2944,7 +2944,7 @@ public final class PumpkinDriveToPose {
      */
     public Builder controlPointOffset(Transform2d robotToControlPoint);
 
-    public PumpkinDriveToPose build();
+    public RootstockDriveToPose build();
   }
 
   /** The command. Declares drive.requirement(). */
@@ -2960,10 +2960,10 @@ public final class PumpkinDriveToPose {
   public enum EndReason { GOAL, TIMEOUT, ABORTED, INTERRUPTED, RUNNING }
 
   // ---- one-liners ---------------------------------------------------------
-  public static Command to(PumpkinDrive drive, Pose2d blueTarget);
-  public static Command to(PumpkinDrive drive, Supplier<Pose2d> blueTarget);
+  public static Command to(RootstockDrive drive, Pose2d blueTarget);
+  public static Command to(RootstockDrive drive, Supplier<Pose2d> blueTarget);
   /** Coarse pathfind + fine align handoff, the composition every elite team writes. */
-  public static Command pathfindThenAlign(PumpkinDrive drive, Pose2d blueTarget,
+  public static Command pathfindThenAlign(RootstockDrive drive, Pose2d blueTarget,
                                           PathConstraints coarse);
 }
 ```
@@ -2977,19 +2977,19 @@ The controlled scalar is `errorMeters`, the *distance* from the robot to the tar
 This is 6328's convention exactly, and it is why their `direction` is `currentPose.minus(targetPose).getAngle()` rather than the intuitive `target − current`. Pairing the intuitive direction with the negative scalar drives the robot *away from the target, accelerating*. If you change one, you must change the other; there is a unit test below whose only job is to catch that.
 
 ```java
-package org.pumpkinlib.nav;
+package org.rootstock.nav;
 
 // Field declarations — the types are load-bearing.
 private final ProfiledPIDController m_linearController;   // NOT PIDController: we need
 private final ProfiledPIDController m_thetaController;    // getSetpoint().velocity
-private final PumpkinStopwatch m_timer       = new PumpkinStopwatch();   // §1.8, Clock-backed
-private final PumpkinStopwatch m_settleTimer = new PumpkinStopwatch();
+private final RootstockStopwatch m_timer       = new RootstockStopwatch();   // §1.8, Clock-backed
+private final RootstockStopwatch m_settleTimer = new RootstockStopwatch();
 private boolean m_settling = false;
 private EndReason m_end = EndReason.RUNNING;
 
 private static final double kEpsilonMeters = 1e-6;
 
-PumpkinDriveToPose(/* built by Builder */) {
+RootstockDriveToPose(/* built by Builder */) {
   m_linearController = new ProfiledPIDController(
       m_linearKp.get(), 0.0, m_linearKd.get(),
       new TrapezoidProfile.Constraints(m_maxV, m_maxA));
@@ -3012,7 +3012,7 @@ public void initialize() {
   m_timer.restart();
 
   Pose2d current = m_drive.getPose().transformBy(m_controlPointOffset);
-  Pose2d target  = PumpkinField.apply(m_blueTarget.get());
+  Pose2d target  = RootstockField.apply(m_blueTarget.get());
 
   double errorMeters = current.getTranslation().getDistance(target.getTranslation());
 
@@ -3038,7 +3038,7 @@ public void initialize() {
 @Override
 public void execute() {
   Pose2d current = m_drive.getPose().transformBy(m_controlPointOffset);
-  Pose2d target  = PumpkinField.apply(m_blueTarget.get());
+  Pose2d target  = RootstockField.apply(m_blueTarget.get());
 
   // TARGET -> ROBOT. Paired with a negative scalar, this points the robot AT the target.
   // 6328 convention. See the note above this code block before touching it.
@@ -3049,7 +3049,7 @@ public void execute() {
   // 1-D profiled controller on the distance-to-goal scalar. Both terms are negative while
   // approaching; the profile IS the feedforward, so there is no standalone TrapezoidProfile
   // and no hand-stepped State to fall out of sync with reality.
-  double ffScale = PumpkinMath.clamp(
+  double ffScale = RootstockMath.clamp(
       (errorMeters - m_ffMinRadius) / (m_ffMaxRadius - m_ffMinRadius), 0.0, 1.0);
   double fbVel = m_linearController.calculate(errorMeters, 0.0);
   double ffVel = m_linearController.getSetpoint().velocity * ffScale;
@@ -3058,7 +3058,7 @@ public void execute() {
 
   double thetaErrorRad = MathUtil.angleModulus(
       target.getRotation().minus(current.getRotation()).getRadians());
-  double thetaFfScale = PumpkinMath.clamp(
+  double thetaFfScale = RootstockMath.clamp(
       (Math.abs(thetaErrorRad) - m_thetaFfMin) / (m_thetaFfMax - m_thetaFfMin), 0.0, 1.0);
   double omega = m_thetaController.calculate(current.getRotation().getRadians(),
                                              target.getRotation().getRadians())
@@ -3090,13 +3090,13 @@ public void execute() {
   // Goes through THE funnel: traction limiting and discretization apply here too.
   m_drive.driveFieldRelative(field);
 
-  PumpkinLog.critical("Pumpkin/Align/Target", target);
-  PumpkinLog.critical("Pumpkin/Align/ErrorMeters", errorMeters);
-  PumpkinLog.critical("Pumpkin/Align/ErrorDegrees", Math.toDegrees(thetaErrorRad));
-  PumpkinLog.log     ("Pumpkin/Align/CommandedFieldSpeeds", field);
-  PumpkinLog.log     ("Pumpkin/Align/ProfileVelocity", m_linearController.getSetpoint().velocity);
-  PumpkinLog.log     ("Pumpkin/Align/Settling", m_settling);
-  PumpkinLog.critical("Pumpkin/Align/AtGoal", m_settling && m_settleTimer.hasElapsed(m_settleSeconds));
+  RootstockLog.critical("Rootstock/Align/Target", target);
+  RootstockLog.critical("Rootstock/Align/ErrorMeters", errorMeters);
+  RootstockLog.critical("Rootstock/Align/ErrorDegrees", Math.toDegrees(thetaErrorRad));
+  RootstockLog.log     ("Rootstock/Align/CommandedFieldSpeeds", field);
+  RootstockLog.log     ("Rootstock/Align/ProfileVelocity", m_linearController.getSetpoint().velocity);
+  RootstockLog.log     ("Rootstock/Align/Settling", m_settling);
+  RootstockLog.critical("Rootstock/Align/AtGoal", m_settling && m_settleTimer.hasElapsed(m_settleSeconds));
 }
 
 @Override
@@ -3119,7 +3119,7 @@ public void end(boolean interrupted) {
       + "below the 0.05 m default, that is the first thing to undo — see design/05 §6.7.1.",
         MatchImpact.PIT_ONLY);       // D10 (§1.4): one alignment missed, the match continues
   }
-  PumpkinLog.critical("Pumpkin/Align/EndReason", m_end.name());
+  RootstockLog.critical("Rootstock/Align/EndReason", m_end.name());
 }
 ```
 
@@ -3129,17 +3129,17 @@ Every gain (`linearKp`, `linearKd`, `thetaKp`, `thetaKd`, all four constraints, 
 
 ### 9.2 The tests that keep §9.1 honest
 
-These are not optional coverage. Each one pins a defect that was actually present in the first draft, and all three run off-robot with no HAL — `PumpkinDriveToPose`'s math depends only on `Pose2d`/`ChassisSpeeds`/`ProfiledPIDController`, so a fake `PumpkinDrive` backed by a mutable pose is enough.
+These are not optional coverage. Each one pins a defect that was actually present in the first draft, and all three run off-robot with no HAL — `RootstockDriveToPose`'s math depends only on `Pose2d`/`ChassisSpeeds`/`ProfiledPIDController`, so a fake `RootstockDrive` backed by a mutable pose is enough.
 
 ```java
-package org.pumpkinlib.nav;
+package org.rootstock.nav;
 
-class PumpkinDriveToPoseTest {
+class RootstockDriveToPoseTest {
 
   /** THE sign test. Robot 1 m behind the target on +x; the command must drive toward +x. */
   @Test void drivesTowardTheTarget() {
     FakeDrive drive = FakeDrive.at(new Pose2d(0.0, 0.0, Rotation2d.kZero));
-    PumpkinDriveToPose cmd = PumpkinDriveToPose.builder(drive)
+    RootstockDriveToPose cmd = RootstockDriveToPose.builder(drive)
         .target(new Pose2d(1.0, 0.0, Rotation2d.kZero))
         .build();
 
@@ -3158,7 +3158,7 @@ class PumpkinDriveToPoseTest {
   @Test void drivesTowardTheTargetOffAxis() {
     FakeDrive drive = FakeDrive.at(new Pose2d(2.0, 3.0, Rotation2d.kZero));
     Pose2d target = new Pose2d(1.0, 4.0, Rotation2d.kZero);
-    PumpkinDriveToPose cmd = PumpkinDriveToPose.builder(drive).target(target).build();
+    RootstockDriveToPose cmd = RootstockDriveToPose.builder(drive).target(target).build();
 
     cmd.initialize();
     cmd.execute();
@@ -3173,7 +3173,7 @@ class PumpkinDriveToPoseTest {
   /** THE settle test. Far from the goal, the command must NOT report success after settleTime. */
   @Test void doesNotFinishWhileOutsideTolerance() {
     FakeDrive drive = FakeDrive.at(new Pose2d(0.0, 0.0, Rotation2d.kZero));
-    PumpkinDriveToPose cmd = PumpkinDriveToPose.builder(drive)
+    RootstockDriveToPose cmd = RootstockDriveToPose.builder(drive)
         .target(new Pose2d(5.0, 0.0, Rotation2d.kZero))
         .settleTime(0.06)
         .timeout(30.0)
@@ -3190,7 +3190,7 @@ class PumpkinDriveToPoseTest {
   @Test void seedsTheProfileFromMeasuredClosingVelocity() {
     FakeDrive drive = FakeDrive.at(new Pose2d(0.0, 0.0, Rotation2d.kZero))
         .withFieldSpeeds(new ChassisSpeeds(3.0, 0.0, 0.0));    // already closing fast
-    PumpkinDriveToPose cmd = PumpkinDriveToPose.builder(drive)
+    RootstockDriveToPose cmd = RootstockDriveToPose.builder(drive)
         .target(new Pose2d(1.0, 0.0, Rotation2d.kZero))
         .build();
 
@@ -3206,7 +3206,7 @@ class PumpkinDriveToPoseTest {
 
 ### 9.3 Differential drives
 
-`PumpkinDriveToPose` works on differential drives with `constraints(..., maxW, maxAlpha)` respected but strafe unavailable. The builder detects `!geometry().holonomic()` and switches to a two-phase controller: rotate-to-bearing → drive-forward → rotate-to-final-heading, with the same tolerance/timeout/abort surface. This is worse than a holonomic align and we say so in the log, once.
+`RootstockDriveToPose` works on differential drives with `constraints(..., maxW, maxAlpha)` respected but strafe unavailable. The builder detects `!geometry().holonomic()` and switches to a two-phase controller: rotate-to-bearing → drive-forward → rotate-to-final-heading, with the same tolerance/timeout/abort surface. This is worse than a holonomic align and we say so in the log, once.
 
 ---
 
@@ -3230,7 +3230,7 @@ public class RobotContainer {
   // form is DESIGN.md Appendix A.)
   private final CommandSwerveDrivetrain m_dt = TunerConstants.createDrivetrain();
 
-  private final PumpkinDrive m_drive = PumpkinDrive.of(
+  private final RootstockDrive m_drive = RootstockDrive.of(
       new CtreSwerveBackend(
           m_dt,
           /* Subsystem requirement */ m_dt,   // NOT null: CommandSwerveDrivetrain IS the Subsystem,
@@ -3243,14 +3243,14 @@ public class RobotContainer {
               TunerConstants.kWheelRadius),
           DriveLimits.of(TunerConstants.kSpeedAt12Volts, MetersPerSecondPerSecond.of(8.0),
                          DegreesPerSecond.of(540), DegreesPerSecondPerSecond.of(720))),
-      PumpkinDriveConfig.v01Competition());   // TractionLayer/SkidDetector are M15 (§3.7)
+      RootstockDriveConfig.v01Competition());   // TractionLayer/SkidDetector are M15 (§3.7)
 
   private final Superstructure m_superstructure = new Superstructure();   // implements GoalBus<Goal>
   private final Intake m_intake = new Intake();
   private final Sensors m_sensors = new Sensors();
 
   // ---- 2. Auto: both planners, pathfinding, and the goal bus, in four lines -------
-  private final PumpkinAuto m_auto = PumpkinAuto.of(m_drive)
+  private final RootstockAuto m_auto = RootstockAuto.of(m_drive)
       .withPathPlanner()
       .withChoreo()
       .withPathfinding()
@@ -3260,10 +3260,10 @@ public class RobotContainer {
           "prepL4",  m_superstructure.request(Goal.L4_PREP),
           "score",   m_superstructure.request(Goal.L4_SCORE)));
 
-  private final PumpkinAutoSelector m_selector = new PumpkinAutoSelector("Pumpkin/Auto");
+  private final RootstockAutoSelector m_selector = new RootstockAutoSelector("Rootstock/Auto");
 
   public RobotContainer() {
-    PumpkinField.configure(FieldSymmetry.ROTATIONAL);      // 2026 REBUILT
+    RootstockField.configure(FieldSymmetry.ROTATIONAL);      // 2026 REBUILT
 
     // ---- 3. Driver control -------------------------------------------------------
     m_drive.requirement().setDefaultCommand(
@@ -3286,10 +3286,10 @@ public class RobotContainer {
     // Driver nudge suppliers are DRIVER-PERSPECTIVE (forward-positive, left-positive), so the
     // controller's sign inversion happens here, once, visibly.
     m_driver.a().whileTrue(
-        PumpkinDriveToPose.builder(m_drive)
+        RootstockDriveToPose.builder(m_drive)
             .target(() -> FieldPoses.nearestScoringPose(m_drive.getPose()))
-            .tolerance(PumpkinDriveToPose.kDefaultTolerance,
-                       PumpkinDriveToPose.kDefaultAngularTolerance)   // §9 declares these ONCE
+            .tolerance(RootstockDriveToPose.kDefaultTolerance,
+                       RootstockDriveToPose.kDefaultAngularTolerance)   // §9 declares these ONCE
             .timeout(2.5)
             .abortWhen(() -> Math.abs(m_driver.getLeftY()) > 0.5)   // driver always wins
             .driverNudge(() -> -m_driver.getLeftY(), () -> -m_driver.getLeftX(),
@@ -3317,8 +3317,8 @@ public class RobotContainer {
     RobotModeTriggers.autonomous().whileTrue(m_selector.selectedCommandScheduler());
 
     // ---- 6. Characterization, bound behind a tuning-mode gate ---------------------
-    if (PumpkinConfig.tuningMode()) {
-      m_driver.back().onTrue(PumpkinCharacterization.all(m_drive));
+    if (RootstockConfig.tuningMode()) {
+      m_driver.back().onTrue(RootstockCharacterization.all(m_drive));
       m_driver.y().onTrue(OdometryReport.squareTest(m_drive, Meters.of(3.0)).asCommand());
     }
   }
@@ -3328,9 +3328,9 @@ public class RobotContainer {
     String first = r.get(1);
     boolean bail = r.get(2).equals("YES");
 
-    PumpkinTrajectory start = m_auto.traj(side + "StartTo" + first);
-    PumpkinTrajectory back  = m_auto.traj(first + "ToScore");
-    PumpkinTrajectory sweep = m_auto.traj("ScoreToSweep" + side);
+    RootstockTrajectory start = m_auto.traj(side + "StartTo" + first);
+    RootstockTrajectory back  = m_auto.traj(first + "ToScore");
+    RootstockTrajectory sweep = m_auto.traj("ScoreToSweep" + side);
 
     return m_auto.routine("Midline " + side + " " + first)
         .startAt(start)
@@ -3384,15 +3384,15 @@ public class RobotContainer {
 | Odometry / pose estimation math | WPILib `SwerveDrivePoseEstimator`, `DifferentialDrivePoseEstimator`, CTRE's built-in estimator | Trust arbitration, timestamp discipline, and an error *measurement* report |
 | A high-frequency odometry thread | Phoenix 6's native odometry thread; AdvantageKit's `PhoenixOdometryThread`/`SparkOdometryThread` | Select and verify the mode; warn loudly when degraded |
 | Trajectory generation | Choreo (TrajoptLib/Sleipnir, time-optimal), PathPlanner (spline + torque-aware profile) | One trigger surface over both |
-| Pathfinding | PathPlanner AD* / `LocalADStar` over `navgrid.json` | `PumpkinNav` façade + `LocalADStarAK` for replay determinism + warmup |
+| Pathfinding | PathPlanner AD* / `LocalADStar` over `navgrid.json` | `RootstockNav` façade + `LocalADStarAK` for replay determinism + warmup |
 | A slip/setpoint generator | PathPlannerLib `SwerveSetpointGenerator` (254-derived, maintained) | Insert it in the funnel so **teleop** gets it too |
 | A path-following controller | PathPlanner `PPHolonomicDriveController` / `PPLTVController`; WPILib `LTVUnicycleController` | Wire them correctly, once, with the right overload for the drivetrain type |
 | Alliance flipping math | PathPlanner `FlippingUtil`, `PathPlannerPath.flipPath()/mirrorPath()`; Choreo `AutoTrajectory.mirrorX()/mirrorY()`, `Trajectory.flipped()` | Declare symmetry once and configure both from it |
 | A physics simulator | maple-sim (dyn4j, 2026 REBUILT field + game pieces) | Select it as the default sim backend; drive the same auto headlessly |
 | A log viewer / 3D replay | AdvantageScope | Emit stable, unit-tagged keys it can render |
-| A logging framework | **AdvantageKit — a REQUIRED dependency** (maintainer decision 3), not one option among several | A 10-method `PumpkinLog` **facade** over AdvantageKit's `Logger`. ~~fans out to whichever the team uses~~ — there is no fan-out and no `LogBackend` SPI; a team on DogLog or plain Epilogue cannot adopt PumpkinLib without switching loggers |
+| A logging framework | **AdvantageKit — a REQUIRED dependency** (maintainer decision 3), not one option among several | A 10-method `RootstockLog` **facade** over AdvantageKit's `Logger`. ~~fans out to whichever the team uses~~ — there is no fan-out and no `LogBackend` SPI; a team on DogLog or plain Epilogue cannot adopt Rootstock without switching loggers |
 | SysId | WPILib `SysIdRoutine`; CTRE `SysIdSwerveTranslation`/`Rotation`/`SteerGains` | Wrap them, and add the three things SysId does *not* measure: wheel radius, MOI, COF |
-| A graph-search superstructure | 254's `AStarSolver` + `SuperstructureStateMachine`, 6328's JGraphT graph — and the PumpkinLib mechanism domain | Define the `GoalBus` contract; consume it |
+| A graph-search superstructure | 254's `AStarSolver` + `SuperstructureStateMachine`, 6328's JGraphT graph — and the Rootstock mechanism domain | Define the `GoalBus` contract; consume it |
 | A dashboard | Elastic | Publish stable NT4 topics; the dashboard domain generates the layout |
 
 ---
@@ -3406,12 +3406,12 @@ The 2027 break changes: `edu.wpi.first` → `org.wpilib`, `ChassisSpeeds` → `C
 What this design does about it, concretely:
 
 1. **Vendor types appear in exactly five files.** `CtreSwerveBackend`, `YagslBackend`, `AdvantageKitSwerveBackend`, `PathPlannerSource`, `ChoreoSource`. Nothing else in this domain imports `com.ctre`, `com.pathplanner`, `choreo`, `swervelib`, or `org.littletonrobotics`. The 2027 port for those five files is bounded and known today.
-2. **`PumpkinAuto`, `PumpkinTrajectory`, `AutoStep`, `PumpkinDriveToPose`, `PumpkinField` leak zero vendor types.** A team's `RobotContainer` needs no rewrite.
+2. **`RootstockAuto`, `RootstockTrajectory`, `AutoStep`, `RootstockDriveToPose`, `RootstockField` leak zero vendor types.** A team's `RobotContainer` needs no rewrite.
 3. **WPILib types are used freely** and ported by find/replace. `ChassisSpeeds` → `ChassisVelocities` is mechanical; `SwerveModuleState.optimize` is already migrated to the 2026 mutating-instance form.
-4. **`SkidDetector`, `TractionLayer` math, `PumpkinMath`, the trigger engine's timing logic, and `OdometryReport`'s error math are HAL-free and command-free** — they live in a `pumpkin-solvers` source set with no WPILib command dependency, so they port byte-for-byte and are unit-testable off-robot today.
+4. **`SkidDetector`, `TractionLayer` math, `RootstockMath`, the trigger engine's timing logic, and `OdometryReport`'s error math are HAL-free and command-free** — they live in a `rootstock-solvers` source set with no WPILib command dependency, so they port byte-for-byte and are unit-testable off-robot today.
 5. **Commands are always *returned* from factories, never subclassed by users.** Commands v3's coroutine model changes how commands are *authored*, not how they are *composed*, so a v3 backend is an internal swap.
-6. **No `SmartDashboard`/`Shuffleboard`/`SendableChooser`-on-SmartDashboard from library code.** `PumpkinAutoSelector` publishes raw NT4 topics.
-7. ~~**Two artifacts from one tree**: `org.pumpkinlib:pumpkin-drive-auto:2026.x` and `:2027.x`, differing only in the five adapter files and the package roots.~~ **REVERSED (revision 3, two ways).** (a) There is no `pumpkin-drive-auto` artifact — under **D28** this domain's packages ride inside the single `dev.pumpkinlib:pumpkinlib` jar, with `pumpkinlib-pathplanner` and `pumpkinlib-choreo` as the only separate coordinates it touches. (b) There is no permanent 2026/2027 pair: the generated-source variant and the dual-compile CI exist **only inside M12** and are deleted at its end. Maintaining two source lines for two more years would be a permanent 20–30% tax on every milestone after M12, paid to protect nobody.
+6. **No `SmartDashboard`/`Shuffleboard`/`SendableChooser`-on-SmartDashboard from library code.** `RootstockAutoSelector` publishes raw NT4 topics.
+7. ~~**Two artifacts from one tree**: `org.rootstock:rootstock-drive-auto:2026.x` and `:2027.x`, differing only in the five adapter files and the package roots.~~ **REVERSED (revision 3, two ways).** (a) There is no `rootstock-drive-auto` artifact — under **D28** this domain's packages ride inside the single `dev.rootstock:rootstock` jar, with `rootstock-pathplanner` and `rootstock-choreo` as the only separate coordinates it touches. (b) There is no permanent 2026/2027 pair: the generated-source variant and the dual-compile CI exist **only inside M12** and are deleted at its end. Maintaining two source lines for two more years would be a permanent 20–30% tax on every milestone after M12, paid to protect nobody.
 
 ---
 
@@ -3421,13 +3421,13 @@ What this design does about it, concretely:
 
 | Was called | Now built at | Contents | Person-weeks |
 |---|---|---|---|
-| "v0.1" | **M9 — Drive funnel, CTRE backend, field and alliance** | `PumpkinDrive` + funnel; `CtreSwerveBackend`; `PumpkinField`/`AlliancePerspective`/`AllianceValue`; `PumpkinDriveToPose`; `PumpkinCharacterization.feedforward/wheelRadius` + `CharacterizationSafety`; `DriveSelfCheck`; `DriveInputStream`; **`OdometryReport.outAndBack`/`.squareTest` in the SAME milestone as the funnel (R8)** | 4.0 |
-| "v0.2" | **M11 — Auto DSL, PathPlanner AND Choreo** | `PumpkinAuto.withPathPlanner()` **and** `.withChoreo()`; `PumpkinTrajectory` + the PumpkinLib trigger engine over `TrajectoryHandle`; `PumpkinAutoRoutine`/`AutoStep` with budgets, deadlines, `successWhen`, `orElse`, `retry`, `skipToAfter`; **`alignAtEnd` + `alignToTagAtEnd` + `VisionAlignFactory` (revision 3.1, +0.2)**; `PumpkinAutoSelector` with dependent questions; `NamedCommandRegistry` | 3.2 |
-| "v0.3" | **M15 — Drive backends 2–5, traction, navigation** | `AdvantageKitSwerveBackend`; `HandRolledSwerveBackend`; `YagslBackend`; **`DifferentialBackend`**; `TractionLayer`; `SkidDetector` + `SkidReport`/`OdometryTrust`; `PumpkinCharacterization.slipCurrent/momentOfInertia/wheelCof` + planner writeback; `PumpkinNav` + `LocalADStarAK` + warmup | 3.5 |
-| — | **M21** | `PumpkinAutoTest` + `AutoTestResult` + the `pumpkinAutoReport` Gradle task; the maple-sim adapter | (booked in M21) |
+| "v0.1" | **M9 — Drive funnel, CTRE backend, field and alliance** | `RootstockDrive` + funnel; `CtreSwerveBackend`; `RootstockField`/`AlliancePerspective`/`AllianceValue`; `RootstockDriveToPose`; `RootstockCharacterization.feedforward/wheelRadius` + `CharacterizationSafety`; `DriveSelfCheck`; `DriveInputStream`; **`OdometryReport.outAndBack`/`.squareTest` in the SAME milestone as the funnel (R8)** | 4.0 |
+| "v0.2" | **M11 — Auto DSL, PathPlanner AND Choreo** | `RootstockAuto.withPathPlanner()` **and** `.withChoreo()`; `RootstockTrajectory` + the Rootstock trigger engine over `TrajectoryHandle`; `RootstockAutoRoutine`/`AutoStep` with budgets, deadlines, `successWhen`, `orElse`, `retry`, `skipToAfter`; **`alignAtEnd` + `alignToTagAtEnd` + `VisionAlignFactory` (revision 3.1, +0.2)**; `RootstockAutoSelector` with dependent questions; `NamedCommandRegistry` | 3.2 |
+| "v0.3" | **M15 — Drive backends 2–5, traction, navigation** | `AdvantageKitSwerveBackend`; `HandRolledSwerveBackend`; `YagslBackend`; **`DifferentialBackend`**; `TractionLayer`; `SkidDetector` + `SkidReport`/`OdometryTrust`; `RootstockCharacterization.slipCurrent/momentOfInertia/wheelCof` + planner writeback; `RootstockNav` + `LocalADStarAK` + warmup | 3.5 |
+| — | **M21** | `RootstockAutoTest` + `AutoTestResult` + the `rootstockAutoReport` Gradle task; the maple-sim adapter | (booked in M21) |
 | "v0.4 (2027 branch)" | **M12 — the WPILib 2027 port** | `org.wpilib` port, Commands v3 backend, Phoenix 6 2027 request renames. **Date-triggered**, and this domain's share is inside M12's globally budgeted 8.0 pw, not additional to it | 1.5 |
 
-**Total: 12.2 person-weeks** for the domain, recomputed rather than restated: `4.0 (M9) + 3.2 (M11) + 3.5 (M15) + 1.5 (M12) = 12.2`. Revision 3 said 12.0 against an M11 of 3.0; revision 3.1 adds **+0.2 pw to M11** for `alignToTagAtEnd`, `VisionAlignFactory`, the three-way `compile()` branch, the four new `build()` validation rules and the `AlignPath` telemetry. M21's `PumpkinAutoTest` share is booked in M21 and is not in this column, unchanged.
+**Total: 12.2 person-weeks** for the domain, recomputed rather than restated: `4.0 (M9) + 3.2 (M11) + 3.5 (M15) + 1.5 (M12) = 12.2`. Revision 3 said 12.0 against an M11 of 3.0; revision 3.1 adds **+0.2 pw to M11** for `alignToTagAtEnd`, `VisionAlignFactory`, the three-way `compile()` branch, the four new `build()` validation rules and the `AlignPath` telemetry. M21's `RootstockAutoTest` share is booked in M21 and is not in this column, unchanged.
 
 **Why +0.2 and not more:** `VisionCommands.alignToTag` itself is **already built at M10** (`design/03` §19 books it there, +0.4 pw, explicitly *"a CONTROLLER, not new perception"*), and M10 precedes M11. What M11 adds is a one-method factory interface, a step field with four accessors, one branch in `compile()`, one shared `fusedAlign` helper, four validation rules and two log keys. That is a day of work and a day of tests, which is what 0.2 pw buys at this document's rates.
 
@@ -3435,34 +3435,34 @@ What this design does about it, concretely:
 
 > **Reconciling 12.2 with the roadmap.** `ROADMAP.md` books M9 + M11 + M15 at **13.0 pw**; this column's M9 + M11 + M15 is `4.0 + 3.2 + 3.5 = 10.7`, with M12's 1.5 accounted separately inside M12's globally budgeted 8.0. The 12.2 above is this domain's *raw* estimate as it entered the §1 roll-up; the milestone figures are the post-roll-up allocation after integration savings and the adversarial-review additions were redistributed. The two do not reconcile, `DESIGN.md` §16 item 5(a) says so in as many words, and **`ROADMAP.md` remains authoritative** for milestone numbers and dates. Recording the +0.2 here rather than hiding it is the point; the reconciliation is a separate, already-acknowledged debt.
 
-**`OdometryReport` ships with the funnel, not after it.** It is in the M9 row above, in the same milestone as `PumpkinDrive` and in the same package release — `DESIGN.md` §16 item 2(d) ordered this and R8 is the reason: a drive layer whose users cannot measure their own odometry error is a drive layer whose users tune `PumpkinDriveToPose` against a pose they have no evidence for. §8.5's gating rule depends on the report existing from day one.
+**`OdometryReport` ships with the funnel, not after it.** It is in the M9 row above, in the same milestone as `RootstockDrive` and in the same package release — `DESIGN.md` §16 item 2(d) ordered this and R8 is the reason: a drive layer whose users cannot measure their own odometry error is a drive layer whose users tune `RootstockDriveToPose` against a pose they have no evidence for. §8.5's gating rule depends on the report existing from day one.
 
-**Two items are genuinely post-v0.1, and that is a reduction rather than a deferral to a later release.** `MecanumBackend` and `PumpkinNav.useProfile(String)` appear in **no** milestone M1–M24. Since the v0.2/v0.3 release plan is deleted, there is no scheduled version that contains them: they are outside v0.1, and if they are ever built it is after the tag. See open questions 2 and 9.
+**Two items are genuinely post-v0.1, and that is a reduction rather than a deferral to a later release.** `MecanumBackend` and `RootstockNav.useProfile(String)` appear in **no** milestone M1–M24. Since the v0.2/v0.3 release plan is deleted, there is no scheduled version that contains them: they are outside v0.1, and if they are ever built it is after the tag. See open questions 2 and 9.
 
-**One item became non-optional.** `DifferentialBackend` used to be a "v0.1" line item and then a candidate for cutting. Under maintainer decision 2 it is what makes `PumpkinTemplate`'s advertised `differential` variant real, so it cannot be dropped — but it lands at **M15**, which is *after* the template exists at M8. `pumpkin init --template differential` must therefore fail with a named message and a pointer, not generate a project that cannot drive.
+**One item became non-optional.** `DifferentialBackend` used to be a "v0.1" line item and then a candidate for cutting. Under maintainer decision 2 it is what makes `RootstockTemplate`'s advertised `differential` variant real, so it cannot be dropped — but it lands at **M15**, which is *after* the template exists at M8. `rootstock init --template differential` must therefore fail with a named message and a pointer, not generate a project that cannot drive.
 
 ---
 
 ## 14. Open Questions
 
 1. **PathPlanner single-path event-marker times.** Does PathPlannerLib 2026.1.2 expose a public accessor for a `PathPlannerPath`'s event markers and their trajectory times outside a running `PathPlannerAuto`? If yes, `PathPlannerSource.eventTimes()` uses it; if no, we parse `deploy/pathplanner/paths/*.path` JSON. **Ship the JSON parser regardless**, and switch if the accessor is confirmed. Marked **[UNVERIFIED]** in §6.1.
-2. **Navgrid hot-swapping.** 254 swaps between `navgrid.json` / `auto_navgrid.json` / `backoff_navgrid.json` by phase, but achieved this by *vendoring* PathPlannerLib. Does 2026.1.2 expose a public API to point `LocalADStar` at a different grid file? If not, `PumpkinNav.useProfile(String)` either ships our own `Pathfinder` implementation (~200 lines reading a selected grid) or is dropped. **Revision 3: `PumpkinNav.useProfile(String)` is in no milestone and is outside v0.1** — `PumpkinNav` itself is M15 and is depth lever L1's first casualty. **Needs verification before committing to the API.**
+2. **Navgrid hot-swapping.** 254 swaps between `navgrid.json` / `auto_navgrid.json` / `backoff_navgrid.json` by phase, but achieved this by *vendoring* PathPlannerLib. Does 2026.1.2 expose a public API to point `LocalADStar` at a different grid file? If not, `RootstockNav.useProfile(String)` either ships our own `Pathfinder` implementation (~200 lines reading a selected grid) or is dropped. **Revision 3: `RootstockNav.useProfile(String)` is in no milestone and is outside v0.1** — `RootstockNav` itself is M15 and is depth lever L1's first casualty. **Needs verification before committing to the API.**
 3. **`SwerveDrivetrain` module accessor for wheel-radius characterization.** Confirm whether `getModule(int)`/`getModules()` exist and expose the drive motor in Phoenix 6 26.x. The `ModulePositions[i].distanceMeters / wheelRadiusMeters` fallback is definitely correct and is what we ship; the direct accessor would be marginally more accurate (no wheel-radius circularity). **Low risk either way.**
-4. ~~**Auto period length for 2027.**~~ **RESOLVED, and it was a real defect, not an open question.** Every consumer now reads `FieldMap.autoPeriodSeconds()`: `PumpkinAutoTest.Builder.withAutoPeriodSeconds` defaults to it (§7.4), `PumpkinAutoRoutine.skipToAfter` is specified in *seconds remaining* against it and `build()` rejects an argument that is `>= ` the period or `<= 0` (§6.4), and both worked examples pass seconds-remaining (§6.7, §10). D15 is now structurally enforced rather than aspirational. The only remaining action at 2027 kickoff is the one-line `FieldMap` edit this was always supposed to enable.
-5. **maple-sim 2027/Systemcore support.** maple-sim is community-maintained and not officially blessed. If it does not ship for 2027 in time, `PumpkinAutoTest` degrades to a kinematic (no-slip, no-collision) sim world. We should design `SimWorld` so the degraded mode is a first-class option, not a failure.
-6. **Should `TractionMode.SETPOINT_GENERATOR` be the default for `rookie()`?** Arguments for: it is the single biggest driver-visible improvement. Arguments against: it requires mass, MOI and COF, and a rookie team's guessed MOI makes it either useless or crippling. Current decision: **off in `rookie()`, on in `competition()`, and `PumpkinCharacterization.momentOfInertia` prints "you can now safely enable TractionMode.SETPOINT_GENERATOR" on success.** Revisit after we have real data from 8793 and 9143.
+4. ~~**Auto period length for 2027.**~~ **RESOLVED, and it was a real defect, not an open question.** Every consumer now reads `FieldMap.autoPeriodSeconds()`: `RootstockAutoTest.Builder.withAutoPeriodSeconds` defaults to it (§7.4), `RootstockAutoRoutine.skipToAfter` is specified in *seconds remaining* against it and `build()` rejects an argument that is `>= ` the period or `<= 0` (§6.4), and both worked examples pass seconds-remaining (§6.7, §10). D15 is now structurally enforced rather than aspirational. The only remaining action at 2027 kickoff is the one-line `FieldMap` edit this was always supposed to enable.
+5. **maple-sim 2027/Systemcore support.** maple-sim is community-maintained and not officially blessed. If it does not ship for 2027 in time, `RootstockAutoTest` degrades to a kinematic (no-slip, no-collision) sim world. We should design `SimWorld` so the degraded mode is a first-class option, not a failure.
+6. **Should `TractionMode.SETPOINT_GENERATOR` be the default for `rookie()`?** Arguments for: it is the single biggest driver-visible improvement. Arguments against: it requires mass, MOI and COF, and a rookie team's guessed MOI makes it either useless or crippling. Current decision: **off in `rookie()`, on in `competition()`, and `RootstockCharacterization.momentOfInertia` prints "you can now safely enable TractionMode.SETPOINT_GENERATOR" on success.** Revisit after we have real data from 8793 and 9143.
 7. **Choreo `DifferentialSample` follow path.** `followChoreoSample` is specified for `SwerveSample`. The differential equivalent needs `DifferentialSample` (schema v2 added `alpha`) fed through `LTVUnicycleController`. The exact field names on `DifferentialSample` are **[UNVERIFIED]** — confirm against `choreo.autos/api/choreolib/java/choreo/trajectory/DifferentialSample.html` before implementing it at M15. This sits alongside the other **[UNVERIFIED]** ChoreoLib question the M11 gate must close: `Trajectory.getEvents(String)` / `getTotalTime()` (R12).
 8. **`GoalBus` timing for `AutoStep.budget()`.** `plannedTransitionSeconds()` requires the mechanism domain to have measured transition costs (the 254 pattern). If that slips, budgets fall back to the trajectory's own planned time and mechanism overrun is not attributed. Acceptable at M11 — `characterizeTransitions()` is M14, after it, and depth lever L7 may drop it entirely.
 9. **Do we ship a `mecanum` backend at all?** Mecanum is effectively unmaintained community-wise and `MecanumControllerCommand` is removed in 2027. 135's Consul is the only framework with mecanum parity. Revision-2 decision was *"yes, in v0.3."* **Revision 3 answer: no.** There is no v0.3, and mecanum is in no milestone M1–M24, so shipping it would mean adding scope to a 74.0 pw plan that is already a 2030 release at solo pace. The cost was never the ~150 lines; it is the vendor-parity test matrix, the sim plant, the template variant question and the permanent maintenance. `MecanumControllerCommand` is removed in 2027 and the community is not maintaining mecanum. **Out of v0.1, with the `DriveBackend` SPI left documented so it is writable by someone who needs it.**
-10. **`skipToAfter`'s zero point.** The guard measures from the routine command's `initialize()`, not from the FMS autonomous transition (§6.4). On a real field those differ by at most one scheduler loop, and the routine-relative zero is what makes the guard meaningful in `PumpkinAutoTest` and in a teleop-scheduled dry run. But a routine scheduled late — a `Commands.defer` that blocks on a `.traj` load that `warmup()` somehow missed — would shift the whole budget. We log `Pumpkin/Auto/RoutineStartLatency` so the shift is visible. **Open:** should `build()` hard-fail a routine whose start latency exceeded ~100 ms, or is the logged number enough? **Leaning: log only**, revisit once we have real match logs from 8793 and 9143 — which now arrive at M11 on an internal snapshot, well before the M24 API freeze, so there is time to change the answer.
+10. **`skipToAfter`'s zero point.** The guard measures from the routine command's `initialize()`, not from the FMS autonomous transition (§6.4). On a real field those differ by at most one scheduler loop, and the routine-relative zero is what makes the guard meaningful in `RootstockAutoTest` and in a teleop-scheduled dry run. But a routine scheduled late — a `Commands.defer` that blocks on a `.traj` load that `warmup()` somehow missed — would shift the whole budget. We log `Rootstock/Auto/RoutineStartLatency` so the shift is visible. **Open:** should `build()` hard-fail a routine whose start latency exceeded ~100 ms, or is the logged number enough? **Leaning: log only**, revisit once we have real match logs from 8793 and 9143 — which now arrive at M11 on an internal snapshot, well before the M24 API freeze, so there is time to change the answer.
 
-11. **Where does `WheelForces` module-order validation live?** PathPlanner emits FL, FR, BL, BR. CTRE's `SwerveDrivetrain` module order is whatever Tuner X generated. If a team reorders modules in Tuner X, the force arrays silently fight the robot under acceleration and nothing errors. We can detect it at runtime (correlate commanded force direction against measured module velocity direction during a hard acceleration) — is that worth ~60 lines in `DriveSelfCheck`, or is a documented convention plus the geometry sign check in §3.8 sufficient? **Leaning: add the runtime correlation check as a `PumpkinCharacterization.verifyModuleOrder(drive)` command rather than a boot check.**
+11. **Where does `WheelForces` module-order validation live?** PathPlanner emits FL, FR, BL, BR. CTRE's `SwerveDrivetrain` module order is whatever Tuner X generated. If a team reorders modules in Tuner X, the force arrays silently fight the robot under acceleration and nothing errors. We can detect it at runtime (correlate commanded force direction against measured module velocity direction during a hard acceleration) — is that worth ~60 lines in `DriveSelfCheck`, or is a documented convention plus the geometry sign check in §3.8 sufficient? **Leaning: add the runtime correlation check as a `RootstockCharacterization.verifyModuleOrder(drive)` command rather than a boot check.**
 
-12. ~~**Does the auto DSL get a tag-relative alignment step, or do the auto examples retreat to fused-pose-honest 5 cm claims?**~~ **RESOLVED (revision 3.1), and the answer is BOTH, because they are answers to different questions.** The review posed it as an either/or (REVIEW §10 open question 1). It is not one: the 5 cm correction is mandatory regardless — `alignAtEnd` exists, teams will use it on non-tag targets, and a default it cannot hit is a defect whether or not a second step exists. The tag-relative step is *additionally* worth +0.2 pw because the controller it wraps is already built at M10 and the alternative is that the library's own flagship auto example demonstrates the worse of its two alignment paths. So: `alignToTagAtEnd` ships (§6.4), `PumpkinDriveToPose`'s default becomes 5 cm / 2.0° (§9), §6.7.1 carries the arithmetic, and both worked examples say which path they take and why. **Still open, narrowly:** whether `alignToTagAtEnd`'s no-vision fallback should be a build-time *warning* as well as a runtime log. Current answer is log-only — an auto that refuses to build because a camera is unplugged is a worse failure than one that aligns 3 cm loose — but that is a judgement call, and a team that only ever runs with vision might want the louder version.
+12. ~~**Does the auto DSL get a tag-relative alignment step, or do the auto examples retreat to fused-pose-honest 5 cm claims?**~~ **RESOLVED (revision 3.1), and the answer is BOTH, because they are answers to different questions.** The review posed it as an either/or (REVIEW §10 open question 1). It is not one: the 5 cm correction is mandatory regardless — `alignAtEnd` exists, teams will use it on non-tag targets, and a default it cannot hit is a defect whether or not a second step exists. The tag-relative step is *additionally* worth +0.2 pw because the controller it wraps is already built at M10 and the alternative is that the library's own flagship auto example demonstrates the worse of its two alignment paths. So: `alignToTagAtEnd` ships (§6.4), `RootstockDriveToPose`'s default becomes 5 cm / 2.0° (§9), §6.7.1 carries the arithmetic, and both worked examples say which path they take and why. **Still open, narrowly:** whether `alignToTagAtEnd`'s no-vision fallback should be a build-time *warning* as well as a runtime log. Current answer is log-only — an auto that refuses to build because a camera is unplugged is a worse failure than one that aligns 3 cm loose — but that is a judgement call, and a team that only ever runs with vision might want the louder version.
 
 13. **Should `AutoStep` expose a tag-relative *goal library* rather than raw `Transform3d`s?** `alignToTagAtEnd(cam, ids, tagRelativeGoal, timeout)` is honest but verbose at the call site, and every scoring face on a given field shares a small set of goals ("20 cm out, squared up"; "20 cm out, 15 cm left"). A `TagGoals` holder in the field-constants domain would let a step read `.alignToTagAtEnd(kReefCamera, kReefLeftTags, TagGoals.kL4Left, 0.6)`. That is field-year-specific data, which is the field domain's job and not this one's, so the DSL keeps the raw type and the team keeps the constants file. **Revisit if `FieldMap` grows a scoring-pose table**, at which point the tag-relative goals belong next to the blue poses.
 
-14. ~~**Who declares `AlignableDrive`?**~~ **RESOLVED (revision 3.2, 2026-08-08).** Binding **D16** says `org.pumpkinlib.drive`, and that is now where it is: declared in **§3.3.2** of this document, mirrored as a consumed surface by `design/03` §13.1, which no longer declares it. It was listed here because the `VisionAlignFactory` seam in §5.1 was deliberately designed to be *correct either way* so this document did not block on it — and as predicted, **nothing in §5.1 or §6.4 changed.**
+14. ~~**Who declares `AlignableDrive`?**~~ **RESOLVED (revision 3.2, 2026-08-08).** Binding **D16** says `org.rootstock.drive`, and that is now where it is: declared in **§3.3.2** of this document, mirrored as a consumed surface by `design/03` §13.1, which no longer declares it. It was listed here because the `VisionAlignFactory` seam in §5.1 was deliberately designed to be *correct either way* so this document did not block on it — and as predicted, **nothing in §5.1 or §6.4 changed.**
 
 ---
 
@@ -3477,9 +3477,9 @@ This document has been through **two** review passes: one adversarial review (re
 | 1 | §9.1 `execute()` | Sign error: `direction = target − current` paired with a negative profiled-controller scalar drives the robot **away** from the target, accelerating. | **Applied.** Direction flipped to `current − target` (6328's convention), with the sign contract written out in prose *above* the code and pinned by `drivesTowardTheTarget` / `drivesTowardTheTargetOffAxis` in §9.2. |
 | 2 | §9.1 `isFinished()` | Settle timer was never reset while outside tolerance, so the command reported `GOAL` ~0.06 s after start from anywhere on the field. | **Applied.** `m_settling` gate in `execute()`, `isFinished()` requires `m_settling && hasElapsed(...)`, pinned by `doesNotFinishWhileOutsideTolerance`. |
 | 3 | §9.1 fields | Standalone `TrapezoidProfile` + `m_linearProfileState` was never seeded, so the feedforward was an arbitrary number; `getSetpoint().velocity` was also read off a type (`PIDController`) whose `getSetpoint()` returns `double`. | **Applied.** Both controllers declared explicitly as `ProfiledPIDController`; the standalone profile is deleted; `initialize()` seeds from measured error and measured closing velocity; pinned by `seedsTheProfileFromMeasuredClosingVelocity`. §5.3 carries a pointer explaining why *its* controllers are correctly plain `PIDController`s. |
-| 4 | §6.2 | `m_doneAt = Timer.getFPGATimestamp()` violated Principle 9 / D12 and would have tripped the library's own replay tripwire. | **Applied, and generalized.** Every timer in the domain is `PumpkinStopwatch` (§1.8), rule 8 in §0.3 bans the `Timer` *constructor* as well as the static, §6.2.1 explains why an instance is not an exemption, and §1.8 ships the ArchUnit rule. |
-| 5 | §3.6 | `deadband(double)` cited a 2-D `MathUtil.applyDeadband` overload that does not exist in WPILib 2026.2.2. | **Applied.** Implemented as `PumpkinMath.deadband2d` in Tier 0 (§2); §3.6 cites it and keeps `MathUtil.copySignPow` for `expo`. |
-| 6 | §3.3 | `requirement()` returned the backend's subsystem, which half the backends do not have — `NullPointerException` on the first line of driver code. | **Applied.** `DriveBackend.existingSubsystem()` returns `Optional`; `requirement()` is total via a lazily-registered synthetic `Subsystem`; owner logged to `Pumpkin/Drive/RequirementOwner` (CRITICAL); double-registration caught by `DriveSelfCheck` check 8. |
+| 4 | §6.2 | `m_doneAt = Timer.getFPGATimestamp()` violated Principle 9 / D12 and would have tripped the library's own replay tripwire. | **Applied, and generalized.** Every timer in the domain is `RootstockStopwatch` (§1.8), rule 8 in §0.3 bans the `Timer` *constructor* as well as the static, §6.2.1 explains why an instance is not an exemption, and §1.8 ships the ArchUnit rule. |
+| 5 | §3.6 | `deadband(double)` cited a 2-D `MathUtil.applyDeadband` overload that does not exist in WPILib 2026.2.2. | **Applied.** Implemented as `RootstockMath.deadband2d` in Tier 0 (§2); §3.6 cites it and keeps `MathUtil.copySignPow` for `expo`. |
+| 6 | §3.3 | `requirement()` returned the backend's subsystem, which half the backends do not have — `NullPointerException` on the first line of driver code. | **Applied.** `DriveBackend.existingSubsystem()` returns `Optional`; `requirement()` is total via a lazily-registered synthetic `Subsystem`; owner logged to `Rootstock/Drive/RequirementOwner` (CRITICAL); double-registration caught by `DriveSelfCheck` check 8. |
 | 7 | §8 | Uncited "50 Hz → 0.388 m, 250 Hz → 0.297 m" statistic, in a design whose Principle 10 is "every performance claim is measured" — and 0.297 m would be rated `UNTRUSTWORTHY` by this document's own scale five sections later. | **Applied.** Statistic deleted, replaced with the defensible consistency argument and an explicit promise to ship no number until `OdometryReport` measures one. Revision note left in place so it cannot quietly return. |
 | 8 | §6.4 / §6.7 | `before()` silently dead on non-trajectory steps; `skipToAfter` hardcoded the auto period (D15); `.retry(0)` was a no-op that read as configuration; no trajectory→align handoff. | **Applied, all four.** `build()` throws on `before()` without `follow()` and on `retry(0)`; `skipToAfter` respecified as *seconds remaining* against `FieldMap.autoPeriodSeconds()` with a migration-guard error message that computes the new argument; `alignAtEnd(...)` added and used in both worked examples. |
 
@@ -3494,17 +3494,17 @@ One item was found while applying the review and is not attributable to it: **§
 
 | # | Section | Finding | Severity | Disposition |
 |---|---|---|---|---|
-| 9 | §3.2, §3.3, §3.8, §1.3, §0.2, §2 | The MegaTag2 gyro→field-offset contract (D16/D16a) was **specified in `design/03` §2.2 as a hard requirement on this domain and never applied here.** No `getRawGyro()`, no `m_gyroFieldOffset` with its two named writers, no `getGyroFieldHeading()`, no ninth `DriveSelfCheck`, and none of `PoseProvider`/`AlignableDrive`/`VisionConsumer` in `org.pumpkinlib.drive`. `design/03` states verbatim that this document's `Rotation2d getGyroHeading(); // raw gyro, CCW+, blue-origin frame` `[SUPERSEDED-NAME]` "is deleted. It is a contradiction inside a single line." An implementer building the drive domain from its own document recreates the original failure: MegaTag2 fed a power-on-frame yaw, producing confidently wrong translation with nothing noticing. | **blocking** | ~~**CONTRACT-PENDING, deliberately.**~~ **CLOSED at revision 3.2 (2026-08-08).** Revision 3.1 placed `<!-- CONTRACT-PENDING -->` markers at every affected site, each carrying the exact required declaration, the exact required alert text, and the reason, and did **not** apply them because the identical edit lands simultaneously in `design/03`, `design/04` and `DESIGN.md` §16 and a contract applied by two agents in parallel is a contract applied half-way. The contract-reconciliation pass has now applied all of them: §3.2 `getRawGyro()`, §3.3.2 the four D16 interfaces, **§3.3.3 the single ownership site for the gyro→field offset**, §3.3 the `VisionConsumer` sink, §3.8 check 9, §2 the package layout, §0.2 the ownership statement. The off-by-one is recorded at the site and in `design/03` §2.2a(3): `design/03` called it "an eighth check" against a list that already had eight, so it is **check 9**. |
-| 10 | §1.3, §3.3, §0.2, §8.3 | Binding **D17** deleted `VisionObservation` `[SUPERSEDED-NAME]`; this document still defined the record and still declared `addVisionMeasurement(VisionObservation)` as the public sink, while `design/03` used the D17-compliant `VisionConsumer`. Two assigned domain docs specifying incompatible shapes for the single vision→drive seam. | **major** | ~~**CONTRACT-PENDING** for the type change~~ — **CLOSED at revision 3.2 (2026-08-08):** the record is deleted from §1.3, `VisionConsumer` is declared once in §3.3.2, and `PumpkinDrive`'s sink is `accept(Pose2d, double, Matrix<N3,N1>)`. **The one part that needed a design answer rather than a mechanical edit was answered at revision 3.1**, in §8.3: `tagCount` and `avgTagDistanceMeters` do not survive into D17's three-argument signature, and the correct resolution is that they should not — they are inputs to the std-dev model, which `design/03` §8 owns and has already folded into the `Matrix` by the time a frame arrives. What this domain uniquely knows is skid state, which stays here as a multiplier. A documented secondary hook, `OdometryTrust.withFrameMetadata(...)`, exists for teams that genuinely need the raw counts, and is explicitly not part of D17's seam. |
-| 11 | §6.4, §6.7, §5.1, §6.5, §13 | The auto DSL's scoring handoff — this document's own "highest-leverage single line" — reached only `PumpkinDriveToPose`, a fused-pose controller, and claimed **2 cm**. `design/03` §13.3 states the opposite as a design invariant: fused-pose control is bounded below by the vision sigma, and 2 cm "is achievable [in `alignToTag`] and nowhere else." `alignToTag` appeared **zero times** in this document. The elite-auto capability existed in the vision domain and was not wired into autonomous. | **major** | **Applied, both halves, because the review's either/or was a false choice (§14 OQ 12).** `AutoStep.alignToTagAtEnd(int, int[], Transform3d, double)` added, reached through `PumpkinAuto.withVision(VisionAlignFactory)` so `org.pumpkinlib.auto` imports nothing from `org.pumpkinlib.vision` and the no-vision fallback is structural rather than a null check. Four new `build()` validation rules. `Pumpkin/Auto/Steps/<i>/AlignPath` logged CRITICAL, because "which of the three paths did that step take" is the first question anyone asks about an auto that scored 3 cm off. **+0.2 pw on M11**, derived in §13. |
-| 12 | §9, §10, §6.7 | `design/03` §13.2's *"Cross-domain consequence, and it is a required change, not a suggestion"* — `PumpkinDriveToPose`'s default `tolerance(0.02 m, 1.5°)` must become `tolerance(0.05 m, 2.0°)` — **was never made**, not in the builder and not in either worked example. Every team copying the worked example gets a timeout alert on every alignment: the precise failure the vision doc predicts. | **major** | **Applied**, with the arithmetic written out rather than asserted (§6.7.1): `σ_xy = 0.5 · 0.02 · 3²/2 = 0.045 m` at the reference range, against a claimed 2 cm. `kDefaultTolerance`/`kDefaultAngularTolerance` are now named constants so the builder default, the DSL fallback and `AlignGains.defaults()` cannot drift apart. The uncited "~6 cm" trajectory figure that sat next to the 2 cm claim is deleted and pointed at `OdometryReport.trajectoryTest`, per Principle 10 and per the precedent §8 set when it deleted its own uncited odometry statistic. The third site, `DESIGN.md` §10B, belongs to that document. |
+| 9 | §3.2, §3.3, §3.8, §1.3, §0.2, §2 | The MegaTag2 gyro→field-offset contract (D16/D16a) was **specified in `design/03` §2.2 as a hard requirement on this domain and never applied here.** No `getRawGyro()`, no `m_gyroFieldOffset` with its two named writers, no `getGyroFieldHeading()`, no ninth `DriveSelfCheck`, and none of `PoseProvider`/`AlignableDrive`/`VisionConsumer` in `org.rootstock.drive`. `design/03` states verbatim that this document's `Rotation2d getGyroHeading(); // raw gyro, CCW+, blue-origin frame` `[SUPERSEDED-NAME]` "is deleted. It is a contradiction inside a single line." An implementer building the drive domain from its own document recreates the original failure: MegaTag2 fed a power-on-frame yaw, producing confidently wrong translation with nothing noticing. | **blocking** | ~~**CONTRACT-PENDING, deliberately.**~~ **CLOSED at revision 3.2 (2026-08-08).** Revision 3.1 placed `<!-- CONTRACT-PENDING -->` markers at every affected site, each carrying the exact required declaration, the exact required alert text, and the reason, and did **not** apply them because the identical edit lands simultaneously in `design/03`, `design/04` and `DESIGN.md` §16 and a contract applied by two agents in parallel is a contract applied half-way. The contract-reconciliation pass has now applied all of them: §3.2 `getRawGyro()`, §3.3.2 the four D16 interfaces, **§3.3.3 the single ownership site for the gyro→field offset**, §3.3 the `VisionConsumer` sink, §3.8 check 9, §2 the package layout, §0.2 the ownership statement. The off-by-one is recorded at the site and in `design/03` §2.2a(3): `design/03` called it "an eighth check" against a list that already had eight, so it is **check 9**. |
+| 10 | §1.3, §3.3, §0.2, §8.3 | Binding **D17** deleted `VisionObservation` `[SUPERSEDED-NAME]`; this document still defined the record and still declared `addVisionMeasurement(VisionObservation)` as the public sink, while `design/03` used the D17-compliant `VisionConsumer`. Two assigned domain docs specifying incompatible shapes for the single vision→drive seam. | **major** | ~~**CONTRACT-PENDING** for the type change~~ — **CLOSED at revision 3.2 (2026-08-08):** the record is deleted from §1.3, `VisionConsumer` is declared once in §3.3.2, and `RootstockDrive`'s sink is `accept(Pose2d, double, Matrix<N3,N1>)`. **The one part that needed a design answer rather than a mechanical edit was answered at revision 3.1**, in §8.3: `tagCount` and `avgTagDistanceMeters` do not survive into D17's three-argument signature, and the correct resolution is that they should not — they are inputs to the std-dev model, which `design/03` §8 owns and has already folded into the `Matrix` by the time a frame arrives. What this domain uniquely knows is skid state, which stays here as a multiplier. A documented secondary hook, `OdometryTrust.withFrameMetadata(...)`, exists for teams that genuinely need the raw counts, and is explicitly not part of D17's seam. |
+| 11 | §6.4, §6.7, §5.1, §6.5, §13 | The auto DSL's scoring handoff — this document's own "highest-leverage single line" — reached only `RootstockDriveToPose`, a fused-pose controller, and claimed **2 cm**. `design/03` §13.3 states the opposite as a design invariant: fused-pose control is bounded below by the vision sigma, and 2 cm "is achievable [in `alignToTag`] and nowhere else." `alignToTag` appeared **zero times** in this document. The elite-auto capability existed in the vision domain and was not wired into autonomous. | **major** | **Applied, both halves, because the review's either/or was a false choice (§14 OQ 12).** `AutoStep.alignToTagAtEnd(int, int[], Transform3d, double)` added, reached through `RootstockAuto.withVision(VisionAlignFactory)` so `org.rootstock.auto` imports nothing from `org.rootstock.vision` and the no-vision fallback is structural rather than a null check. Four new `build()` validation rules. `Rootstock/Auto/Steps/<i>/AlignPath` logged CRITICAL, because "which of the three paths did that step take" is the first question anyone asks about an auto that scored 3 cm off. **+0.2 pw on M11**, derived in §13. |
+| 12 | §9, §10, §6.7 | `design/03` §13.2's *"Cross-domain consequence, and it is a required change, not a suggestion"* — `RootstockDriveToPose`'s default `tolerance(0.02 m, 1.5°)` must become `tolerance(0.05 m, 2.0°)` — **was never made**, not in the builder and not in either worked example. Every team copying the worked example gets a timeout alert on every alignment: the precise failure the vision doc predicts. | **major** | **Applied**, with the arithmetic written out rather than asserted (§6.7.1): `σ_xy = 0.5 · 0.02 · 3²/2 = 0.045 m` at the reference range, against a claimed 2 cm. `kDefaultTolerance`/`kDefaultAngularTolerance` are now named constants so the builder default, the DSL fallback and `AlignGains.defaults()` cannot drift apart. The uncited "~6 cm" trajectory figure that sat next to the 2 cm claim is deleted and pointed at `OdometryReport.trajectoryTest`, per Principle 10 and per the precedent §8 set when it deleted its own uncited odometry statistic. The third site, `DESIGN.md` §10B, belongs to that document. |
 | 13 | §3.4.4, §8.2, §8.3 | Raw literal `9_999_999` for vision heading trust, where `design/03` §8.0 Rule 1 establishes `StdDevModels.UNTRUSTED_SIGMA = 1e6` as the library-wide named sentinel with the explicit rationale that every sentinel in the library should follow it. Two magic numbers for one concept across the two halves of one fusion pipeline. | minor | **Applied** at all four sites. **Went further, and it is the more important half of the finding:** §8.3 also carried a *competing std-dev model* — `xy = 0.3 + 0.4·d²/n`, which yields 2.1 m at the range where `design/03`'s shipped model yields 4.5 cm. §0.2 already says the vision domain owns std-dev models; §8.3 now actually defers to them instead of restating a disagreeing one. |
 
 Four items were changed **beyond** the five findings routed here, and are flagged as such in place:
 
-- **§1.4 / D10 `MatchImpact`** — REVIEW M5 found that `MatchImpact`, *"required at every call site with no default and no single-argument overload,"* appears in **zero** of the five domain docs. This document used a two-argument `PumpkinAlerts` facade throughout. Swept, with the impact for each of the eight call sites chosen and tabulated at §1.4 rather than left to the implementer — the point of D10 is that the author of a guard answers "does this stop us taking the field?" while writing it.
-- **§0.3 rule 4 and §8.1.1 / ArchUnit rule 10** — `RobotBase.isSimulation()` and `DriverStation.isFMSAttached()` named directly. Only `org.pumpkinlib.core.match..` may read `DriverStation`. Both corrected; the `MatchContext` version is also the *better* behaviour for a stall test, because it latches on the DS-connect edge and a DS that drops out mid-ramp must not silently re-arm.
-- **`DESIGN.md` §16 item 2 (a)–(d)** — four corrections that document ordered on this one and has been tracking as outstanding. All four applied: `PumpkinDriveConfig.v01Competition()` with a *complaining* rather than silently-downgrading `competition()`; the four-argument driver-perspective `driverNudge`; §10's non-existent `TunerConstants.kFrontLeftLocation` replaced with the real `kFrontLeftXPos`/`kFrontLeftYPos` and a four-argument `CtreSwerveBackend`; and the `OdometryReport`-ships-in-M9 note made explicit.
+- **§1.4 / D10 `MatchImpact`** — REVIEW M5 found that `MatchImpact`, *"required at every call site with no default and no single-argument overload,"* appears in **zero** of the five domain docs. This document used a two-argument `RootstockAlerts` facade throughout. Swept, with the impact for each of the eight call sites chosen and tabulated at §1.4 rather than left to the implementer — the point of D10 is that the author of a guard answers "does this stop us taking the field?" while writing it.
+- **§0.3 rule 4 and §8.1.1 / ArchUnit rule 10** — `RobotBase.isSimulation()` and `DriverStation.isFMSAttached()` named directly. Only `org.rootstock.core.match..` may read `DriverStation`. Both corrected; the `MatchContext` version is also the *better* behaviour for a stall test, because it latches on the DS-connect edge and a DS that drops out mid-ramp must not silently re-arm.
+- **`DESIGN.md` §16 item 2 (a)–(d)** — four corrections that document ordered on this one and has been tracking as outstanding. All four applied: `RootstockDriveConfig.v01Competition()` with a *complaining* rather than silently-downgrading `competition()`; the four-argument driver-perspective `driverNudge`; §10's non-existent `TunerConstants.kFrontLeftLocation` replaced with the real `kFrontLeftXPos`/`kFrontLeftYPos` and a four-argument `CtreSwerveBackend`; and the `OdometryReport`-ships-in-M9 note made explicit.
 - **§3.4.2's dropped "~10-15%"** — an uncited performance number inside an alert string, i.e. a folklore statistic in the one place a team is guaranteed to read it. Deleted, on the same grounds §8 deleted its own.
 
 **What this pass deliberately did NOT do.** It did not touch §9.1's sign-convention prose or §9.2's four regression tests, beyond adding the `MatchImpact` argument to one alert in `end()` and one sentence to that alert's text. The review named that block *"the exact template `design/03`'s controllers must now be held to"* — two other documents are currently being rewritten against it, and editing the template while it is being copied is how a fix becomes a moving target.
@@ -3515,8 +3515,8 @@ Revision 3.1 deliberately left two blocking cross-document contracts unapplied a
 
 | # | Section | Finding | Severity | Disposition |
 |---|---|---|---|---|
-| 14 | §0.2, §1.3, §2, §3.2, §3.3, §3.8 | **B4 — the vision↔drive contract.** `design/03` §2.2a stated a full change list on this document (its §2.7 contracts **C1**–**C5**) and it had never landed. `getGyroHeading()` `[SUPERSEDED-NAME]` — *"a contradiction inside a single line"* — still shipped; there was no `getRawGyro()`, no `m_gyroFieldOffset`, no `getGyroFieldHeading()`, no check 9, and none of the four D16 interfaces was declared anywhere in `org.pumpkinlib.drive`. | **blocking** | **APPLIED.** C1 at §3.2, C2 and C5 at §3.3.2/§3.3.3, C3 at §3.8, C4 at §1.3/§3.3.2. C6 and C7 were already applied at revision 3.1 and were re-verified rather than re-done. |
+| 14 | §0.2, §1.3, §2, §3.2, §3.3, §3.8 | **B4 — the vision↔drive contract.** `design/03` §2.2a stated a full change list on this document (its §2.7 contracts **C1**–**C5**) and it had never landed. `getGyroHeading()` `[SUPERSEDED-NAME]` — *"a contradiction inside a single line"* — still shipped; there was no `getRawGyro()`, no `m_gyroFieldOffset`, no `getGyroFieldHeading()`, no check 9, and none of the four D16 interfaces was declared anywhere in `org.rootstock.drive`. | **blocking** | **APPLIED.** C1 at §3.2, C2 and C5 at §3.3.2/§3.3.3, C3 at §3.8, C4 at §1.3/§3.3.2. C6 and C7 were already applied at revision 3.1 and were re-verified rather than re-done. |
 | 15 | §3.3.3 (new) | **The load-bearing half of B4, which two reviews had passed over.** MegaTag2 needs yaw in the blue-origin field frame; `getRawGyro()` is contractually the power-on frame; **no component owned the constant between them.** An offset with no owner is an offset that is written by whichever caller happens to feel responsible, or by none — and the failure is silent, because MegaTag2 treats the yaw as *known* and returns a confidently wrong translation that no residual or ambiguity metric can flag. | **blocking** | **APPLIED, and the ownership is now singular and explicit.** **§3.3.3 of this document owns the gyro→field offset** — the field, its exactly-two writers, the conversion in both directions, and the never-writes prohibition on the vision sink. `design/03` §2.2/§2.2a and `design/04` §1.2 reference §3.3.3 and no longer restate the arithmetic; `design/03` retains ownership of the *frame convention* (what the number means), which this document references and does not restate. Two documents, two disjoint responsibilities, one arithmetic site. |
-| 16 | §1.1 and every log call site | **B10 (this document's half).** Every log call read `PumpkinLog.get().put(key, value)`, against a facade `design/04` does not ship: no `get()`, and `put(...)` explicitly *"does not exist and will not be added."* The package was wrong too (`org.pumpkinlib.log` vs `org.pumpkinlib.telemetry`). A design doc whose every logging snippet fails to compile teaches the implementer to distrust the rest of it. | **blocking** | **APPLIED at all 22 call sites.** Each is now `critical(...)` or `log(...)`, with the tier taken from `design/04` §3.2's key table where it names the key and chosen here where it does not. §1.1's block is retagged as a consumed-surface mirror that defers to `design/04`. |
+| 16 | §1.1 and every log call site | **B10 (this document's half).** Every log call read `RootstockLog.get().put(key, value)`, against a facade `design/04` does not ship: no `get()`, and `put(...)` explicitly *"does not exist and will not be added."* The package was wrong too (`org.rootstock.log` vs `org.rootstock.telemetry`). A design doc whose every logging snippet fails to compile teaches the implementer to distrust the rest of it. | **blocking** | **APPLIED at all 22 call sites.** Each is now `critical(...)` or `log(...)`, with the tier taken from `design/04` §3.2's key table where it names the key and chosen here where it does not. §1.1's block is retagged as a consumed-surface mirror that defers to `design/04`. |
 
 **What this pass deliberately did NOT do.** Same exclusion as pass 2, for the same reason: §9.1's sign-convention prose and §9.2's four regression tests are untouched. It also did not renumber, reword or remove any of §15.1's or §15.2's rows — a superseded disposition is struck through and dated, never deleted, because the reason a line reads the way it does is the part that rots first.

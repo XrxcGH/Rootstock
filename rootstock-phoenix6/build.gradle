@@ -1,0 +1,42 @@
+// dev.rootstock:rootstock-phoenix6 — the Phoenix 6 adapter.
+//
+// This is the ONLY artifact allowed to import com.ctre (ArchUnit rule 1). Everything it
+// exposes is a Rootstock interface: TalonFXMotorIO implements MotorIO, Phoenix6GainSink
+// implements GainSink. Core never sees a TalonFX type in a signature.
+
+description = 'Rootstock Phoenix 6 adapter — TalonFX, TalonFXS, CANcoder, Pigeon 2, CANrange'
+
+repositories {
+    maven { url = 'https://maven.ctr-electronics.com/release/' }
+}
+
+dependencies {
+    api project(':rootstock')
+    api "com.ctre.phoenix6:wpiapi-java:${phoenix6Version}"
+
+    testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation "com.tngtech.archunit:archunit-junit5:${archunitVersion}"
+}
+
+// Same split as :rootstock. Tests that need a vendor JNI native (Phoenix's device handles, the HAL)
+// are tagged "hal" and excluded from the default `test` task, so `./gradlew build` works on a desktop
+// with no Phoenix natives installed. The gain-conversion tests deliberately do NOT need them:
+// Slot0Configs and MotionMagicConfigs are plain configuration objects, verified to construct on a
+// bare JVM, and Phoenix6GainSink takes its device writes as function parameters precisely so the
+// arithmetic can be pinned without a CAN bus.
+tasks.named('test') {
+    useJUnitPlatform {
+        excludeTags 'hal'
+    }
+}
+
+tasks.register('halTest', Test) {
+    description = 'Runs tests that require Phoenix 6 / WPILib JNI natives.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'hal'
+    }
+}

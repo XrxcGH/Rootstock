@@ -1,0 +1,153 @@
+// The single published core artifact: dev.rootstock:rootstock
+//
+// Depends on WPILib + AdvantageKit and NOTHING from a vendor (no com.ctre, no
+// com.revrobotics, no org.photonvision, no com.pathplanner, no choreo). ArchUnit rule 1
+// enforces that; this dependency block is the first line of defence.
+
+description = 'Rootstock core — mechanisms, tuning, vision, telemetry, drive and competition-day tooling for FRC'
+
+dependencies {
+    // ---- WPILib 2026 -------------------------------------------------------------------
+    api "edu.wpi.first.wpilibj:wpilibj-java:${wpilibVersion}"
+    api "edu.wpi.first.wpimath:wpimath-java:${wpilibVersion}"
+    api "edu.wpi.first.wpiunits:wpiunits-java:${wpilibVersion}"
+    api "edu.wpi.first.wpiutil:wpiutil-java:${wpilibVersion}"
+    api "edu.wpi.first.ntcore:ntcore-java:${wpilibVersion}"
+    api "edu.wpi.first.hal:hal-java:${wpilibVersion}"
+
+    // Nothing in Rootstock uses a camera, but RobotBase's static initialiser reaches
+    // CameraServerShared, so omitting these produces a NoClassDefFoundError at class-init time in
+    // any test that constructs a Subsystem — reported against the user's class, not against the
+    // missing artifact.
+    runtimeOnly "edu.wpi.first.cscore:cscore-java:${wpilibVersion}"
+    runtimeOnly "edu.wpi.first.cameraserver:cameraserver-java:${wpilibVersion}"
+
+    // WPILib publishes bare POMs with no declared transitive dependencies — GradleRIO
+    // injects these at build time, and a plain java-library build has to do it by hand.
+    // Without them wpimath's Pose2d/Logger fail to compile with "cannot access ProtoMessage".
+    api "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
+    api "com.fasterxml.jackson.core:jackson-core:${jacksonVersion}"
+    api "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+    api "us.hebi.quickbuf:quickbuf-runtime:${quickbufVersion}"
+    api "org.ejml:ejml-simple:${ejmlVersion}"
+    api "org.ejml:ejml-core:${ejmlVersion}"
+
+    // WPILibNewCommands is one of exactly two vendordep `requires` entries. It is not
+    // optional: Mechanism implements Subsystem, and every command factory needs it.
+    api "edu.wpi.first.wpilibNewCommands:wpilibNewCommands-java:${wpilibVersion}"
+
+    // ---- AdvantageKit ------------------------------------------------------------------
+    // Maintainer decision 3 (2026-08-07): REQUIRED, not one backend among four.
+    // RootstockRobot extends LoggedRobot and deterministic replay is a guarantee.
+    // The cost — the kickoff-morning install property — is argued in ROADMAP.md section 4.2.
+    api "org.littletonrobotics.akit:akit-java:${akitVersion}"
+
+    // org.rootstock.test.RootstockTest is a SHIPPED JUnit 5 extension — it is part of the
+    // library, not of the library's own tests. compileOnly rather than api: a team using
+    // RootstockTest already has JUnit on its test classpath, and no robot should carry JUnit
+    // onto the roboRIO at runtime just because it depends on Rootstock.
+    compileOnly "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+
+    // ---- Test --------------------------------------------------------------------------
+    testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // ArchUnit enforces the twelve structural rules in DESIGN.md section 8. These are the
+    // seams that make the 2027 org.wpilib.* port an import rewrite instead of a rewrite.
+    testImplementation "com.tngtech.archunit:archunit-junit5:${archunitVersion}"
+}
+
+// ---- Desktop JNI natives -----------------------------------------------------------------
+//
+// WPILib's Java artifacts contain NO native libraries and its POMs declare no dependency on them
+// (GradleRIO injects both at build time). A plain java-library build must therefore resolve the
+// platform `-cpp` zips itself and put the extracted shared libraries on java.library.path, or
+// every HAL-touching test dies with an UnsatisfiedLinkError that takes the whole test JVM with it.
+//
+// Without this, tests tagged "hal" are not merely skipped — they are UNRUNNABLE, which is worse
+// than absent: it looks like coverage and asserts nothing.
+configurations {
+    wpilibNatives
+}
+
+def nativeClassifier = {
+    def os = org.gradle.internal.os.OperatingSystem.current()
+    def arch = System.getProperty('os.arch')
+    if (os.macOsX) return 'osxuniversal'
+    def is64 = arch in ['amd64', 'x86_64']
+    if (os.windows) return is64 ? 'windowsx86-64' : 'windowsx86'
+    if (arch in ['aarch64', 'arm64']) return 'linuxarm64'
+    return 'linuxx86-64'
+}()
+
+dependencies {
+    wpilibNatives "edu.wpi.first.hal:hal-cpp:${wpilibVersion}:${nativeClassifier}@zip"
+    wpilibNatives "edu.wpi.first.wpiutil:wpiutil-cpp:${wpilibVersion}:${nativeClassifier}@zip"
+    wpilibNatives "edu.wpi.first.wpimath:wpimath-cpp:${wpilibVersion}:${nativeClassifier}@zip"
+    wpilibNatives "edu.wpi.first.ntcore:ntcore-cpp:${wpilibVersion}:${nativeClassifier}@zip"
+    // wpinet is not used directly by anything here, but ntcorejni links against it. Omitting it
+    // produces "ntcorejni.dll: Can't find dependent libraries" — an error that names the library
+    // that FAILED rather than the one that was MISSING, which is why it is called out here.
+    wpilibNatives "edu.wpi.first.wpinet:wpinet-cpp:${wpilibVersion}:${nativeClassifier}@zip"
+}
+
+def nativeDir = layout.buildDirectory.dir('wpilib-natives')
+
+tasks.register('extractWpilibNatives', Copy) {
+    description = "Extracts WPILib desktop shared libraries for ${nativeClassifier}."
+    group = 'build setup'
+    from { configurations.wpilibNatives.collect { zipTree(it) } }
+    into nativeDir
+    // The zips overlap on headers; only the shared libraries matter here.
+    include '**/*.dll', '**/*.so', '**/*.so.*', '**/*.dylib'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    eachFile { it.relativePath = new RelativePath(true, it.relativePath.lastName) }
+    includeEmptyDirs = false
+}
+
+// Tests tagged "hal" need the natives above. They are excluded from the default `test` task so
+// `./gradlew build` stays green on a machine that has never seen WPILib.
+tasks.named('test') {
+    useJUnitPlatform {
+        excludeTags 'hal'
+    }
+}
+
+// A Test task registered by hand does NOT inherit the java{} toolchain the way the built-in `test`
+// task does — it silently uses the JVM that launched Gradle. On a machine where that is a
+// JetBrains Runtime, the HAL JNI load crashes the worker outright, so the launcher is pinned here
+// as well as in the root build.
+def adoptiumLauncher = javaToolchains.launcherFor {
+    languageVersion = JavaLanguageVersion.of(rootProject.ext.javaRelease)
+    vendor = JvmVendorSpec.ADOPTIUM
+}
+
+tasks.register('halTest', Test) {
+    description = 'Runs tests that require WPILib JNI natives (HAL init).'
+    group = 'verification'
+    dependsOn 'extractWpilibNatives'
+    javaLauncher = adoptiumLauncher
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'hal'
+    }
+    doFirst {
+        def dir = nativeDir.get().asFile.absolutePath
+        systemProperty 'java.library.path', dir
+        // WPILib's RuntimeLoader consults this before falling back to extracting from a jar.
+        environment 'LD_LIBRARY_PATH', dir
+        environment 'DYLD_LIBRARY_PATH', dir
+    }
+}
+
+// Diagnostic: prove the desktop natives actually load before trusting halTest.
+tasks.register('halProbe', JavaExec) {
+    group = 'verification'
+    description = 'Loads the HAL and reports what happens, with no test harness in the way.'
+    dependsOn 'extractWpilibNatives', 'testClasses'
+    javaLauncher = adoptiumLauncher
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.rootstock.testsupport.HalProbe'
+    systemProperty 'java.library.path', nativeDir.get().asFile.absolutePath
+}

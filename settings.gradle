@@ -1,4 +1,4 @@
-rootProject.name = 'PumpkinLib'
+rootProject.name = 'Rootstock'
 
 // D28: ONE published core artifact. The package boundaries inside it are enforced by
 // ArchUnit (DESIGN.md section 8), so the artifact split stays available at zero cost
@@ -7,6 +7,6 @@ rootProject.name = 'PumpkinLib'
 // Vendor adapters are SEPARATE artifacts behind their own vendordeps, so a REV-only team
 // never installs Phoenix and vice versa. ArchUnit rule 1 keeps every vendor import inside
 // them. (-photonvision, -pathplanner, -choreo, -maplesim arrive at their milestones.)
-include 'pumpkinlib'
-include 'pumpkinlib-phoenix6'
-include 'pumpkinlib-revlib'
+include 'rootstock'
+include 'rootstock-phoenix6'
+include 'rootstock-revlib'
