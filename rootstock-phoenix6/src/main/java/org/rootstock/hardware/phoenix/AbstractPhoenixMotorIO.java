@@ -24,6 +24,7 @@ import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.signals.ReverseLimitValue;
 import edu.wpi.first.math.MathUtil;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -42,6 +43,7 @@ import org.rootstock.core.alert.Alerts;
 import org.rootstock.core.alert.MatchImpact;
 import org.rootstock.core.alert.RootstockAlert;
 import org.rootstock.core.compat.Clock;
+import org.rootstock.core.match.MatchContext;
 import org.rootstock.core.spi.Tier;
 import org.rootstock.hardware.MotorCapabilities;
 import org.rootstock.hardware.MotorIO;
@@ -232,6 +234,18 @@ abstract class AbstractPhoenixMotorIO implements MotorIO {
   private boolean m_routingFaultReported;
   private boolean m_dynamicOverrideWarned;
 
+  /**
+   * One slot per device -- index 0 is the leader, index {@code i + 1} is follower {@code i} -- set
+   * when that device reported a reset and cleared when its verified re-apply has run.
+   *
+   * <p>This is the deferral. See {@link #drainPendingReapply()}.
+   */
+  private final boolean[] m_pendingReapply;
+
+  // A plain boolean so the common case -- no device has ever reset -- is one field read per loop
+  // rather than a scan of the array above.
+  private boolean m_hasPendingReapply;
+
   private RootstockAlert m_resetAlert;
   private RootstockAlert m_routingFaultAlert;
   private RootstockAlert m_dynamicUnavailableAlert;
@@ -315,6 +329,7 @@ abstract class AbstractPhoenixMotorIO implements MotorIO {
     m_followerStatorSignals = new StatusSignal<?>[n];
     m_followerTemperatureSignals = new StatusSignal<?>[n];
     m_followerBatch = new BaseStatusSignal[n * 3];
+    m_pendingReapply = new boolean[n + 1];
     for (int i = 0; i < n; i++) {
       FollowerDevice f = list.get(i);
       m_followers[i] = f.talon();
@@ -599,12 +614,30 @@ abstract class AbstractPhoenixMotorIO implements MotorIO {
     // its PERSISTED configuration but NO ACTIVE CONTROL REQUEST, and outputs neutral. An elevator
     // held by Motion Magic silently falls. The boot flag was consumed in the constructor, so this
     // only ever fires post-boot.
+    //
+    // The recovery splits in two, and the split is the whole point. The half that saves the
+    // mechanism is the control request, and it is free: a latch clear here and a queued Follower
+    // frame there. The half that used to freeze the robot is the verified re-apply, and it is
+    // belt and braces, because the device already came back with the configuration it persisted.
+    // So the cheap half runs now and the expensive half is latched for the next disabled loop.
+    //
+    // What it used to cost, measured against wpiapi-java 26.3.0 with javap:
+    // ParentConfigurator.DefaultTimeoutSeconds is 0.1 s, TalonFXConfigurator.apply and .refresh both
+    // read that field, and CoreTalonFX.clearStickyFaults() delegates to clearStickyFaults(0.1). With
+    // PhoenixUtil.kAttempts = 5 that is 0.1 + 5 * (0.1 + 0.1) = 1.1 s of blocked loop for the leader
+    // and 1.0 s for each follower, inside periodic(). A brownout resets several devices at once, so
+    // an elevator leader plus a follower plus an arm was over three seconds of frozen 20 ms loop
+    // right after the battery had already sagged: 150 missed loops, motor safety and the WPILib
+    // watchdog both firing, and an unresponsive robot on the field.
     if (m_leaderDevice.hasResetOccurred()) {
       m_deviceResetCount++;
-      m_leader.clearStickyFaults();
-      PhoenixUtil.applyVerified(m_leaderDevice, leaderConfig(), m_name);
+      // The zero-timeout overload, from HasTalonSignals. The no-arg form blocks for 0.1 s.
+      m_leader.clearStickyFaults(PhoenixUtil.kFireAndForgetTimeoutSeconds);
+      m_pendingReapply[0] = true;
+      m_hasPendingReapply = true;
       // Force the next goal to be re-sent: the latch below would otherwise suppress it, because from
-      // the library's point of view nothing changed.
+      // the library's point of view nothing changed. THIS is what stops the elevator falling, and it
+      // costs nothing.
       m_lastGoalRot = Double.NaN;
       m_lastGoalRps = Double.NaN;
       m_lastGoalRps2 = Double.NaN;
@@ -615,12 +648,16 @@ abstract class AbstractPhoenixMotorIO implements MotorIO {
     for (int i = 0; i < m_followerDevices.length; i++) {
       if (m_followerDevices[i].hasResetOccurred()) {
         m_deviceResetCount++;
-        PhoenixUtil.applyVerified(m_followerDevices[i], followerConfig(i), m_name + "/follower" + i);
+        m_pendingReapply[i + 1] = true;
+        m_hasPendingReapply = true;
+        // Queued, not blocking, and it is the follower's whole recovery: a Follower request is what
+        // a reset dropped.
         m_followers[i].setControl(m_followerRequests[i]);
         resetAlert().set(true);
       }
     }
     inputs.deviceResetCount = m_deviceResetCount;
+    drainPendingReapply();
 
     if (m_followerBatch.length > 0) {
       BaseStatusSignal.refreshAll(m_followerBatch);
@@ -650,7 +687,7 @@ abstract class AbstractPhoenixMotorIO implements MotorIO {
   /**
    * Sends a position goal, latch-preserving, with a 10 Hz heartbeat.
    *
-   * <h2>Where the goal velocity goes, and why</h2>
+   * <h4>Where the goal velocity goes, and why</h4>
    *
    * <p>Verified against Phoenix 6 26.3.0: <b>{@code MotionMagicVoltage} has no {@code withVelocity}
    * method</b>, and neither does {@code MotionMagicExpoVoltage}. {@code DynamicMotionMagicVoltage}
@@ -928,6 +965,59 @@ abstract class AbstractPhoenixMotorIO implements MotorIO {
       PhoenixUtil.applyVerified(m_followerDevices[i], followerConfig(i), m_name + "/follower" + i);
       m_followers[i].setControl(m_followerRequests[i]);
     }
+    // This is a superset of anything a device reset left latched, so clear the queue rather than
+    // making the next disabled loop redo it. Note that as of this commit nothing calls this method:
+    // grep for reapplyFullConfigBlocking() finds two javadoc mentions and no call site, which is
+    // why drainPendingReapply() does its own disable-edge work instead of relying on it.
+    Arrays.fill(m_pendingReapply, false);
+    m_hasPendingReapply = false;
+  }
+
+  /**
+   * Run at most one latched device re-apply, and only while disabled.
+   *
+   * <p>Called at the end of every {@link #updateInputs(MotorInputs)}. While the robot is enabled
+   * this returns on one field read: the verified apply blocks for up to 1.1 s per device (see the
+   * arithmetic where the flag is set), and 1.1 s inside a 20 ms loop is 55 missed loops on the
+   * field. While disabled the loop budget is not a constraint, so the full read-back-verified
+   * re-apply runs there instead -- one device per loop, so three resets from one brownout cost
+   * three disabled loops rather than one 3.3 s freeze.
+   *
+   * <p>Deferring is safe because a reset device returns with the configuration it persisted; what a
+   * reset actually loses is the active control request, and that is re-sent inline and for free. If
+   * the robot is never disabled again, the mechanism runs the rest of the match on its persisted
+   * configuration with its control request restored, which is the outcome the blocking version was
+   * buying at the price of the loop.
+   *
+   * <p>It also removes the reason {@code design/01} wanted a tracer epoch around this path: there
+   * is no longer an unexplained multi-second spike in an enabled loop to explain.
+   */
+  private void drainPendingReapply() {
+    if (!m_hasPendingReapply || !MatchContext.isDisabled()) {
+      return;
+    }
+    boolean remaining = false;
+    boolean ranOne = false;
+    for (int slot = 0; slot < m_pendingReapply.length; slot++) {
+      if (!m_pendingReapply[slot]) {
+        continue;
+      }
+      if (ranOne) {
+        remaining = true;
+        continue;
+      }
+      ranOne = true;
+      m_pendingReapply[slot] = false;
+      if (slot == 0) {
+        m_leader.clearStickyFaults();
+        PhoenixUtil.applyVerified(m_leaderDevice, leaderConfig(), m_name);
+      } else {
+        int i = slot - 1;
+        PhoenixUtil.applyVerified(m_followerDevices[i], followerConfig(i), m_name + "/follower" + i);
+        m_followers[i].setControl(m_followerRequests[i]);
+      }
+    }
+    m_hasPendingReapply = remaining;
   }
 
   @Override
@@ -1229,9 +1319,11 @@ abstract class AbstractPhoenixMotorIO implements MotorIO {
               m_name
                   + ": device reset detected on "
                   + PhoenixUtil.describeDevice(m_leaderDevice)
-                  + ". The configuration and the setpoint were re-sent. If this repeats, check the"
-                  + " power and CAN wiring to that motor -- a mid-match reset drops the mechanism"
-                  + " until we notice.",
+                  + ". The setpoint was re-sent immediately; the device kept the configuration it"
+                  + " had saved, and that configuration is read back and confirmed on the next"
+                  + " disabled loop rather than in the match, because confirming it takes up to"
+                  + " 1.1 seconds per motor. If this repeats, check the power and CAN wiring to"
+                  + " that motor -- a mid-match reset drops the mechanism until we notice.",
               MatchImpact.BLOCKS_MATCH);
     }
     return m_resetAlert;

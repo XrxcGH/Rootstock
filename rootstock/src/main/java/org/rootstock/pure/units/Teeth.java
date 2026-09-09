@@ -26,7 +26,7 @@ public record Teeth(int count) {
           "Teeth: count was "
               + count
               + "; a gear has a strictly positive number of teeth. "
-              + "Fix: direction of travel is NEVER expressed as a negative gear — it belongs on "
+              + "Fix: direction of travel is NEVER expressed as a negative gear. It belongs on "
               + "MotorGroup.leaderInverted().");
     }
   }

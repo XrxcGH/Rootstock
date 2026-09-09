@@ -544,7 +544,7 @@ public final class MechanismUnits {
               Locale.ROOT,
               "Travel per output rotation came out as %s %s, which makes every conversion in this "
                   + "mechanism meaningless (division by it produces infinity or NaN). "
-                  + "Fix: check the axis geometry above — the drum radius, the tooth count and the "
+                  + "Fix: check the axis geometry above. The drum radius, the tooth count and the "
                   + "cascade stage count all have to be strictly positive.",
               perRotation,
               m_axis.unitLabel()));
@@ -843,7 +843,7 @@ public final class MechanismUnits {
               + (required == SiDomain.LINEAR_METERS
                   ? "the Angle overload (e.g. Degrees.of(35))"
                   : "the Distance overload (e.g. Inches.of(20.5))")
-              + ", or declare the axis you actually meant — "
+              + ", or declare the axis you actually meant: "
               + "LinearAxis for something that travels in a line, RotaryAxis for a joint.");
     }
   }

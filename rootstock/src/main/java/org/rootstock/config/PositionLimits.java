@@ -296,7 +296,7 @@ public record PositionLimits(
               + followerToleranceRot
               + ", which must be a finite number of output rotations above zero. Fix: "
               + kDefaultFollowerToleranceRot
-              + " is the default — more than any gearbox flexes, less than a slipped belt.");
+              + " is the default: more than any gearbox flexes, less than a slipped belt.");
     }
 
     forwardHardStop.ifPresent(s -> out.addAll(s.problems()));
@@ -321,7 +321,7 @@ public record PositionLimits(
               + " hard stop is a motor limit switch declared as "
               + m.side()
               + ". The two must agree, or the device will stop the motor at the wrong end of "
-              + "travel — which on an elevator means it refuses to come down and drives into the "
+              + "travel, which on an elevator means it refuses to come down and drives into the "
               + "top. Fix: SensorSpec.motorLimit(SensorSpec.Limit."
               + side
               + ").");
@@ -359,7 +359,7 @@ public record PositionLimits(
   }
 
   private static final String kNullBound =
-      "PositionLimits: a soft limit must not be null. Type the unit you think in — Inches.of(55) "
+      "PositionLimits: a soft limit must not be null. Type the unit you think in: Inches.of(55) "
           + "for a linear axis, Degrees.of(105) for a rotary one.";
 
   private static final String kNullStop =

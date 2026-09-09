@@ -28,7 +28,7 @@ import org.rootstock.units.MechanismUnits;
  * <h2>The guarantees, restated as code</h2>
  *
  * <ul>
- *   <li><b>Every motion strategy has a timeout.</b> {@link #periodic()} accumulates {@link
+ *   <li><b>Every motion strategy has a timeout.</b> {@link #periodic(boolean)} accumulates {@link
  *       Clock#dt()} and gives up at {@code timeoutSeconds}, commands neutral, leaves {@link
  *       #isHomed()} false and raises {@code <name>/homing-timed-out}. A routine that cannot end is
  *       not a routine.
@@ -382,7 +382,7 @@ public final class HomingRunner {
     if (m_inputs.deviceResetCount > m_resetCountAtStart) {
       abortCurrent(
           AbortReason.DEVICE_RESET,
-          "the device rebooted mid-routine and came back with factory configuration — no current "
+          "the device rebooted mid-routine and came back with factory configuration: no current "
               + "limits and no soft limits. Check power wiring and the CAN bus.");
       return;
     }

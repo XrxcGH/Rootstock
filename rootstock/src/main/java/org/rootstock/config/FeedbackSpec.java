@@ -195,7 +195,7 @@ public sealed interface FeedbackSpec
 
     @Override
     public String describe() {
-      return "rotor only — position is RELATIVE, so it is whatever the mechanism was sitting at "
+      return "rotor only: position is RELATIVE, so it is whatever the mechanism was sitting at "
           + "when the robot booted. A homing strategy is required.";
     }
   }
@@ -340,7 +340,7 @@ public sealed interface FeedbackSpec
       return sensorDescription()
           + Cancoders.describeRatios(rotorPerSensor, sensorPerOutput, magnetOffset)
           + ". No on-device fusion, so Rootstock re-seeds the rotor from it at boot and before "
-          + "each move — never during one.";
+          + "each move, never during one.";
     }
   }
 
@@ -463,7 +463,7 @@ public sealed interface FeedbackSpec
           + String.format(Locale.ROOT, ", zero offset %.4f rot", zeroOffset.in(Rotations))
           + (inverted ? ", inverted" : "")
           + ". Separate device from the motor, so Rootstock re-seeds the rotor from it at boot "
-          + "and before each move — never during one.";
+          + "and before each move, never during one.";
     }
   }
 }

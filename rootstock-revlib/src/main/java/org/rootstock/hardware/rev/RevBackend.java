@@ -3,6 +3,7 @@ package org.rootstock.hardware.rev;
 import org.rootstock.config.ControlConfig;
 import org.rootstock.config.MechanismKind;
 import org.rootstock.config.MotorSpec;
+import org.rootstock.config.PositionLimits;
 import org.rootstock.hardware.MotorIO;
 import org.rootstock.hardware.MotorIOFactory;
 import org.rootstock.units.MechanismUnits;
@@ -35,22 +36,44 @@ public final class RevBackend implements MotorIOFactory.Backend {
   }
 
   /**
-   * Build the live SPARK backend.
+   * Build the live SPARK backend, configuring everything the setup carries.
    *
-   * @param spec the declared motor
+   * <p>The whole {@link MotorIOFactory.DeviceSetup} crosses the seam, so the followers and the
+   * mechanism's declared current limits go straight into the constructor, and the travel range is
+   * armed on the device afterwards through {@link SparkMotorIO#applySoftLimits}. Before this, a
+   * declared second NEO was never constructed and a declared 40/20 A limit was silently replaced by
+   * the motor model's default.
+   *
+   * @param setup the motors, current limits, travel range and feedback plumbing the team declared
    * @param units the mechanism's unit conversion object
    * @param control the declared location, gains, constraints, gravity model and tolerance
    * @param kind whether the mechanism goes to a place, holds a speed, or is open loop
-   * @return a {@link SparkMotorIO}, or null when the spec is not a SPARK so the factory keeps
+   * @return a {@link SparkMotorIO}, or null when the leader is not a SPARK so the factory keeps
    *     looking rather than crashing
    */
   @Override
   public MotorIO create(
-      MotorSpec spec, MechanismUnits units, ControlConfig control, MechanismKind kind) {
-    if (!(spec instanceof MotorSpec.SparkSpec sparkSpec)) {
+      MotorIOFactory.DeviceSetup setup,
+      MechanismUnits units,
+      ControlConfig control,
+      MechanismKind kind) {
+    if (!(setup.leader() instanceof MotorSpec.SparkSpec)) {
       return null;
     }
-    return new SparkMotorIO(sparkSpec, units, control, kind);
+    SparkMotorIO io = new SparkMotorIO(setup.motors(), units, control, kind, setup.current());
+    PositionLimits limits = setup.limits();
+    if (limits != null) {
+      double a = units.toOutputRotations(limits.range().min());
+      double b = units.toOutputRotations(limits.range().max());
+      double lo = Math.min(a, b);
+      double hi = Math.max(a, b);
+      // hi > lo, not merely finite: a PositionConfig whose .softLimits(...) was never called carries
+      // a placeholder range of exactly zero to zero, which validation already reports as a fatal
+      // config error. Arming the SPARK at [0, 0] on top of that would pin the mechanism at zero.
+      boolean usable = Double.isFinite(lo) && Double.isFinite(hi) && hi > lo;
+      io.applySoftLimits(usable ? lo : Double.NaN, usable ? hi : Double.NaN);
+    }
+    return io;
   }
 
   /**

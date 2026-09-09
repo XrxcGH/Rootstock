@@ -3,6 +3,7 @@ package org.rootstock.hardware.phoenix;
 import org.rootstock.config.ControlConfig;
 import org.rootstock.config.MechanismKind;
 import org.rootstock.config.MotorSpec;
+import org.rootstock.core.spi.Tier;
 import org.rootstock.hardware.MotorIO;
 import org.rootstock.hardware.MotorIOFactory;
 import org.rootstock.units.MechanismUnits;
@@ -19,10 +20,9 @@ import org.rootstock.units.MechanismUnits;
  * <p>{@code Class.forName("com.ctre...")} was the alternative and was rejected: a string literal is
  * not a seam, it is a compile error deferred to a competition.
  *
- * <p>What this constructor path can and cannot configure is stated on {@link TalonFXMotorIO}: the
- * factory hands a backend only the spec, the units, the control config and the mechanism kind, so
- * soft limits, hard stops, absolute-encoder plumbing and followers are configured only through the
- * mechanism builder's fuller constructor. {@code describe()} says which form built a given backend.
+ * <p>The factory hands a backend the whole {@link MotorIOFactory.DeviceSetup} -- the motor group,
+ * the declared current limits, the travel range and hard stops, and the absolute-encoder plumbing --
+ * so this class configures all of it on the device. {@code describe()} says what was configured.
  */
 public final class Phoenix6Backend implements MotorIOFactory.Backend {
 
@@ -34,14 +34,28 @@ public final class Phoenix6Backend implements MotorIOFactory.Backend {
     return spec instanceof MotorSpec.TalonFXSpec || spec instanceof MotorSpec.TalonFXSSpec;
   }
 
+  /**
+   * Build the live Phoenix backend, configuring everything the setup carries.
+   *
+   * @param setup the motors, current limits, travel range and feedback plumbing the team declared
+   * @param units the mechanism's unit conversion object
+   * @param control the declared gains, constraints, gravity model and tolerance
+   * @param kind whether the mechanism goes to a place, holds a speed, or is open loop
+   * @return the backend IO, or null when the leader is not a CTRE device so the factory keeps
+   *     looking rather than crashing
+   */
   @Override
   public MotorIO create(
-      MotorSpec spec, MechanismUnits units, ControlConfig control, MechanismKind kind) {
-    if (spec instanceof MotorSpec.TalonFXSpec talonFx) {
-      return new TalonFXMotorIO(talonFx, units, control, kind);
+      MotorIOFactory.DeviceSetup setup,
+      MechanismUnits units,
+      ControlConfig control,
+      MechanismKind kind) {
+    MotorSpec spec = setup.leader();
+    if (spec instanceof MotorSpec.TalonFXSpec) {
+      return new TalonFXMotorIO(setup, units, control, kind, Tier.STANDARD);
     }
-    if (spec instanceof MotorSpec.TalonFXSSpec talonFxs) {
-      return new TalonFXSMotorIO(talonFxs, units, control, kind);
+    if (spec instanceof MotorSpec.TalonFXSSpec) {
+      return new TalonFXSMotorIO(setup, units, control, kind, Tier.STANDARD);
     }
     return null;
   }

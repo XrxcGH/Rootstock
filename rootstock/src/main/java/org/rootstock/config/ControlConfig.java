@@ -439,7 +439,7 @@ public record ControlConfig(
               + ", which must be greater than zero. A tolerance of zero means the mechanism is "
               + "never observed to be at its goal, so every goTo() command runs forever and any "
               + "sequence that waits on it deadlocks. Fix: about half of the smallest move that "
-              + "matters — Inches.of(0.5) on an elevator, Degrees.of(1.5) on an arm.");
+              + "matters. Use Inches.of(0.5) on an elevator, Degrees.of(1.5) on an arm.");
     }
 
     if (Double.isNaN(velocityTolerance) || velocityTolerance <= 0.0) {
@@ -466,7 +466,7 @@ public record ControlConfig(
           "control.manualDeadband = "
               + manualDeadband
               + ", which must be in [0, 1). It is a fraction of full stick travel, not a "
-              + "percentage and not a voltage. Fix: .manualControl(0.10, 0.30) — 10% deadband, "
+              + "percentage and not a voltage. Fix: .manualControl(0.10, 0.30) for a 10% deadband, "
               + "30% of full output at full stick.");
     }
 
@@ -519,7 +519,7 @@ public record ControlConfig(
     sb.append("  Profile shape       ")
         .append(
             useExpo
-                ? "EXPONENTIAL (Motion Magic Expo — shaped entirely by measured kV and kA)"
+                ? "EXPONENTIAL (Motion Magic Expo, shaped entirely by measured kV and kA)"
                 : "TRAPEZOIDAL (shaped by the cruise velocity and acceleration above)")
         .append(nl);
     sb.append(
@@ -622,6 +622,14 @@ public record ControlConfig(
 
     /**
      * Sets the profile constraints, in user units per second and second squared.
+     *
+     * <p>Leaving this out is legal and the default is {@link MotionConstraints#unconstrained()},
+     * which is not "as fast as the motor will go" but no profile at all: the trapezoid is at the
+     * goal on the first loop and the whole move is one step input into {@code kP}. Because that is
+     * the single most likely omission on a mechanism config, an infinite constraint now puts a line
+     * on the first-setup checklist naming a cruise velocity derived from the motor's free speed. It
+     * is a checklist line and not a refusal, because an axis bounded by something else is a real
+     * configuration.
      *
      * @param value the constraints
      * @return this builder

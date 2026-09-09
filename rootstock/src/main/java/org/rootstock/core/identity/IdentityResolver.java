@@ -241,7 +241,7 @@ public final class IdentityResolver {
     if (fallback == null) {
       throw new IllegalArgumentException(
           "IdentityResolver: fallback was null. Use RobotIdentity.configure()"
-              + ".fallback(RobotId.COMP) — a mystery robot should behave like the comp bot.");
+              + ".fallback(RobotId.COMP). A mystery robot should behave like the comp bot.");
     }
     m_persistentFileEnabled = persistentFileEnabled;
     m_bySerial = new LinkedHashMap<>(bySerial == null ? Map.of() : bySerial);

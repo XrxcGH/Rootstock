@@ -338,7 +338,7 @@ public final class Reduction {
               + value
               + "; it must be finite and strictly positive. A Reduction is a MAGNITUDE. "
               + "Fix: if you wrote a negative ratio to flip a mechanism's direction, delete the "
-              + "sign and set MotorGroup.leaderInverted() instead — that is the only place "
+              + "sign and set MotorGroup.leaderInverted() instead. That is the only place "
               + "direction belongs, and it is why the sign-cancellation bug class cannot happen "
               + "here.");
     }

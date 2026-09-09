@@ -125,7 +125,7 @@ public record SuperstructureReport(
     StringBuilder sb = new StringBuilder(512);
     sb.append("Rootstock superstructure report").append(nl);
     if (clean()) {
-      sb.append("  clean — every state reachable, every state can stow, every setpoint resolves.")
+      sb.append("  clean: every state reachable, every state can stow, every setpoint resolves.")
           .append(nl);
       return sb.toString();
     }

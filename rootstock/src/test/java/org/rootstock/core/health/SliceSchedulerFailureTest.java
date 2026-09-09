@@ -108,6 +108,55 @@ final class SliceSchedulerFailureTest {
   }
 
   @Test
+  @DisplayName("an Error from a slice is contained, not just a RuntimeException")
+  void anErrorFromASliceIsContained() {
+    // The guard used to be catch (RuntimeException). An Error is not a RuntimeException, and
+    // neither AdvantageKit's LoggedRobot (handler: Class java/lang/Exception) nor WPILib's
+    // RobotBase (Throwable, but it only prints and returns) contains one, so it ended the robot
+    // program. NoSuchMethodError is the realistic shape: a team's HealthSource touching a vendor
+    // class the deployed vendordep does not match.
+    List<String> log = new ArrayList<>();
+    SliceScheduler.register(
+        "Health/Bad",
+        () -> {
+          throw new NoSuchMethodError("com.example.Vendor.gone()");
+        });
+    SliceScheduler.register("Health/Good", () -> log.add("good"));
+
+    for (int i = 0; i < 4; i++) {
+      SliceScheduler.tick();
+    }
+
+    assertEquals(2, SliceScheduler.failureCount("Health/Bad"), "the Error must be counted");
+    assertEquals(2, log.size(), "the healthy slice must still have run on its two turns");
+    assertTrue(
+        AlertRegistry.active().stream().anyMatch(a -> a.text().contains("NoSuchMethodError")),
+        "the alert must name the Error. Active alerts were: " + AlertRegistry.describe());
+  }
+
+  @Test
+  @DisplayName("an Error from every-loop work does not skip the rest of the tick")
+  void anErrorFromEveryLoopWorkDoesNotSkipTheRestOfTheTick() {
+    // tick() runs the every-loop entries through the same guard before the rotating slice, so an
+    // escaping Error used to take the later every-loop entries and the slice with it. Those
+    // entries are BrownoutMonitor's latch, MatchContext's FMS edge latching and LoopTimeMonitor.
+    List<String> log = new ArrayList<>();
+    SliceScheduler.registerEveryLoop(
+        "Aaa/Bad",
+        () -> {
+          throw new NoClassDefFoundError("com/example/Vendor");
+        });
+    SliceScheduler.registerEveryLoop("Bbb/Good", () -> log.add("everyLoop"));
+    SliceScheduler.register("Health/Slice", () -> log.add("slice"));
+
+    SliceScheduler.tick();
+
+    assertTrue(log.contains("everyLoop"), "the later every-loop entry must still have run");
+    assertTrue(log.contains("slice"), "the rotating slice must still have run");
+    assertEquals(1, SliceScheduler.failureCount("Aaa/Bad"));
+  }
+
+  @Test
   @DisplayName("describe() names the failing slice and its count")
   void describeNamesTheFailingSlice() {
     SliceScheduler.register(

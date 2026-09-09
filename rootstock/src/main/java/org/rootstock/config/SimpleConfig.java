@@ -270,10 +270,10 @@ public record SimpleConfig(
     sb.append("  Reduction           ").append(reduction.describe()).append(nl);
     sb.append("  Current limits      ").append(current.describe()).append(nl);
     sb.append("  Held sensor         ")
-        .append(heldSensor.map(SensorSpec::describe).orElse("none — holding() is always false"))
+        .append(heldSensor.map(SensorSpec::describe).orElse("none (holding() is always false)"))
         .append(nl);
     sb.append("  Stall sensor        ")
-        .append(stallSensor.map(SensorSpec::describe).orElse("none — stalled() is always false"))
+        .append(stallSensor.map(SensorSpec::describe).orElse("none (stalled() is always false)"))
         .append(nl);
     sb.append("  Neutral             ").append(neutralMode).append(nl);
     sb.append(
@@ -296,7 +296,7 @@ public record SimpleConfig(
         .append(nl);
     sb.append("  Simulation          ").append(sim.describe()).append(nl);
     sb.append("  Config errors       ")
-        .append(errors.isEmpty() ? "none" : errors.size() + " — see the list above")
+        .append(errors.isEmpty() ? "none" : errors.size() + " (see the list above)")
         .append(nl);
     for (ConfigError error : errors) {
       sb.append("    ").append(error.summary()).append(nl);

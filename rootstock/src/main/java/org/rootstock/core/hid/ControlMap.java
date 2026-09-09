@@ -681,7 +681,7 @@ public final class ControlMap<T extends CommandGenericHID> {
   public static String markdown() {
     StringBuilder sb = new StringBuilder();
     sb.append("# Controls").append('\n').append('\n');
-    sb.append("_Generated from ControlMap. Do not edit by hand — edit the bindings._")
+    sb.append("_Generated from ControlMap. Do not edit by hand; edit the bindings._")
         .append('\n');
 
     if (s_maps.isEmpty()) {
@@ -696,8 +696,9 @@ public final class ControlMap<T extends CommandGenericHID> {
       sb.append('\n')
           .append("## ")
           .append(map.m_role)
-          .append(" — port ")
+          .append(" (port ")
           .append(map.port())
+          .append(')')
           .append('\n')
           .append('\n');
 
@@ -707,7 +708,7 @@ public final class ControlMap<T extends CommandGenericHID> {
             .append(". Active at boot: ")
             .append(map.defaultMode())
             .append(". Mode selector: ")
-            .append(map.m_modeSelectorControl.orElse("(none — modes cannot be changed from the "
+            .append(map.m_modeSelectorControl.orElse("(none; modes cannot be changed from the "
                 + "controller)"))
             .append('.')
             .append('\n');

@@ -545,7 +545,7 @@ public final class RobotIdentity {
     public Builder fallback(RobotId id) {
       if (id == null) {
         throw new IllegalArgumentException(
-            "RobotIdentity.fallback(id): id was null. Pass RobotId.COMP — a mystery robot should"
+            "RobotIdentity.fallback(id): id was null. Pass RobotId.COMP. A mystery robot should"
                 + " behave like the comp bot.");
       }
       m_fallback = id;

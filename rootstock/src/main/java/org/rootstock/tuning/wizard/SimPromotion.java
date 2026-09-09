@@ -28,7 +28,7 @@ import org.rootstock.control.Gains;
  * every plant the identification step would hand back with a shrug.
  *
  * <p><b>And it is shown to the student</b>, because a gate the student cannot see is a gate the
- * student routes around. {@link #describe()} is the sentence that appears on the dashboard.
+ * student routes around. {@link #describe(String)} is the sentence that appears on the dashboard.
  *
  * <p><b>Stated honestly: this is the third safety property of the tuning domain, not the first.</b>
  * The two that carry the case are the mechanical health check's block verdict and the supervisor's

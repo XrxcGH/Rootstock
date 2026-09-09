@@ -277,7 +277,7 @@ public sealed interface SensorSpec
           + channel
           + (inverted ? " (inverted)" : "")
           + Sensors.debounceClause(debounce)
-          + " — on the roboRIO, so it CANNOT stop the motor in firmware; Rootstock zeroes the "
+          + ": on the roboRIO, so it CANNOT stop the motor in firmware; Rootstock zeroes the "
           + "output one control loop (about 20 ms) after the level changes.";
     }
   }
@@ -323,7 +323,7 @@ public sealed interface SensorSpec
           + side.toString().toLowerCase(Locale.ROOT)
           + " limit input"
           + Sensors.debounceClause(debounce)
-          + " — stops the motor in FIRMWARE, so it works even if robot code hangs. Declaring it is "
+          + ": stops the motor in FIRMWARE, so it works even if robot code hangs. Declaring it is "
           + "also what subscribes the limit status signal, so the reading is real rather than "
           + "frozen. Zero extra CAN traffic: the motor already reports it.";
     }
@@ -346,7 +346,7 @@ public sealed interface SensorSpec
       threshold =
           Objects.requireNonNull(
               threshold,
-              "SensorSpec.canRange: a proximity threshold is required — it is the distance below "
+              "SensorSpec.canRange: a proximity threshold is required. It is the distance below "
                   + "which the sensor reads \"present\". Measure it with the game piece in place.");
       debounce = Sensors.requireDebounce(debounce);
     }
@@ -388,7 +388,7 @@ public sealed interface SensorSpec
     public String describe() {
       return String.format(
           Locale.ROOT,
-          "CANrange %d (%s), present below %.3f m%s — also reports the raw distance.",
+          "CANrange %d (%s), present below %.3f m%s. Also reports the raw distance.",
           deviceId,
           canBus,
           threshold.in(Meters),
@@ -502,7 +502,7 @@ public sealed interface SensorSpec
     public String describe() {
       return String.format(
           Locale.ROOT,
-          "stator current above %.1f A%s — no sensor and no wiring, but it cannot tell a game piece "
+          "stator current above %.1f A%s. No sensor and no wiring, but it cannot tell a game piece "
               + "from a jam.",
           threshold.in(Amps),
           Sensors.debounceClause(debounce));
@@ -521,7 +521,7 @@ public sealed interface SensorSpec
     public Sim {
       detected =
           Objects.requireNonNull(
-              detected, "SensorSpec.sim: a BooleanSupplier is required — it is the whole sensor.");
+              detected, "SensorSpec.sim: a BooleanSupplier is required. It is the whole sensor.");
       debounce = Sensors.requireDebounce(debounce);
     }
 

@@ -17,8 +17,10 @@ import org.rootstock.core.SafeMode;
 import org.rootstock.core.alert.Alerts;
 import org.rootstock.core.alert.MatchImpact;
 import org.rootstock.core.alert.RootstockAlert;
+import org.rootstock.core.diag.RootstockTracer;
 import org.rootstock.core.health.FaultCollector;
 import org.rootstock.core.health.HealthSource;
+import org.rootstock.core.health.builtin.LoopTimeMonitor;
 import org.rootstock.core.selftest.SelfTestRoutine;
 import org.rootstock.core.selftest.SelfTestable;
 import org.rootstock.core.spi.MechanismGeometry;
@@ -343,9 +345,19 @@ public abstract class Mechanism
    * with {@link MatchImpact#BLOCKS_MATCH}, the failure is reported as an {@code ERROR} fault, and the
    * scheduler keeps running. Degrade, never crash: a broken elevator must not stop the drivetrain
    * forty seconds into a match.
+   *
+   * <p><b>Timed.</b> The whole body is one {@link RootstockTracer} span named {@link
+   * LoopTimeMonitor#kMechanismSection}, so {@code /Rootstock/Loop/Domain/MechanismMs} carries the
+   * summed cost of every mechanism on the robot. Before this existed, the two most expensive things
+   * Rootstock runs were the two it could not name, and the over-budget alert sent a student to an
+   * empty subtable. Every mechanism shares one section name deliberately: see that constant.
    */
   @Override
   public final void periodic() {
+    // The scope is cached per section name and the name is a constant, so this allocates nothing.
+    // close() in a finally, not at the end of the try: a section left open would leak its span into
+    // whatever ran next, and this method exists to survive a throw.
+    RootstockTracer.Scope scope = RootstockTracer.section(LoopTimeMonitor.kMechanismSection);
     try {
       m_io.updateInputs(m_inputs);
       RootstockLog.processInputs(schema().inputsKey(), m_inputs);
@@ -354,6 +366,8 @@ public abstract class Mechanism
       schema().publish();
     } catch (Throwable t) {
       recordPeriodicFailure(t);
+    } finally {
+      scope.close();
     }
   }
 
@@ -396,7 +410,15 @@ public abstract class Mechanism
    * #describe(TelemetryDescriptor)}, which calls the overridable {@link
    * #describeExtras(TelemetryDescriptor)} — and a subclass's fields are not initialised while the
    * base constructor is running. First use is inside the first {@code periodic()}, which is warmup;
-   * nothing allocates on this path afterwards.
+   * <b>this method</b> allocates nothing afterwards, because it is one null check and a field read.
+   *
+   * <p>That is a claim about this method only. It used to read "nothing allocates on this path
+   * afterwards", which was measured and is false: with 200,000 warmup loops and 200,000 measured
+   * loops, one {@code SimpleMechanism.periodic()} on the design's section 9 roller allocates 256
+   * bytes. A JFR allocation profile puts 85% of the samples in {@code
+   * RootstockBudget.recordFacadeBytes}, which boxes an {@code Integer} per key on its attribution
+   * cycle. Fixing that lives in the telemetry facade, not here; until it is fixed, do not repeat
+   * the old sentence.
    *
    * @return the writer for this mechanism's key block
    */
@@ -743,7 +765,7 @@ public abstract class Mechanism
         out.error(
             m_name + " follower " + i,
             "not responding while the leader is. Expected: every follower answering. A silent "
-                + "follower means the leader is doing the whole job alone — check its CAN wiring "
+                + "follower means the leader is doing the whole job alone. Check its CAN wiring "
                 + "and device ID.");
       }
     }
@@ -772,7 +794,7 @@ public abstract class Mechanism
           m_name + " (" + m_io.name() + ")",
           "the device has reset "
               + m_inputs.deviceResetCount
-              + " time(s) since boot, so it came back with factory configuration — no soft limits, "
+              + " time(s) since boot, so it came back with factory configuration: no soft limits, "
               + "no current limits, no gains. Expected zero. Check power wiring and the CAN bus "
               + "before the next match; clear this once it is understood.");
     }

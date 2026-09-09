@@ -347,7 +347,7 @@ public final class MechanismSchema {
           "MechanismSchema.declareNested: cap was DEBUG for parentPrefix \""
               + parentPrefix
               + "\". A DEBUG cap would drop the whole mechanism block whenever the FMS gate fires, "
-              + "so Setpoint, Measured, Error and AtGoal — the four traces match triage reads — "
+              + "so Setpoint, Measured, Error and AtGoal (the four traces match triage reads) "
               + "would be absent from exactly the logs that matter. Pass CRITICAL or STANDARD.");
     }
     String name = requireName(source);
@@ -852,9 +852,9 @@ public final class MechanismSchema {
             + key
             + "\" without declaring it. Add d.extra(\""
             + key
-            + "\", <unit>, Tier.STANDARD) — or the unit-free d.extra(\""
+            + "\", <unit>, Tier.STANDARD) to that mechanism's describe(...), or the unit-free d.extra(\""
             + key
-            + "\", Tier.STANDARD) for a count or a String — to that mechanism's describe(...). Until"
+            + "\", Tier.STANDARD) for a count or a String. Until"
             + " then the value is dropped, because an undeclared key makes the published schema"
             + " undiffable and breaks every AdvantageScope layout bound to this block.";
     if (m_undeclaredAlert == null) {
@@ -1067,7 +1067,7 @@ public final class MechanismSchema {
             "TelemetryDescriptor."
                 + method
                 + " was called after describe(...) returned. The descriptor is valid only for the"
-                + " duration of that one call and storing it is a bug — declare everything inside"
+                + " duration of that one call and storing it is a bug. Declare everything inside"
                 + " describe(...), which telemetry calls exactly once at registration.");
       }
     }

@@ -23,7 +23,10 @@ import org.rootstock.config.MotorGroup;
 import org.rootstock.config.MotorSpec;
 import org.rootstock.config.PositionLimits;
 import org.rootstock.control.NeutralMode;
+import org.rootstock.core.alert.Alerts;
+import org.rootstock.core.alert.MatchImpact;
 import org.rootstock.core.spi.SimMotorHandle;
+import org.rootstock.hardware.MotorIOFactory;
 import org.rootstock.core.spi.Tier;
 import org.rootstock.units.MechanismUnits;
 
@@ -63,10 +66,15 @@ public final class TalonFXSMotorIO extends AbstractPhoenixMotorIO {
   private final TalonFXSConfiguration m_config = new TalonFXSConfiguration();
   private final TalonFXSConfiguration[] m_followerConfigs;
   private final MotorSpec.TalonFXSSpec m_talonSpec;
-  private final boolean m_fullyConfigured;
+  private final CurrentLimits m_currentLimits;
+  private final boolean m_fullSetup;
 
   /**
-   * The form {@link org.rootstock.hardware.MotorIOFactory} calls.
+   * The bare-spec form, for a motor used on its own rather than inside a mechanism.
+   *
+   * <p>A {@code MotorSpec} carries no travel range, no follower list, no absolute encoder and not
+   * the mechanism's real current limits, so none of those are configured here. A mechanism uses the
+   * {@link MotorIOFactory.DeviceSetup} form below, and {@link #describe()} states which form ran.
    *
    * @param spec the declared motor, carrying the required motor arrangement
    * @param units the mechanism's one converter
@@ -78,41 +86,49 @@ public final class TalonFXSMotorIO extends AbstractPhoenixMotorIO {
       MechanismUnits units,
       ControlConfig control,
       MechanismKind kind) {
-    this(spec, units, control, kind, null, null, List.of(), Tier.STANDARD);
-  }
-
-  /**
-   * The full form, used by a mechanism builder that knows the limits, the feedback plumbing and the
-   * followers.
-   *
-   * @param spec the declared leader motor
-   * @param units the mechanism's one converter
-   * @param control gains, constraints, gravity model, neutral mode and control location
-   * @param kind whether this mechanism goes to a place, holds a speed, or is open loop
-   * @param limits soft limits, current limits and hard stops; null configures no soft limits
-   * @param feedback how absolute position is plumbed; null means the commutation sensor
-   * @param followers the follower motors and their sense
-   * @param tier the telemetry tier, which gates the diagnostic-only status signals
-   */
-  public TalonFXSMotorIO(
-      MotorSpec.TalonFXSSpec spec,
-      MechanismUnits units,
-      ControlConfig control,
-      MechanismKind kind,
-      PositionLimits limits,
-      FeedbackSpec feedback,
-      List<MotorGroup.FollowerSpec> followers,
-      Tier tier) {
     this(
         new TalonFXS(spec.deviceId(), PhoenixUtil.bus(spec.canBus())),
-        buildFollowers(followers),
+        buildFollowers(List.of()),
         spec,
         units,
         control,
         kind,
-        limits,
-        feedback,
-        tier);
+        CurrentLimits.defaultsFor(spec.model()),
+        null,
+        null,
+        Tier.STANDARD,
+        false);
+  }
+
+  /**
+   * The full form, which is what {@link MotorIOFactory} calls for every mechanism.
+   *
+   * @param setup the motors, current limits, travel range and feedback plumbing the team declared
+   * @param units the mechanism's one converter
+   * @param control gains, constraints, gravity model, neutral mode and control location
+   * @param kind whether this mechanism goes to a place, holds a speed, or is open loop
+   * @param tier the telemetry tier, which gates the diagnostic-only status signals
+   * @throws IllegalArgumentException if the leader is not a TalonFXS
+   */
+  public TalonFXSMotorIO(
+      MotorIOFactory.DeviceSetup setup,
+      MechanismUnits units,
+      ControlConfig control,
+      MechanismKind kind,
+      Tier tier) {
+    this(
+        new TalonFXS(
+            leaderSpecOf(setup).deviceId(), PhoenixUtil.bus(leaderSpecOf(setup).canBus())),
+        buildFollowers(setup.motors().followers()),
+        leaderSpecOf(setup),
+        units,
+        control,
+        kind,
+        setup.current(),
+        setup.limits(),
+        setup.feedback(),
+        tier,
+        true);
   }
 
   private TalonFXSMotorIO(
@@ -122,9 +138,11 @@ public final class TalonFXSMotorIO extends AbstractPhoenixMotorIO {
       MechanismUnits units,
       ControlConfig control,
       MechanismKind kind,
+      CurrentLimits current,
       PositionLimits limits,
       FeedbackSpec feedback,
-      Tier tier) {
+      Tier tier,
+      boolean fullSetup) {
     super(
         new Setup(
             spec.name(), units, control, kind, limits, feedback, spec, proLicensed(leader), tier),
@@ -133,7 +151,10 @@ public final class TalonFXSMotorIO extends AbstractPhoenixMotorIO {
         followers);
     m_leaderFxs = leader;
     m_talonSpec = spec;
-    m_fullyConfigured = limits != null;
+    // Never null: a controller with no current limit at all is a fire risk, so the bare-spec form
+    // substitutes the model defaults rather than leaving the device unlimited.
+    m_currentLimits = current == null ? CurrentLimits.defaultsFor(spec.model()) : current;
+    m_fullSetup = fullSetup;
 
     m_followerFxs = new TalonFXS[followers.size()];
     m_followerConfigs = new TalonFXSConfiguration[followers.size()];
@@ -143,6 +164,7 @@ public final class TalonFXSMotorIO extends AbstractPhoenixMotorIO {
     }
 
     buildConfig();
+    warnIfDeviceHasNoSensor();
     PhoenixUtil.applyVerified(m_leaderFxs, m_config, motorName());
     for (int i = 0; i < m_followerFxs.length; i++) {
       buildFollowerConfig(i);
@@ -200,9 +222,10 @@ public final class TalonFXSMotorIO extends AbstractPhoenixMotorIO {
             ? NeutralModeValue.Brake
             : NeutralModeValue.Coast;
 
-    // 4. CURRENT LIMITS.
-    CurrentLimits current =
-        m_limits != null ? m_limits.current() : CurrentLimits.defaultsFor(m_talonSpec.model());
+    // 4. CURRENT LIMITS, from the DeviceSetup and NOT from m_limits.current(): a velocity or an
+    //    open-loop mechanism has no PositionLimits at all, and reading the limits off one meant the
+    //    declared amps were silently replaced by the motor model's defaults.
+    CurrentLimits current = m_currentLimits;
     m_config.CurrentLimits.StatorCurrentLimit = current.statorAmps();
     m_config.CurrentLimits.StatorCurrentLimitEnable = true;
     m_config.CurrentLimits.SupplyCurrentLimit = current.supplyAmps();
@@ -216,10 +239,14 @@ public final class TalonFXSMotorIO extends AbstractPhoenixMotorIO {
       double b = u.toOutputRotations(m_limits.range().max());
       double lo = Math.min(a, b);
       double hi = Math.max(a, b);
+      // hi > lo, not merely finite: a PositionConfig whose .softLimits(...) was never called carries
+      // a placeholder range of exactly zero to zero, and arming the firmware at [0, 0] would pin the
+      // mechanism at zero on top of the fatal config error that placeholder already raises.
+      boolean usable = Double.isFinite(lo) && Double.isFinite(hi) && hi > lo;
       m_config.SoftwareLimitSwitch.ForwardSoftLimitThreshold = hi;
-      m_config.SoftwareLimitSwitch.ForwardSoftLimitEnable = Double.isFinite(hi);
+      m_config.SoftwareLimitSwitch.ForwardSoftLimitEnable = usable;
       m_config.SoftwareLimitSwitch.ReverseSoftLimitThreshold = lo;
-      m_config.SoftwareLimitSwitch.ReverseSoftLimitEnable = Double.isFinite(lo);
+      m_config.SoftwareLimitSwitch.ReverseSoftLimitEnable = usable;
     }
     m_config.HardwareLimitSwitch.ForwardLimitEnable =
         m_limits != null && m_limits.usesMotorLimit(HardStop.FORWARD);
@@ -396,7 +423,11 @@ public final class TalonFXSMotorIO extends AbstractPhoenixMotorIO {
         .append(String.format("%-20s", "feedback source"))
         .append(m_config.ExternalFeedback.ExternalFeedbackSensorSource)
         .append("  (")
-        .append(m_feedback.sensorDescription())
+        .append(
+            deviceHasNoSensor()
+                ? "NO SENSOR: a brushed arrangement has no commutation sensor, so the device"
+                    + " reports no position and no velocity"
+                : m_feedback.sensorDescription())
         .append(')')
         .append(nl);
     sb.append("  ")
@@ -408,20 +439,100 @@ public final class TalonFXSMotorIO extends AbstractPhoenixMotorIO {
                     "[%.4f, %.4f] output rotations, ENABLED on the device",
                     m_config.SoftwareLimitSwitch.ReverseSoftLimitThreshold,
                     m_config.SoftwareLimitSwitch.ForwardSoftLimitThreshold)
-                : "NONE configured -- built without a PositionLimits")
+                : m_limits == null
+                    ? "NONE -- this mechanism declared no travel range, which is right for a roller"
+                        + " or a flywheel and wrong for anything with two ends"
+                    : "NONE armed -- the declared range is empty, so the firmware backstop is NOT"
+                        + " armed")
+        .append(nl);
+    sb.append("  ")
+        .append(String.format("%-20s", "current limits"))
+        .append(
+            String.format(
+                Locale.ROOT,
+                "%.0f A stator, %.0f A supply%s",
+                m_config.CurrentLimits.StatorCurrentLimit,
+                m_config.CurrentLimits.SupplyCurrentLimit,
+                m_config.CurrentLimits.SupplyCurrentLimitEnable ? "" : " (supply limit DISABLED)"))
+        .append(nl);
+    sb.append("  ")
+        .append(String.format("%-20s", "followers"))
+        .append(
+            m_followerFxs.length == 0
+                ? "none declared"
+                : m_followerFxs.length + " configured and following this leader")
         .append(nl);
     sb.append("  ")
         .append(String.format("%-20s", "built by"))
         .append(
-            m_fullyConfigured
-                ? "the full constructor (limits, feedback and followers configured)"
-                : "the MotorIOFactory constructor -- soft limits, hard stops and followers were not"
-                    + " supplied, so they are not configured on the device")
+            m_fullSetup
+                ? "the DeviceSetup constructor: current limits, soft limits, hard stops, feedback"
+                    + " plumbing and followers all configured on the device"
+                : "the bare-spec constructor -- soft limits, hard stops, absolute feedback and"
+                    + " followers were not supplied, so they are not configured on the device")
         .append(nl);
     return sb.toString().stripTrailing();
   }
 
   // ===================================================================================== private
+
+  private static MotorSpec.TalonFXSSpec leaderSpecOf(MotorIOFactory.DeviceSetup setup) {
+    if (setup.leader() instanceof MotorSpec.TalonFXSSpec fxs) {
+      return fxs;
+    }
+    throw new IllegalArgumentException(
+        "TalonFXSMotorIO was given a "
+            + setup.leader().deviceType()
+            + " as its leader. This backend only drives a TalonFXS; use MotorSpec.talonFXS(...) or"
+            + " let MotorIOFactory choose the backend.");
+  }
+
+  /**
+   * Whether this device, as configured, can report a position at all.
+   *
+   * <p>A brushed arrangement has no sensor inside the motor -- {@link MotorArrangement} says so in
+   * its own javadoc, and until now nothing acted on it. Phoenix's own default for {@code
+   * ExternalFeedback.ExternalFeedbackSensorSource} is {@code Commutation}, so the combination is not
+   * a wrong value written by this class; it is a value that names a sensor which is not there.
+   *
+   * <p>Verified against Phoenix 6 26.3.0: {@code ExternalFeedbackSensorSourceValue} also offers
+   * {@code Quadrature} and {@code PulseWidth} for an encoder wired to the data port, and Rootstock's
+   * sealed {@code FeedbackSpec} has no variant that maps to either. So a CANcoder is the only device
+   * feedback this library can currently give a brushed TalonFXS.
+   *
+   * @return true when the device is commutating a brushed motor and no CANcoder was plumbed
+   */
+  private boolean deviceHasNoSensor() {
+    return !m_talonSpec.arrangement().isBrushless()
+        && m_config.ExternalFeedback.ExternalFeedbackSensorSource
+            == ExternalFeedbackSensorSourceValue.Commutation;
+  }
+
+  /**
+   * The alert for a device that cannot measure itself, raised once at construction.
+   *
+   * <p>Only for a mechanism that closes a loop. An open-loop roller commands duty cycle and reads
+   * nothing back, so a brushed TalonFXS driving one is a perfectly ordinary intake.
+   */
+  private void warnIfDeviceHasNoSensor() {
+    if (!deviceHasNoSensor() || m_kind == MechanismKind.SIMPLE) {
+      return;
+    }
+    Alerts.error(
+            m_name,
+            m_name
+                + ": this TalonFXS is commutating a brushed motor, which has no sensor inside it,"
+                + " and no CANcoder was declared. The controller has nothing to measure: its"
+                + " position and velocity stay frozen, the closed loop drives against a number that"
+                + " never changes, and the soft limits are evaluated against that same frozen number"
+                + " so they cannot stop it either. The output saturates until the current limit"
+                + " holds the mechanism against whatever it has run into. Fix: declare a CANcoder"
+                + " through .feedback(new FeedbackSpec.RemoteCancoder(...)), which needs no Phoenix"
+                + " Pro license, or change the arrangement to MINION_JST, NEO_JST, NEO550_JST or"
+                + " VORTEX_JST -- those are brushless and carry a sensor.",
+            MatchImpact.BLOCKS_MATCH)
+        .set(true);
+  }
 
   private static MotorArrangementValue arrangementOf(MotorArrangement arrangement) {
     if (arrangement == null) {

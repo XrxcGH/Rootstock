@@ -26,7 +26,7 @@ public record Interval(double min, double max) {
       throw new IllegalArgumentException(
           "Interval: bounds were [" + min + ", " + max + "]; neither bound may be NaN. "
               + "Fix: a NaN bound almost always means an unset config field reached this "
-              + "constructor — check the value you passed in.");
+              + "constructor. Check the value you passed in.");
     }
     if (min > max) {
       throw new IllegalArgumentException(

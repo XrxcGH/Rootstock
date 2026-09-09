@@ -254,7 +254,7 @@ public final class TuningRegistry {
                   + cleanNamespace
                   + "\" is already a registered mechanism, and /Tuning/"
                   + cleanNamespace
-                  + "/ holds exactly seventeen editable doubles — the seven gains plus the ten"
+                  + "/ holds exactly seventeen editable doubles: the seven gains plus the ten"
                   + " ControlConfig values. A boolean there breaks the schema the shipped Elastic"
                   + " layout and the gains.json file format are both built on. Fix: give the flag"
                   + " its own namespace, for example \""
@@ -338,7 +338,7 @@ public final class TuningRegistry {
               "null",
               "a TuningTarget",
               "register(null) was called. Fix: pass the mechanism, not the field it has not been"
-                  + " assigned to yet — a static field initialiser that reads another static field"
+                  + " assigned to yet. A static field initializer that reads another static field"
                   + " declared below it sees null."));
       return record(errors);
     }
@@ -368,7 +368,7 @@ public final class TuningRegistry {
                   + "\". They would share one /Tuning/"
                   + name
                   + "/ table, so editing one mechanism's kP would move the other's. Fix: name them"
-                  + " for what they are — \"ElevatorLeft\" and \"ElevatorRight\", not \"Elevator\""
+                  + " for what they are, \"ElevatorLeft\" and \"ElevatorRight\", not \"Elevator\""
                   + " twice."));
       return record(errors);
     }
@@ -705,7 +705,7 @@ public final class TuningRegistry {
                 + ". The tuner sanity-bounds every fitted gain against the prior, so a prior built"
                 + " on a different gearbox makes the tuner confidently reject correct fits and a"
                 + " student spends an afternoon believing the mechanism is broken. Fix: build both"
-                + " from the same Reduction constant — declare it once and pass it to both."));
+                + " from the same Reduction constant. Declare it once and pass it to both."));
   }
 
   private static String requireSegment(String value, String what) {
@@ -716,7 +716,7 @@ public final class TuningRegistry {
               + " was "
               + (value == null ? "null" : "blank")
               + ". Every tunable is published at /Tuning/<namespace>/<key>, so both halves must be"
-              + " real names — for example tunable(\"Vision\", \"maxTagDistance\", 6.0, \"m\").");
+              + " real names, for example tunable(\"Vision\", \"maxTagDistance\", 6.0, \"m\").");
     }
     String trimmed = value.trim();
     if (trimmed.indexOf('/') >= 0) {

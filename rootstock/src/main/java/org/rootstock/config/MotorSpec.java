@@ -505,7 +505,7 @@ public sealed interface MotorSpec
           Objects.requireNonNull(
               arrangement,
               "MotorSpec.talonFXS: the motor arrangement is required. A TalonFXS with no "
-                  + "commutation configured does nothing at all — no fault, no motion, no message. "
+                  + "commutation configured does nothing at all: no fault, no motion, no message. "
                   + "Pass MotorArrangement.MINION_JST, NEO_JST, NEO550_JST, VORTEX_JST or "
                   + "BRUSHED_DC.");
       outputMode = Objects.requireNonNull(outputMode, Specs.kNullOutputMode);
@@ -631,7 +631,7 @@ public sealed interface MotorSpec
       sparkModel =
           Objects.requireNonNull(
               sparkModel,
-              "MotorSpec.spark: the SPARK model is required — it decides both which controller "
+              "MotorSpec.spark: the SPARK model is required. It decides both which controller "
                   + "class is constructed (MAX or FLEX) and whether the motor is driven brushless "
                   + "or brushed. Pass SparkModel.MAX_NEO, MAX_NEO550, FLEX_VORTEX, ...");
     }
@@ -711,7 +711,7 @@ public sealed interface MotorSpec
 
     @Override
     public String describe() {
-      return Specs.describeCommon(this) + " — " + sparkModel.describe();
+      return Specs.describeCommon(this) + " (" + sparkModel.describe() + ")";
     }
   }
 
@@ -810,7 +810,7 @@ public sealed interface MotorSpec
     @Override
     public String describe() {
       return name()
-          + " — "
+          + ": "
           + model.displayName()
           + ", no encoder, no on-board loop, no current limit, no temperature. "
           + "Everything runs on the roboRIO.";
@@ -899,7 +899,7 @@ public sealed interface MotorSpec
 
     @Override
     public String describe() {
-      return name() + " — " + model.describe();
+      return name() + ": " + model.describe();
     }
   }
 

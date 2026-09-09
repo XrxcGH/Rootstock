@@ -151,7 +151,7 @@ public final class ConfigRegistry {
                 + previous.getClass().getSimpleName()
                 + " then "
                 + config.getClass().getSimpleName()
-                + "). The log will show only the second. Give them distinct paths — the path is how"
+                + "). The log will show only the second. Give them distinct paths: the path is how"
                 + " you find the config in AdvantageScope six weeks later.");
       }
     }

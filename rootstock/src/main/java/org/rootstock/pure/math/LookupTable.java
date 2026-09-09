@@ -44,7 +44,7 @@ public final class LookupTable {
     if (xs.length == 0) {
       throw new IllegalArgumentException(
           "LookupTable \"" + name + "\": the table is empty. "
-              + "Fix: add at least one (x, y) point — a one-point table is a legal constant.");
+              + "Fix: add at least one (x, y) point. A one-point table is a legal constant.");
     }
     if (xs.length != ys.length) {
       throw new IllegalArgumentException(
@@ -83,7 +83,7 @@ public final class LookupTable {
                 + i
                 + "] = "
                 + xs[i]
-                + ". Fix: sort your points by x and remove the duplicate key — two y values for "
+                + ". Fix: sort your points by x and remove the duplicate key. Two y values for "
                 + "one x has no defined answer.");
       }
     }

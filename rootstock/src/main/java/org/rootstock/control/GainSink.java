@@ -26,7 +26,7 @@ package org.rootstock.control;
  * <table border="1">
  *   <caption>Canonical to vendor</caption>
  *   <tr><th>Canonical</th><th>Phoenix 6 {@code Slot0Configs}, voltage request</th>
- *       <th>REVLib, voltage-compensated at {@code Vnom}</th></tr>
+ *       <th>REVLib duty cycle against the LIVE bus; {@code Vnom} is nominal only</th></tr>
  *   <tr><td>kP [V/SI]</td><td>{@code kP * U}</td><td>{@code kP * U / Vnom}</td></tr>
  *   <tr><td>kI [V/(SI*s)]</td><td>{@code kI * U}</td><td>{@code kI * U / Vnom}</td></tr>
  *   <tr><td>kD [V/(SI/s)]</td><td>{@code kD * U}</td><td>{@code kD * U / Vnom} (REV's derivative
@@ -42,6 +42,15 @@ package org.rootstock.control;
  *       <td>{@code kG / Vnom} into REV's {@code kCos} — REVLib has no offset field, so a non-zero
  *       horizontal reference is a fatal config error, not a silent inaccuracy</td></tr>
  * </table>
+ *
+ * <p><b>{@code Vnom} in the REV column is a nominal 12 V, not a compensated one.</b> A SPARK's
+ * closed loop outputs a duty cycle referenced to the bus voltage it actually has, and this library
+ * does not call {@code SparkBaseConfig.voltageCompensation(...)}. So the gain a REV mechanism really
+ * gets is {@code kP * Vbus / Vnom}: about 12 percent soft on a bus sagging to 10.5 V, about 8
+ * percent stiff on a fresh 13 V battery. A Phoenix voltage request is bus-independent, so the same
+ * canonical gains are not identically stiff on a Kraken and on a NEO. Voltage compensation is
+ * deliberately left off; {@code RevGainSink}'s class javadoc gives the reason, which is that
+ * enabling it would corrupt the volt-denominated feedforward this backend depends on.
  *
  * <h2>What an implementation must do</h2>
  *

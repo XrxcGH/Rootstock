@@ -1159,7 +1159,7 @@ elevator.io().as(TalonFXMotorIO.class).ifPresent(io -> {
 ```java
 package org.rootstock.hardware;
 
-import org.rootstock.config.Gains;
+import org.rootstock.control.Gains;
 import org.rootstock.config.MotionConstraints;
 import java.util.Optional;
 
@@ -2623,7 +2623,7 @@ Revision 1 drew three layers and then leaked a fourth — SI — into `Gains` wi
 
 | Quantity | Type | Units | Where |
 |---|---|---|---|
-| `Gains.kP` | `double` | **V/m** (linear) or **V/rad** (rotary) | `org.rootstock.config.Gains`, D1 |
+| `Gains.kP` | `double` | **V/m** (linear) or **V/rad** (rotary) | `org.rootstock.control.Gains`, D1 |
 | `Gains.kV` | `double` | **V/(m/s)** or **V/(rad/s)** | same |
 | `Gains.kS`, `Gains.kG` | `double` | **V** | same |
 | `MotionConstraints.maxVelocity` | `double` | **user**/s (m/s or **deg**/s) | `MotionConstraints` |
@@ -3202,10 +3202,10 @@ Two-Kraken cascade elevator, rotor-only feedback with current-spike homing, 12:1
 package frc.robot;
 
 import static edu.wpi.first.units.Units.*;
-import org.rootstock.config.*;
-import org.rootstock.units.*;
-import org.rootstock.hardware.ControlLocation;
-import org.rootstock.mechanism.HomingStrategy;
+import org.rootstock.config.*;          // PositionConfig, MotorSpec, HomingStrategy, Setpoint, ...
+import org.rootstock.units.*;           // LinearAxis, RotaryAxis
+import org.rootstock.control.Gains;     // Gains is in control, NOT config
+import org.rootstock.pure.units.Reduction;   // Reduction is in pure.units, NOT units
 
 public final class RobotConfig {
 
@@ -4774,7 +4774,9 @@ package org.rootstock.superstructure;
  * (planMove / escapeCurrentPose / travelAndFinish / avoidClimb / transitionWrist).
  */
 public final class SafetyModel {
-  public static Builder over(PositionMechanism axisA, PositionMechanism axisB);
+  // Mechanism, not PositionMechanism: the model needs exactly two things from each axis, its name
+  // and its measured value in user units, and the base type already supplies both.
+  public static Builder over(Mechanism axisA, Mechanism axisB);
 
   public interface Builder {
     /** The arm cannot swing through the chassis while the elevator is low. */
@@ -4798,7 +4800,12 @@ public final class SafetyModel {
 }
 ```
 
+This goes in `RobotContainer`, next to the mechanisms, and not in `RobotConfig`: `over(...)` takes
+the two constructed `PositionMechanism`s, because the model reads their **measured** positions every
+loop. Handing it the two `PositionConfig` records instead does not compile. §9.3 shows it in place.
+
 ```java
+// in RobotContainer, after ELEVATOR and ARM have been constructed
 static final SafetyModel SAFETY = SafetyModel.over(ELEVATOR, ARM)
     .forbid("arm-through-chassis",
             Range.of(Inches.of(0), Inches.of(9)),      // elevator low
@@ -5041,6 +5048,8 @@ Everything a team writes. Elevator + arm + roller, collision avoidance, driver b
 > | `DescribeSnapshotTest` | `describe()` on `RobotConfig.ELEVATOR` and `RobotConfig.ARM` string-matches §4.4 and §3.5.7 **verbatim** — including `0.279400 m`, `5.0000 drum rot`, `kG 0.33`, `65.411:1` and `kG 0.29`. This is the test that would have caught both the dropped cascade and the 34.126 `[INTENTIONAL-34.126]`. |
 > | `AllocationTest` | One loop of that same three-mechanism fixture allocates zero bytes after warmup (§11 item 18, an **M5** gate condition). |
 > | *(added rev 4)* `VendorRequestChainsCompileTest` | **Every** vendor request-builder chain in §3.5.6 and §3.7 compiles against the real Phoenix 6 / REVLib jars. This is the test whose absence let `MotionMagicVoltage.withVelocity(...)` ship in a document that promised every API name was read from a javadoc. |
+>
+> **Until those tests exist, here is the compiling copy.** `rootstock/src/test/java/org/rootstock/example/` holds this same robot -- `RobotConfig.java`, `RobotContainer.java`, `ScoringState.java` -- written against the shipped API and compiled by the build. §9.1 to §9.4 below were extracted from this document, compiled against the `rootstock` and `rootstock-phoenix6` classes with `javac`, and edited until the compiler was silent; they are not machine-checked on every commit yet, so if a block below and that source set disagree, **the source set is right.** That example uses simulated motor backends, because the test source set may not depend on a vendor artifact; its `RobotConfig` javadoc names the lines that changes and why.
 
 ### 9.1 `RobotConfig.java` — 3 mechanism configs + safety + typed setpoints (one file)
 
@@ -5048,11 +5057,10 @@ Everything a team writes. Elevator + arm + roller, collision avoidance, driver b
 package frc.robot;
 
 import static edu.wpi.first.units.Units.*;
-import org.rootstock.config.*;
-import org.rootstock.units.*;
-import org.rootstock.hardware.ControlLocation;
-import org.rootstock.mechanism.HomingStrategy;
-import org.rootstock.superstructure.SafetyModel;
+import org.rootstock.config.*;          // PositionConfig, MotorSpec, HomingStrategy, Setpoint, ...
+import org.rootstock.units.*;           // LinearAxis, RotaryAxis
+import org.rootstock.control.Gains;     // Gains is in control, NOT config
+import org.rootstock.pure.units.Reduction;   // Reduction is in pure.units, NOT units
 
 public final class RobotConfig {
 
@@ -5085,15 +5093,15 @@ public final class RobotConfig {
 
   public static final PositionConfig ARM = PositionConfig.rotary("Arm")
       .motors(MotorGroup.leader(MotorSpec.talonFX(22, "rio").inverted(true)))
-      // ofTeeth(drivenTeeth, drivingTeeth): 58/10 x 58/18 x 42/12 = 65.411:1  (§4.2)
+      // ofTeeth(drivenTeeth, drivingTeeth): 58/10 x 58/18 x 42/12 = 65.411:1  (section 4.2)
       .reduction(Reduction.ofTeeth(58, 10).then(58, 18).then(42, 12))   // 65.411:1
       .axis(RotaryAxis.arm(Degrees.of(0.0)))    // |horizontalAt| <= 90 deg, Phoenix requirement
-      // D2b identity: rotorPerSensor x sensorPerOutput == 65.411 x 1.0 == reduction  ✔
+      // D2b identity: rotorPerSensor x sensorPerOutput == 65.411 x 1.0 == reduction  OK
       .feedback(new FeedbackSpec.FusedCancoder(23, "rio", Rotations.of(-0.1387), 65.411, 1.0))
       .softLimits(Degrees.of(-15.0), Degrees.of(105.0))
       .currentLimits(CurrentLimits.of(Amps.of(60), Amps.of(35)))
       // Gains: kP V/rad, kD V/(rad/s), kV V/(rad/s), kA V/(rad/s^2), kS and kG volts.
-      // Derived at 65.411:1 in §5.5. kG/kA scale as 1/G, kV as G.
+      // Derived at 65.411:1 in section 5.5. kG/kA scale as 1/G, kV as G.
       .gains(Gains.realOrSim(
           Gains.pid(5.0, 0, 0.18).withKs(0.20).withKv(1.25).withKa(0.010).withKg(0.29),
           Gains.pid(10.0, 0, 0).withKv(1.25).withKa(0.010).withKg(0.29)))
@@ -5123,13 +5131,9 @@ public final class RobotConfig {
   public static final Setpoint ARM_INTAKE    = ARM.setpoint("INTAKE");
   public static final Setpoint ARM_SCORE     = ARM.setpoint("SCORE");
 
-  public static final SafetyModel SAFETY = SafetyModel.over(ELEVATOR, ARM)
-      .forbid("arm-through-chassis",
-              Range.of(Inches.of(0), Inches.of(9)), Range.of(Degrees.of(-15), Degrees.of(40)),
-              "the arm hits the chassis crossbar below 9 in")
-      .corridor("travel-tucked", Range.of(Inches.of(0), Inches.of(55)), 95.0)
-      .synchronizedAxes(true)          // default; stated here so the choice is visible
-      .build();
+  // The collision model is NOT here. SafetyModel.over() reads the two axes' measured positions
+  // every loop, so it takes the constructed mechanisms, not these config records; section 9.3
+  // builds it. This file holds numbers.
 
   private RobotConfig() {}
 }
@@ -5141,9 +5145,17 @@ public final class RobotConfig {
 package frc.robot;
 
 import java.util.Map;
-import org.rootstock.superstructure.*;
+import org.rootstock.config.Setpoint;
 import org.rootstock.mechanism.Mechanism;
-import static frc.robot.RobotContainer.*;   // ELEVATOR, ARM, ROLLER
+import org.rootstock.superstructure.AxisGoal;
+
+// The three mechanisms, one import each. RobotConfig declares PositionConfigs under the SAME
+// three names, so `import static frc.robot.RobotContainer.*` next to a RobotConfig wildcard
+// would make every reference below ambiguous. Naming the members resolves it: a single static
+// import wins over an on-demand one.
+import static frc.robot.RobotContainer.ELEVATOR;
+import static frc.robot.RobotContainer.ARM;
+import static frc.robot.RobotContainer.ROLLER;
 import static frc.robot.RobotConfig.*;      // typed Setpoint handles
 
 public enum SuperState implements org.rootstock.superstructure.SuperState {
@@ -5173,14 +5185,22 @@ public enum SuperState implements org.rootstock.superstructure.SuperState {
 ```java
 package frc.robot;
 
+import static edu.wpi.first.units.Units.*;
+
+import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;              // REQUIRED -- see getAutonomousCommand
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import org.rootstock.core.RootstockRegistry;            // D12 -- there is no `Rootstock` class
-import org.rootstock.mechanism.*;
-import org.rootstock.hardware.phoenix.TalonFXMotorIO;
-import org.rootstock.superstructure.Superstructure;
+import org.rootstock.core.hid.Rumble;
+import org.rootstock.core.hid.RumblePattern;
+import org.rootstock.hardware.phoenix.TalonFXMotorIO;   // rootstock-phoenix6 artifact
+import org.rootstock.mechanism.*;                       // PositionMechanism, SimpleMechanism
 import org.rootstock.superstructure.AxisGoal;
+import org.rootstock.superstructure.Interlock;
+import org.rootstock.superstructure.SafetyModel;
+import org.rootstock.superstructure.Superstructure;
+import org.rootstock.units.Range;
 
 public class RobotContainer {
 
@@ -5188,18 +5208,32 @@ public class RobotContainer {
   public static final PositionMechanism ARM      = new PositionMechanism(RobotConfig.ARM);
   public static final SimpleMechanism   ROLLER   = new SimpleMechanism(RobotConfig.ROLLER);
 
+  // The collision model lives HERE, not in RobotConfig, because SafetyModel.over() reads the two
+  // axes' MEASURED positions every loop: it takes the mechanisms, not the config records.
+  public static final SafetyModel SAFETY = SafetyModel.over(ELEVATOR, ARM)
+      .forbid("arm-through-chassis",
+              Range.of(Inches.of(0), Inches.of(9)), Range.of(Degrees.of(-15), Degrees.of(40)),
+              "the arm hits the chassis crossbar below 9 in")
+      .corridor("travel-tucked", Range.of(Inches.of(0), Inches.of(55)), 95.0)
+      .synchronizedAxes(true)          // default; stated here so the choice is visible
+      .build();
+
   private final Superstructure<SuperState> m_super =
       new Superstructure.Builder<>(SuperState.class, SuperState.IDLE)
-          .safety(RobotConfig.SAFETY)
-          .mechanisms(ELEVATOR, ARM, ROLLER)
+          .safety(SAFETY)
+          // defaultFor registers the mechanism as well as declaring what it does when no state
+          // names it, so there is no separate "here are my mechanisms" list to keep in sync.
           .defaultFor(ELEVATOR, AxisGoal.of(RobotConfig.ELEVATOR_STOW))
           .defaultFor(ARM,      AxisGoal.of(RobotConfig.ARM_STOW))
           .defaultFor(ROLLER,   AxisGoal.percent(0.0))
-          .interlock("no-score-until-homed",
+          // interlock() takes the Interlock record, not five loose arguments: the record is the
+          // thing SuperstructureReport lists and the dashboard names, so it has to exist anyway.
+          .interlock(new Interlock<>(
+                     "no-score-until-homed",
                      from -> true, to -> to != SuperState.IDLE,
                      () -> ELEVATOR.isHomed() && ARM.isHomed(),
-                     "the elevator has not homed yet; press Start to home")
-          .build();     // validates every setpoint reference and runs report() -- §8.8, §8.9
+                     "the elevator has not homed yet; press Start to home"))
+          .build();     // validates every setpoint reference and runs report() -- sections 8.8, 8.9
 
   private final CommandXboxController m_driver = new CommandXboxController(0);
 
@@ -5219,7 +5253,10 @@ public class RobotContainer {
 
     // Rumble when a piece is held. Level signal, so it works even if the piece was
     // already there when the command started.
-    ROLLER.holding().onTrue(rumble(0.4, 0.25));
+    ROLLER.holding().onTrue(
+        Rumble.on(m_driver.getHID())
+            .side(GenericHID.RumbleType.kBothRumble)
+            .play(RumblePattern.pulse(0.4, Seconds.of(0.25))));
 
     // Escape hatch, on page 1: anything Rootstock does not model, do on the real device.
     ELEVATOR.io().as(TalonFXMotorIO.class)
@@ -5250,6 +5287,11 @@ public class RobotContainer {
 **The convenience shape.** One base class, and it is the only one Rootstock ships (§1.1a):
 
 ```java
+package frc.robot;
+
+import org.rootstock.core.RootstockRobot;
+import org.rootstock.core.spi.LogConfig;   // core.spi, NOT telemetry (D31, ArchUnit rule 9)
+
 public class Robot extends RootstockRobot {        // extends LoggedRobot underneath
   private final RobotContainer m_container;
 
@@ -5277,6 +5319,13 @@ public class Robot extends RootstockRobot {        // extends LoggedRobot undern
 **The partial-adoption shape**, for an existing repo that will not change its base class — which is how 8793 and 9143 consume M1:
 
 ```java
+package frc.robot;
+
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import org.littletonrobotics.junction.LoggedRobot;
+import org.rootstock.core.RootstockLifecycle;
+import org.rootstock.core.spi.LogConfig;   // core.spi, NOT telemetry (D31, ArchUnit rule 9)
+
 public class Robot extends LoggedRobot {         // the team's own, already there
   private final RootstockLifecycle m_rootstock;
   private final RobotContainer m_container;

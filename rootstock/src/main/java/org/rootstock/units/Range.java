@@ -230,7 +230,7 @@ public record Range(double min, double max, String unitLabel) {
               Locale.ROOT,
               "Range bounds were [%s, %s] %s; neither bound may be NaN. "
                   + "Fix: a NaN bound almost always means a config field that was never set reached "
-                  + "this range — check the value you passed in.",
+                  + "this range. Check the value you passed in.",
               min,
               max,
               unitLabel));

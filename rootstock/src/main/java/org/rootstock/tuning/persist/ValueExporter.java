@@ -88,7 +88,7 @@ public final class ValueExporter {
       System.out.println(
           "[Rootstock] Wrote "
               + path
-              + ". That file is inside your project — commit it, and every robot you deploy to gets"
+              + ". That file is inside your project. Commit it, and every robot you deploy to gets"
               + " these gains.");
       return Optional.of(path);
     }

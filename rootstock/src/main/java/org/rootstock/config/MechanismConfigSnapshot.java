@@ -622,7 +622,7 @@ public record MechanismConfigSnapshot(
           "position, velocity, appliedVolts, statorCurrent, supplyCurrent, temperature";
       case VELOCITY ->
           "velocity, appliedVolts, statorCurrent, supplyCurrent, temperature "
-              + "(position NOT read — MotorInputs.positionRot is NaN by design)";
+              + "(position NOT read: MotorInputs.positionRot is NaN by design)";
       case SIMPLE ->
           "appliedVolts, statorCurrent, supplyCurrent, temperature "
               + "(position and velocity NOT read)";

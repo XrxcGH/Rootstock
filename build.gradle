@@ -68,4 +68,106 @@ subprojects {
             exceptionFormat = 'full'
         }
     }
+
+    // ---- Javadoc, which is the reference documentation ---------------------------------
+    //
+    // This block exists because `./gradlew javadoc` did not work and nothing had ever run it.
+    // What was actually wrong, and this is stated narrowly because a wider claim was drafted here
+    // first and did not survive checking: five {@link} targets had gone stale. A method gained a
+    // parameter and the link kept the old signature; one link was written {@link #Builder#build()}
+    // with a stray hash. Three errors in the core module, two in the Phoenix adapter, and the task
+    // failed on all of them. That is ordinary drift, and it is what a doc tool nobody runs collects.
+    //
+    // The classpath line below is deliberate but is NOT known to be load-bearing. While it was being
+    // written, the adapter javadoc reported "package org.rootstock.config does not exist" and this
+    // looked like the cause. It was not: nine audit agents were running Gradle against this same
+    // directory at the time and deleting each other's build output. The line states the intended
+    // classpath explicitly rather than inheriting it, which is worth having on its own, and the
+    // honest position is that the default may well have been sufficient.
+    //
+    // It is wired into `check` below so it cannot rot again, and that wiring was tested by breaking
+    // a link on purpose and confirming `./gradlew build` failed. The javadoc on this library is its
+    // best user documentation, better than most of what is in the markdown, and a reference nobody
+    // can build is a reference nobody has.
+    tasks.withType(Javadoc).configureEach {
+        options.encoding = 'UTF-8'
+        options.memberLevel = JavadocMemberLevel.PROTECTED
+        // The task's own module, plus what it compiles against, stated rather than inherited.
+        // Deliberately no cross-project reach: an earlier draft collected every subproject's
+        // sourceSets here, which forces those projects to evaluate during configuration, and that
+        // is a real hazard even though it was not the cause of what it was written to fix.
+        classpath = files(sourceSets.main.compileClasspath, sourceSets.main.output)
+        options.addStringOption('Xdoclint:all,-missing', '-quiet')
+        options.addBooleanOption('html5', true)
+        // Offline builds must not reach out for the package lists these would fetch.
+        if (!gradle.startParameter.offline) {
+            options.links('https://docs.oracle.com/en/java/javase/17/docs/api/')
+        }
+    }
+
+    // The wiring the comment above promises. Without it the task is opt-in, and an opt-in doc task
+    // is one nobody runs: that is how five stale links survived seven milestones. `./gradlew build`
+    // now fails on a javadoc error, at the cost of about twenty seconds, on a library whose
+    // reference documentation is its best documentation.
+    tasks.named('check').configure {
+        dependsOn tasks.named('javadoc')
+    }
+
+    // ---- What runs where, and the one command that runs everything -----------------------
+    //
+    // `test` is the desktop-safe suite: it excludes every test tagged "hal", because those tests
+    // load WPILib's JNI natives, and the exclusion is what lets `./gradlew build` work on a
+    // machine that has never seen a WPILib install. rootstock/build.gradle sets up those natives
+    // and explains what happens without them.
+    //
+    // The exclusion is not small and it is not the boring part. Counted 2026-09-09 with
+    // `grep -rl '@Tag("hal")' */src/test`: 25 sources in :rootstock, 2 in :rootstock-revlib, 0 in
+    // :rootstock-phoenix6. Sixteen of the :rootstock ones carry the tag on the class, so the whole
+    // class sits out; the rest tag individual methods. Among the whole-class ones are
+    // MechanismPeriodicTest, TuningSupervisorAbortTest, UnionRequirementTest, FmsLockoutTest,
+    // ReplaySafetyTest and SliceSchedulerFailureTest, which is the periodic-loop containment, the
+    // tuning abort paths, FMS lockout and replay safety. A green `build` is a real result over
+    // most of the suite and not a result over all of it, and nothing in the build said so.
+    //
+    // `verify` is the command that leaves nothing out: `check`, plus every halTest task that is
+    // wired to run on a desktop. A contributor runs `./gradlew verify` before opening a pull
+    // request, and it is what CI should run. `build` is left alone on purpose, so a team cloning
+    // this repo onto a school laptop still gets the fast first build the README promises.
+    tasks.register('verify') {
+        group = 'verification'
+        description = 'check, plus every hal-tagged test this build can run on a desktop.'
+        dependsOn tasks.named('check')
+    }
+
+    // ---- Coverage: a number to read, not a gate to pass -----------------------------------
+    //
+    // There was no coverage measurement of any kind in these four build files, so the only
+    // quantity anyone could quote about this suite was the test count, and the test count is
+    // exactly the quantity that says nothing about the split the block above describes.
+    //
+    // Deliberately report-only: no minimum, and no wiring into `check`. A floor computed from
+    // `test` alone would score a suite that excludes every hal-tagged test on purpose, which is
+    // the exact number rootstock/build.gradle already argues is worse than none because it looks
+    // like coverage and asserts nothing. The report below reads every .exec file in the build
+    // directory rather than just test.exec, so `./gradlew coverage` counts the hal tests as well,
+    // and a floor can be argued from a real baseline once somebody has one.
+    apply plugin: 'jacoco'
+
+    tasks.named('jacocoTestReport').configure {
+        // Execution data from every Test task, rather than from `test` alone. JaCoCo names the
+        // file after the task, so this picks up build/jacoco/halTest.exec whenever halTest ran.
+        executionData.setFrom(
+            fileTree(layout.buildDirectory.dir('jacoco').get().asFile).include('*.exec'))
+        reports {
+            html.required = true
+            xml.required = true
+        }
+    }
+
+    tasks.register('coverage') {
+        group = 'verification'
+        description = 'Runs verify, then writes a JaCoCo report to build/reports/jacoco.'
+        dependsOn tasks.named('verify')
+        finalizedBy tasks.named('jacocoTestReport')
+    }
 }

@@ -154,7 +154,7 @@ public final class PhoenixUtil {
                       + " ("
                       + describeDevice(device)
                       + "). The CAN bus was busy at boot. Nothing is wrong yet, but if this "
-                      + "number keeps climbing the bus is over-subscribed — check the signal rates "
+                      + "number keeps climbing the bus is over-subscribed. Check the signal rates "
                       + "printed by describe().",
                   MatchImpact.PIT_ONLY)
               .set(true);
@@ -176,7 +176,7 @@ public final class PhoenixUtil {
                     ? "The device accepted the frame but did not read back matching, so it is "
                         + "running SOMETHING ELSE. "
                     : "The device never acknowledged the frame at all. ")
-                + "The mechanism will run with whatever was previously on the device — which after a "
+                + "The mechanism will run with whatever was previously on the device, which after a "
                 + "power cycle is the factory default: no current limit, no soft limits, no gains. "
                 + "Fix: check the CAN wiring and the device ID, then disable and re-enable to force "
                 + "a verified re-apply.",

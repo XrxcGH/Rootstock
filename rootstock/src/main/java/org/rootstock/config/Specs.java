@@ -20,7 +20,7 @@ final class Specs {
 
   /** The message for a null motor model, which no factory can produce. */
   static final String kNullModel =
-      "MotorSpec: model must not be null. Name the motor that is actually bolted on — it is what "
+      "MotorSpec: model must not be null. Name the motor that is actually bolted on: it is what "
           + "simulation, the free-speed check and the default current limits are derived from.";
 
   private Specs() {}
@@ -75,7 +75,7 @@ final class Specs {
               + "volts-per-SI; torque-current gains are amps-per-SI, which is a different number "
               + "for every one of kP kI kD kS kV kA kG, and the tuning wizard, the feedback "
               + "designer and the persisted gain file cannot convert between them. Fix: remove the "
-              + ".outputMode(...) call. FOC is a separate switch and is unaffected — .foc(true) "
+              + ".outputMode(...) call. FOC is a separate switch and is unaffected: .foc(true) "
               + "stays correct with volt gains.");
     }
   }
@@ -83,7 +83,7 @@ final class Specs {
   /** The name/model/inversion prefix every variant's {@code describe()} starts with. */
   static String describeCommon(MotorSpec spec) {
     StringBuilder sb = new StringBuilder(spec.name());
-    sb.append(" — ").append(spec.model().displayName());
+    sb.append(": ").append(spec.model().displayName());
     if (spec.inverted()) {
       sb.append(", inverted");
     }

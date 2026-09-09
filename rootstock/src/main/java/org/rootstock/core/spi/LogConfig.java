@@ -321,8 +321,8 @@ public final class LogConfig {
           "LogConfig.withPerCycleByteBudget: bytes was "
               + bytes
               + "; it must be finite and strictly positive. The default is 6000. "
-              + "Fix: to turn the governor off, set it very high (e.g. 1e9) rather than to zero — "
-              + "zero would demote every demotable key on the first cycle.");
+              + "Fix: to turn the governor off, set it very high (e.g. 1e9) rather than to zero. "
+              + "Zero would demote every demotable key on the first cycle.");
     }
     return copy(m_mode, m_wpilogFolder, m_fallbackFolder, m_compress, m_ntPublish, m_minimumTier,
         bytes, m_captureConsole, m_captureDriverStation, m_ctreSignalLogger, m_urcl,

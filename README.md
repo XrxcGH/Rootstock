@@ -1,6 +1,96 @@
 # Rootstock
 
-> ## STATUS: NOTHING IS RELEASED. M1 THROUGH M7 EXIST IN THIS REPOSITORY.
+Rootstock is a Java library for FRC that gives a small team the **software substrate** elite teams
+build for themselves, pre-wiring the tools they already use into one coherent seam instead of
+reimplementing any of them.
+
+You declare a mechanism as data: a gearbox, a drum radius, soft limits, current limits, named
+setpoints. Here is a whole elevator.
+
+```java
+import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.Inches;
+import static edu.wpi.first.units.Units.Pounds;
+import static edu.wpi.first.units.Units.Seconds;
+import static edu.wpi.first.units.Units.Volts;
+
+import org.rootstock.config.CurrentLimits;
+import org.rootstock.config.FeedbackSpec;
+import org.rootstock.config.Follower;
+import org.rootstock.config.HomingStrategy;
+import org.rootstock.config.MotionConstraints;
+import org.rootstock.config.MotorGroup;
+import org.rootstock.config.MotorSpec;
+import org.rootstock.config.PositionConfig;
+import org.rootstock.control.Gains;
+import org.rootstock.pure.units.Reduction;
+import org.rootstock.units.LinearAxis;
+
+public static final PositionConfig ELEVATOR = PositionConfig.linear("Elevator")
+    .motors(MotorGroup.leader(MotorSpec.talonFX(20, "rio").foc(true))
+                      .follower(MotorSpec.talonFX(21, "rio"), Follower.OPPOSED))
+    .reduction(Reduction.ofStages(3.0, 4.0))            // change THIS and everything follows
+    .axis(LinearAxis.sprocket(Inches.of(0.25), 22, /* cascade stages */ 2))
+    .feedback(new FeedbackSpec.RotorOnly())
+    .softLimits(Inches.of(0.0), Inches.of(55.0))
+    .currentLimits(CurrentLimits.of(Amps.of(70), Amps.of(40)))
+    .gains(Gains.UNTUNED)                                // run the tuning wizard
+    .constraints(MotionConstraints.of(/* m/s */ 1.6, /* m/s^2 */ 6.0))
+    .tolerance(Inches.of(0.5), 0.05, 0.06)
+    .homing(HomingStrategy.currentSpike()
+        .direction(HomingStrategy.Direction.REVERSE).voltage(Volts.of(-1.5))
+        .currentThreshold(Amps.of(30)).debounce(Seconds.of(0.15))
+        .timeout(Seconds.of(4.0)).backoff(Inches.of(0.5)).seedTo(Inches.of(0.0)))
+    .setpoint("STOW", Inches.of(0.0)).setpoint("L4", Inches.of(52.5))
+    .sim(Pounds.of(24.0), Inches.of(0.0))                // the ONLY sim code you write
+    .build();
+```
+
+```java
+import org.rootstock.core.RootstockRegistry;
+import org.rootstock.mechanism.PositionMechanism;
+
+PositionMechanism elevator = new PositionMechanism(RobotConfig.ELEVATOR);
+RootstockRegistry.addAll(elevator);          // ONE call. Telemetry, health, self-test, tuning.
+driver.y().onTrue(elevator.goTo("L4"));
+driver.start().onTrue(elevator.homeCommand());
+```
+
+Both blocks are real code: they were compiled verbatim against the classes in this repository,
+wrapped in a class the way they would sit in `RobotConfig` and in `RobotContainer`'s constructor.
+The complete four files are at [`examples/first-mechanism/`](examples/first-mechanism).
+
+What they buy, with no further code: a Phoenix 6 or REVLib backend with the closed loop running where it belongs,
+physics simulation that runs before the robot is built, homing, gravity compensation, interlocked
+superstructure transitions, live gain tuning over NetworkTables, a guided on-robot wizard that
+measures kS/kV/kA/kG and explains each step to the student running it, a documented telemetry
+schema, deterministic AdvantageKit replay, a one-button pit self-test, and seven competition-day
+health monitors that name their own failures in English.
+
+## Start here
+
+| | |
+|---|---|
+| Get it into a robot project and make something move | [`docs/getting-started.md`](docs/getting-started.md) |
+| The ten ideas the API is built on, plus a glossary | [`docs/concepts.md`](docs/concepts.md) |
+| When it does not move | [`docs/troubleshooting.md`](docs/troubleshooting.md) |
+| Working code to copy, including a complete three-mechanism robot | [`examples/`](examples) |
+| The API reference, and the best documentation in this project | `./gradlew :rootstock:javadoc`, then `rootstock/build/docs/javadoc/index.html` |
+| Which documents are for you and which are the maintainer's | [`docs/README.md`](docs/README.md) |
+
+**Read this before you plan anything around it.** Nothing is released: no tag, no published
+artifact, no vendordep URL that resolves, no template repository. M1 through M7 are built and
+tested in this repository; vision and drivetrain are not written at all. Nothing here has run on a
+roboRIO. The only way to consume Rootstock today is a Gradle composite build against a local
+clone, which [`docs/getting-started.md`](docs/getting-started.md) walks step by step. At the
+author's realistic solo pace **`v0.1` is a 2030 release**. The unsoftened version of all of that
+is directly below, and the arithmetic is in [`ROADMAP.md`](ROADMAP.md).
+
+---
+
+## Status: nothing is released yet
+
+> **NOTHING IS RELEASED. M1 THROUGH M7 EXIST IN THIS REPOSITORY.**
 >
 > This repository holds **28,510 lines of design documents** (re-measure with `wc -l README.md DESIGN.md DECISIONS.md ROADMAP.md design/*.md`, because the number grows at every revision and it is quoted here as a measurement, not an impression) and **345 Java files, 105,319 lines**, 72 of them tests. The Java is milestones M1 through M7, committed between 2026-08-09 and 2026-08-18: platform spine, units and config, the hardware seam with both vendor backends, mechanisms and superstructure, telemetry and replay, tunables, and the tuning wizard. The documents were revised twice: once after an adversarial four-lens review, and again after a six-lens independent expert review.
 >
@@ -20,7 +110,7 @@
 
 ## What this does NOT do
 
-**Read this before anything else in this file.** Rootstock is a Java library for FRC that pre-wires the tools a team already uses — AdvantageKit, PathPlanner, Choreo, PhotonVision, Limelight, Phoenix 6, REVLib, SysId, WPILib — into one coherent seam. That is the whole of what it is; here is what it is not, **before** any description of what it does.
+**Read this before you plan a season around it.** Rootstock is a Java library for FRC that pre-wires the tools a team already uses — AdvantageKit, PathPlanner, Choreo, PhotonVision, Limelight, Phoenix 6, REVLib, SysId, WPILib — into one coherent seam. That is the whole of what it is; here is what it is not, stated as early as it can be without leaving a reader unable to tell what the thing is.
 
 **Rootstock removes software prerequisites. It removes none of the others.**
 
@@ -34,19 +124,17 @@ The one practice deficit Rootstock can partially substitute for is **robot-hours
 
 **The honest ceiling.** A small team that adopts all of Rootstock should expect: fewer matches lost to *"the robot didn't move"* (the self-test), fewer matches lost to a mis-scaled or unhomed mechanism (units plus a boot-time derivation dump), a tuning loop measured in minutes instead of Saturdays, and autos that do more than one thing at a time. It should **not** expect to out-cycle a team with a better intake, better drivers, and forty more practice hours.
 
-**And it does not exist yet.** Everything below is written in the present tense because that is how a specification reads. None of it is shipped. See the status banner.
+**And most of it is not shipped.** Everything below is written in the present tense because that is how a specification reads. See [Status](#status-nothing-is-released-yet) for what exists.
 
 ---
 
 ## What it is
 
-Rootstock is a Java library for FRC that gives a small team the **software substrate** elite teams build for themselves — pre-wiring the tools they already use into one coherent seam instead of reimplementing any of them.
-
-You declare a mechanism as data: a gearbox, a drum radius, soft limits, current limits, named setpoints. You get, with no further code — a Phoenix 6 or REVLib backend with the closed loop running where it belongs, physics simulation that runs before the robot is built, homing, gravity compensation, interlocked superstructure transitions, live gain tuning over NetworkTables, a guided on-robot wizard that measures kS/kV/kA/kG and explains each step to the student running it, a documented telemetry schema, deterministic AdvantageKit replay, a one-button pit self-test, and seven competition-day health monitors that name their own failures in English.
+The one-paragraph version and the elevator are [at the top of this file](#rootstock). Two things that did not fit there:
 
 It is deliberately **not a framework**. Every mechanism is a plain WPILib `Subsystem`. Every abstraction hands back the raw `TalonFX` on page one of the docs. You can adopt exactly one piece — the tuning system, say — onto a robot project you already have.
 
-It ships in **two shapes**: a template repository you fork to get a working robot project in one command, and a versioned library underneath it that a one-line dependency bump can patch mid-season. The template is the front door; the library is the substance.
+It is intended to ship in **two shapes**: a template repository you fork to get a working robot project in one command, and a versioned library underneath it that a one-line dependency bump can patch mid-season. The template is the intended front door; the library is the substance. **Only the library exists today**, and the way to consume it is [`docs/getting-started.md`](docs/getting-started.md).
 
 ---
 
@@ -82,14 +170,14 @@ The product is the pre-wired whole, because the wiring is where small teams actu
 
 This is written by one mentor who runs two FRC teams and an FTC team. That is the bus factor, and pretending otherwise would be dishonest. A multi-year build makes it a *larger* bus factor than it used to be, not a smaller one — see risk R21 in [`ROADMAP.md` §9](ROADMAP.md).
 
-What exists to protect you from it:
+Six things are meant to protect you from it. **One of them exists today** — the kill switch. The other five are milestone M8 or later, and they are marked, because a safety valve you are told about and cannot reach is worse than none.
 
-- **`rootstock update --library <version>`** takes an in-season patch release into an already-forked template in about sixty seconds. It rewrites every `vendordeps/Rootstock*.json` as one atomic set, re-resolves, and prints the changelog delta. **It never touches a file under `src/`.** This is the first thing a stuck team should try, and it is the reason the library is versioned separately from the template.
-- **`rootstock doctor --bundle`** writes one zip with the boot dump, every mechanism's config snapshot, the full alert state, the last log's header and final 30 seconds, the resolved version matrix, the template drift table, and the git provenance — so a bug report is actionable with no back-and-forth.
-- **A runtime kill switch.** Put `Elevator` in `src/main/deploy/rootstock/disabled.txt` and that component drops to neutral, unregisters from every registry, and raises one INFO alert. **No code change, no redeploy of Java.** You keep driving.
-- **`docs/removing-rootstock.md`** shows the plain-WPILib equivalent of every Rootstock concept, side by side, per subsystem. A CI job compiles a fixture where one mechanism is hand-rolled and three are Rootstock, so the rip-out path is exercised, not just described.
-- **Artifacts are mirrored to Maven Central**, so they stay resolvable if this org disappears. With BSD-3-Clause, anyone can fork and re-publish.
-- **A second person has push access and has cut a release** before v0.1 ships. That is a release gate, not an aspiration.
+- **(M8)** **`rootstock update --library <version>`** takes an in-season patch release into an already-forked template in about sixty seconds. It rewrites every `vendordeps/Rootstock*.json` as one atomic set, re-resolves, and prints the changelog delta. **It never touches a file under `src/`.** This is the first thing a stuck team should try, and it is the reason the library is versioned separately from the template.
+- **(M8)** **`rootstock doctor --bundle`** writes one zip with the boot dump, every mechanism's config snapshot, the full alert state, the last log's header and final 30 seconds, the resolved version matrix, the template drift table, and the git provenance — so a bug report is actionable with no back-and-forth.
+- **(built)** **A runtime kill switch.** Put `Elevator` in `src/main/deploy/rootstock/disabled.txt` and that component drops to neutral, unregisters from every registry, and raises one INFO alert. **No code change, no redeploy of Java.** You keep driving. This one is in `org.rootstock.core.Rootstock` today.
+- **(M8, not written)** **`docs/removing-rootstock.md`** will show the plain-WPILib equivalent of every Rootstock concept, side by side, per subsystem, and a CI job will compile a fixture where one mechanism is hand-rolled and three are Rootstock, so the rip-out path is exercised rather than described. **That page does not exist yet, and neither does the CI job.** Until it does, the rip-out procedure is the escape hatch: every mechanism is a plain `Subsystem` and `io().as(...)` hands back the vendor object.
+- **(at the tag)** **Artifacts will be mirrored to Maven Central**, so they stay resolvable if this org disappears. Nothing is published anywhere yet. With BSD-3-Clause, anyone can fork and re-publish.
+- **(M24, a release gate)** **A second person has push access and has cut a release** before v0.1 ships. That is a gate on the tag, not something that has happened.
 
 The kill switch and the rip-out procedure get their first real use from the author's own teams, years before any stranger sees them. That is deliberate: a safety valve nobody has ever pulled is not a safety valve.
 
@@ -97,11 +185,13 @@ The kill switch and the rip-out procedure get their first real use from the auth
 
 ## Quickstart sketch
 
-*None of this works yet. It is the target.*
+*Neither of the two doors below works yet. Both are milestone M8. They are the target, and they are described in the present tense because that is how a specification reads.*
+
+**For what works today, the whole of it is [`docs/getting-started.md`](docs/getting-started.md):** clone this repository, point your robot project's `settings.gradle` at it with `includeBuild`, and depend on `dev.rootstock:rootstock:2026.0.0-SNAPSHOT`. That is the internal path the author's own two teams use, and it is the only one that resolves.
 
 ### The front door: fork the template
 
-`RootstockTemplate` is a GitHub template repository. Use it, or clone it — you get a robot project that builds, deploys and runs headless simulation before you write a line.
+`RootstockTemplate` is intended to be a GitHub template repository. Use it, or clone it — you get a robot project that builds, deploys and runs headless simulation before you write a line. **It does not exist yet.**
 
 ```bash
 rootstock init --template swerve --team 0000 --vendor phoenix6
@@ -125,48 +215,23 @@ rootstock doctor  --template          # classifies every template-owned file:
                                       # UNCHANGED | MODIFIED-BY-TEAM | MISSING | ADDED
 ```
 
-`rootstock update --template` three-way merges **only** files you have not edited; for everything else it writes the upstream patch to `docs/template-drift/` with a one-line explanation and asks you to apply it by hand. **Template updates are opt-in and never automatic**, and `doctor --template` is a report, never a gate. Drift is expected — you edit `RobotContainer.java` on day one, by design.
+`rootstock update --template` will three-way merge **only** files you have not edited; for everything else it will write the upstream patch to `docs/template-drift/` (a directory that will exist in your fork, not in this repository) with a one-line explanation and ask you to apply it by hand. **Template updates are opt-in and never automatic**, and `doctor --template` is a report, never a gate. Drift is expected — you edit `RobotContainer.java` on day one, by design.
 
 ### The other door: add the library to a project you already have
 
 WPILib → *Create a new project* → **Template · Java · Command Robot**, then *Manage Vendor Libraries → Install new libraries (online)* → the AdvantageKit vendordep **first**, then `https://rootstock.dev/vendordep/2026/Rootstock.json`.
 
-This is the supported path for an existing repo you are not going to re-fork. It is second in this document on purpose: the template is what actually gets a team from zero to a moving simulation, and a vendordep URL never has.
+**That second URL does not resolve, and there is no `Rootstock.json` in this repository to install offline either.** Until M8 publishes one, the working version of this door is the composite build in [`docs/getting-started.md`](docs/getting-started.md), which starts from the same WPILib Command Robot project and replaces only the vendordep step.
 
-### Either way, the whole elevator is this
+This is the supported path for an existing repo you are not going to re-fork. It is second in this document on purpose: the template is what is intended to get a team from zero to a moving simulation, and a vendordep URL never has.
 
-```java
-public static final PositionConfig ELEVATOR = PositionConfig.linear("Elevator")
-    .motors(MotorGroup.leader(MotorSpec.talonFX(20, "rio").foc(true))
-                      .follower(MotorSpec.talonFX(21, "rio"), Follower.OPPOSED))
-    .reduction(Reduction.ofStages(3.0, 4.0))            // change THIS and everything follows
-    .axis(LinearAxis.sprocket(Inches.of(0.25), 22, /* cascade stages */ 2))
-    .feedback(new FeedbackSpec.RotorOnly())
-    .softLimits(Inches.of(0.0), Inches.of(55.0))
-    .currentLimits(CurrentLimits.of(Amps.of(70), Amps.of(40)))
-    .gains(Gains.UNTUNED)                                // run the wizard; see below
-    .constraints(MotionConstraints.of(/* m/s */ 1.6, /* m/s^2 */ 6.0))
-    .tolerance(Inches.of(0.5), 0.05, 0.06)
-    .homing(HomingStrategy.currentSpike()
-        .direction(HomingStrategy.Direction.REVERSE).voltage(Volts.of(-1.5))
-        .currentThreshold(Amps.of(30)).debounce(Seconds.of(0.15))
-        .timeout(Seconds.of(4.0)).backoff(Inches.of(0.5)).seedTo(Inches.of(0.0)))
-    .setpoint("STOW", Inches.of(0.0)).setpoint("L4", Inches.of(52.5))
-    .sim(Pounds.of(24.0), Inches.of(0.0))                // the ONLY sim code you write
-    .build();
-```
+### Either way, the mechanism is the elevator at the top of this file
 
-```java
-public static final PositionMechanism ELEVATOR = new PositionMechanism(RobotConfig.ELEVATOR);
-// ...
-RootstockRegistry.addAll(ELEVATOR);          // ONE call. Telemetry, health, self-test, tuning.
-m_driver.y().onTrue(ELEVATOR.goTo("L4"));
-m_driver.start().onTrue(ELEVATOR.homeCommand());
-```
+[The elevator](#rootstock) and its wiring are the whole of a mechanism, under either door. Two things about it that belong here rather than there:
 
-**`Gains.UNTUNED` is not a placeholder you leave in.** In simulation it resolves to a physics-derived first guess from your declared mass, so the demo moves, and the boot dump says so. **On real hardware, a mechanism with `UNTUNED` gains refuses closed-loop control** and tells you to run the wizard. We do not ship another team's converged gains as pasteable literals.
+**`Gains.UNTUNED` is not a placeholder you leave in.** In simulation it resolves to a physics-derived first guess from your declared mass, so the demo moves, and an alert says the gains were derived rather than measured. **On real hardware, a mechanism with `UNTUNED` gains refuses closed-loop control** and tells you to run the wizard. We do not ship another team's converged gains as pasteable literals. How to run the wizard is [`docs/getting-started.md` step 8](docs/getting-started.md#step-8-make-it-move), and what it refuses to arm on is [`docs/troubleshooting.md`](docs/troubleshooting.md#the-tuning-wizard-will-not-arm).
 
-Plan **two hours** for your first session, not thirty minutes. [`DESIGN.md` §11](DESIGN.md) walks it honestly, in four blocks, including the 8–20 minute cold GradleRIO build.
+Plan **two hours** for your first session, not thirty minutes. [`docs/getting-started.md`](docs/getting-started.md) is that session as it works today; [`DESIGN.md` §11](DESIGN.md) is the longer version written against the template that does not exist yet, and it is still worth reading for the four-block shape and the 8–20 minute cold GradleRIO build.
 
 **The escape hatch is on page one, not in an appendix:**
 
@@ -223,7 +288,7 @@ Staying on plain `TimedRobot` also works — call `Logger.start()` yourself, the
 
 Want **only** the tuning system on a subsystem you already wrote? Implement `TuningTarget` in about 30 lines. `TuningTarget` lives in core precisely so this works without adopting the mechanism layer *or* the wizard — but the AdvantageKit prerequisite above still applies.
 
-[`DESIGN.md` §11c](DESIGN.md) has the full adoption matrix — one row per piece, with minimum artifacts, minimum code, what you must *not* also do, and how to remove it, plus the two exclusion rows above. **Every row is compiled in CI.**
+[`DESIGN.md` §11c](DESIGN.md) has the full adoption matrix — one row per piece, with minimum artifacts, minimum code, what you must *not* also do, and how to remove it, plus the two exclusion rows above. **Every row is meant to be compiled in CI; there is no `.github/` directory in this repository yet, so today no row is.**
 
 ---
 

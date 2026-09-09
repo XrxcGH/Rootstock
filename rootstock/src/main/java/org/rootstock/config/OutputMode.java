@@ -63,6 +63,6 @@ public enum OutputMode {
   public String gainUnits() {
     return this == VOLTAGE
         ? "volts per SI unit (V/m or V/rad, V/(m/s) or V/(rad/s), V)"
-        : "amps per SI unit (A/m or A/rad, ...) — a different number for every gain";
+        : "amps per SI unit (A/m or A/rad, ...), a different number for every gain";
   }
 }

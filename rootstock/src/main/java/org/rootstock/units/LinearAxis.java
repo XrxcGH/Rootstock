@@ -287,7 +287,7 @@ public record LinearAxis(Distance drumRadius, int stages, Rigging rigging) imple
           String.format(
               Locale.ROOT,
               "LinearAxis drumRadius was %s m; it must be finite and strictly positive. "
-                  + "Fix: state the part instead of the radius — "
+                  + "Fix: state the part instead of the radius, e.g. "
                   + "LinearAxis.sprocket(Inches.of(0.25), 22, 2) for a 22-tooth #25 sprocket on a "
                   + "2-stage cascade, or LinearAxis.drum(Inches.of(0.75), 1) for a cable drum.",
               radius));

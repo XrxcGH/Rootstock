@@ -220,7 +220,7 @@ public final class RootstockAlert implements AutoCloseable {
           "demoteExpectedAbsent(reason) needs a reason, got \""
               + reason
               + "\". The reason is printed in the boot dump so the next person knows why the "
-              + "robot is missing hardware — pass something like \"not built yet, week 2\".");
+              + "robot is missing hardware. Pass something like \"not built yet, week 2\".");
     }
     m_expectedAbsentReason = reason;
     m_severity = Severity.INFO;

@@ -130,7 +130,7 @@ public record PlantPrior(
               + ": plantPrior.motor was null, and it must be a DCMotor built with the real motor "
               + "count. Every prior Rootstock computes is read off the motor curve; without it "
               + "the tuner cannot bracket the gravity search or sanity-bound a fit. "
-              + "Fix: pass DCMotor.getKrakenX60Foc(2) for a two-Kraken gearbox — the count is the "
+              + "Fix: pass DCMotor.getKrakenX60Foc(2) for a two-Kraken gearbox. The count is the "
               + "number of motors on this mechanism, not the number of mechanisms.");
     }
     if (reduction == null || !(reduction.rotorPerOutput() > 0)) {
@@ -140,7 +140,7 @@ public record PlantPrior(
               "%s: plantPrior.reduction was %s, and it must be greater than zero. A reduction is "
                   + "how many times the MOTOR turns for one turn of the OUTPUT. "
                   + "Fix: encode direction with the invert flag on the device, never with a "
-                  + "negative ratio — a negative ratio produces a negative kV, which is physically "
+                  + "negative ratio. A negative ratio produces a negative kV, which is physically "
                   + "meaningless, and then a kP that drives the mechanism away from its setpoint.",
               who,
               reduction == null ? "null" : String.valueOf(reduction.rotorPerOutput())));

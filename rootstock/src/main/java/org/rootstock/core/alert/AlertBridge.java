@@ -54,7 +54,7 @@ public final class AlertBridge {
   public static void setSink(NotificationSink sink) {
     if (sink == null) {
       throw new IllegalArgumentException(
-          "AlertBridge.setSink(null) — pass a NotificationSink, or call AlertBridge.clearSink() if "
+          "AlertBridge.setSink(null): pass a NotificationSink, or call AlertBridge.clearSink() if "
               + "you meant to remove the current one.");
     }
     m_sink = sink;
@@ -141,7 +141,7 @@ public final class AlertBridge {
         + ", dropped="
         + m_dropped
         + (m_dropped > 0 && m_sink == null
-            ? " (nothing is listening — the dashboard layer calls AlertBridge.setSink(...) at boot)"
+            ? " (nothing is listening; the dashboard layer calls AlertBridge.setSink(...) at boot)"
             : "");
   }
 

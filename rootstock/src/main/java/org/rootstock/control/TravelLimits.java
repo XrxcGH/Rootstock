@@ -142,7 +142,7 @@ public record TravelLimits(double min, double max, double softMargin) {
               "%s: travelLimits.softMargin was %s, which must be at most %s (40%% of the %s of "
                   + "travel you declared). A margin this large leaves the supervisor no band "
                   + "between the two soft limits, so there is nowhere for a tuning routine to "
-                  + "move. Fix: either your travel limits are wrong or your margin is — check "
+                  + "move. Fix: either your travel limits are wrong or your margin is. Check "
                   + "which of the two you measured and which you guessed.",
               who,
               softMargin,

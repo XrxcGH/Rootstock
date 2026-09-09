@@ -1,7 +1,5 @@
 package org.rootstock.config;
 
-import static edu.wpi.first.units.Units.Meters;
-
 import edu.wpi.first.units.Measure;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.Distance;
@@ -615,7 +613,7 @@ public record PositionConfig(
     }
 
     sb.append("  Config errors       ")
-        .append(errors.isEmpty() ? "none" : errors.size() + " — see the list above")
+        .append(errors.isEmpty() ? "none" : errors.size() + " (see the list above)")
         .append(nl);
     for (ConfigError error : errors) {
       sb.append("    ").append(error.summary()).append(nl);
@@ -961,12 +959,26 @@ public record PositionConfig(
     /**
      * The simulated plant of a rotary mechanism.
      *
+     * <p>The centre of mass is a parameter because there is no defensible default for it. The
+     * two-argument form this replaces hardcoded {@code Meters.of(0.0)} and
+     * {@code SimConfig.rotary(...)} turns gravity on, so every config built through it carried a
+     * FATAL that no argument to the method could clear. Verified by building one: an otherwise-clean
+     * arm reported two errors, one of them {@code [FATAL] sim :: SimConfig: arm length = 0.00000 m,
+     * which must be greater than zero}.
+     *
+     * <p>When the length and mass are what you have, {@code .sim(SimConfig.arm(length, mass, start))}
+     * is the shorter route and is what every arm in this repository uses. Use this overload when you
+     * have measured or computed the moment of inertia instead.
+     *
      * @param momentOfInertia the moment of inertia about the joint
+     * @param centreOfMass the distance from the joint to the centre of mass, which is what gravity
+     *     torque is computed from
      * @param startingPosition where it rests at boot
      * @return this builder
      */
-    public Builder sim(MomentOfInertia momentOfInertia, Angle startingPosition) {
-      return sim(SimConfig.rotary(momentOfInertia, Meters.of(0.0), startingPosition));
+    public Builder sim(
+        MomentOfInertia momentOfInertia, Distance centreOfMass, Angle startingPosition) {
+      return sim(SimConfig.rotary(momentOfInertia, centreOfMass, startingPosition));
     }
 
     /**

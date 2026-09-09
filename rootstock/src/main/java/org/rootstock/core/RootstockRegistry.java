@@ -158,13 +158,13 @@ public final class RootstockRegistry {
     List<Object> accepted = new ArrayList<>(components.length);
     for (Object component : components) {
       if (component == null) {
-        s_skipped.add("(null) — skipped; a null in the addAll list is almost always a field that "
+        s_skipped.add("(null): skipped; a null in the addAll list is almost always a field that "
             + "is assigned after the addAll call rather than before it");
         continue;
       }
       String name = nameOf(component);
       if (Rootstock.isDisabled(name)) {
-        s_skipped.add(name + " — skipped; disabled by the runtime kill switch (Rootstock.disable "
+        s_skipped.add(name + ": skipped; disabled by the runtime kill switch (Rootstock.disable "
             + "or deploy/rootstock/" + Rootstock.kDisabledFileName + ")");
         continue;
       }

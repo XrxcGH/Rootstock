@@ -296,7 +296,7 @@ public record VelocityConfig(
         .append(nl);
     sb.append("  Simulation          ").append(sim.describe()).append(nl);
     sb.append("  Config errors       ")
-        .append(errors.isEmpty() ? "none" : errors.size() + " — see the list above")
+        .append(errors.isEmpty() ? "none" : errors.size() + " (see the list above)")
         .append(nl);
     for (ConfigError error : errors) {
       sb.append("    ").append(error.summary()).append(nl);

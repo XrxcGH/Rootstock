@@ -21,7 +21,14 @@ import org.rootstock.units.Range;
  * generic machinery: the team declares <i>forbidden regions of the configuration space</i>, not a
  * branch tree a student gets wrong at 1 a.m.
  *
+ * <p>This goes in {@code RobotContainer}, not {@code RobotConfig}: {@code ELEVATOR} and {@code ARM}
+ * below are the constructed {@link org.rootstock.mechanism.PositionMechanism}s, because the model
+ * reads their measured positions every loop. Passing the {@code PositionConfig} records instead does
+ * not compile, and that is the one structural difference between this and the rest of the config
+ * story.
+ *
  * <pre>{@code
+ * // in RobotContainer, after ELEVATOR and ARM have been constructed
  * static final SafetyModel SAFETY = SafetyModel.over(ELEVATOR, ARM)
  *     .forbid("arm-through-chassis",
  *             Range.of(Inches.of(0), Inches.of(9)),        // elevator low
@@ -574,7 +581,7 @@ public final class SafetyModel {
         zone -> sb.append(" Blocking zone: ").append(zone.name()).append(" (\"").append(zone.why()).append("\")."));
     if (!isSafe(a0, b0)) {
       sb.append(
-          " The CURRENT position is already inside a forbidden zone — most likely the mechanism was "
+          " The CURRENT position is already inside a forbidden zone. Most likely the mechanism was "
               + "moved by hand while disabled, or homing seeded a wrong value. Recovery: run "
               + "Superstructure.escapeCommand(), or home both axes.");
     } else if (m_router == null) {
@@ -839,7 +846,7 @@ public final class SafetyModel {
             + ". Expected: "
             + expected
             + ". A degree span compared against a metre measurement is never violated and never "
-            + "protects anything. Fix: build the range with the matching Measure type — "
+            + "protects anything. Fix: build the range with the matching Measure type, for example "
             + ("m".equals(expected) ? "Range.of(Inches.of(0), Inches.of(9))" : "Range.of(Degrees.of(-15), Degrees.of(40))")
             + ".");
   }

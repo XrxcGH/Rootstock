@@ -107,7 +107,7 @@ public final class RootstockTracer {
     if (section == null || section.isBlank()) {
       throw new IllegalArgumentException(
           "RootstockTracer.budget: section name was null or blank. "
-              + "Fix: pass a stable name like \"Vision/Consume\" — it becomes a log key and an "
+              + "Fix: pass a stable name like \"Vision/Consume\". It becomes a log key and an "
               + "alert message, so it has to mean something to a person.");
     }
     if (perLoop == null || perLoop.in(Milliseconds) <= 0.0) {

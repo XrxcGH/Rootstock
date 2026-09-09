@@ -20,8 +20,8 @@ import java.util.Objects;
 /**
  * The only thing a team writes to get simulation.
  *
- * <p>Everything else a simulated mechanism needs — the motor curve, the gearing, the travel per
- * output rotation, the soft limits — is already in the config, derived from the parts a team
+ * <p>Everything else a simulated mechanism needs (the motor curve, the gearing, the travel per
+ * output rotation, the soft limits) is already in the config, derived from the parts a team
  * declared for the real robot. What is left is the handful of facts that exist only in the physical
  * world and cannot be inferred from a CAN id: how much mass is moving, how it is distributed, and
  * where the mechanism starts when the simulator opens.
@@ -38,7 +38,7 @@ import java.util.Objects;
  * @param carriageMass the moving mass for a linear mechanism; {@code NaN} when not applicable
  * @param momentOfInertia the moment of inertia about the joint for a rotary mechanism, or of the
  *     wheel for a flywheel; {@code NaN} when not applicable
- * @param armLength the distance from the joint to the centre of mass, used for gravity torque on a
+ * @param armLength the distance from the joint to the center of mass, used for gravity torque on a
  *     rotary mechanism; {@code NaN} when not applicable
  * @param startingPosition where the mechanism sits when the simulation starts, as a {@link Distance}
  *     or an {@link Angle}
@@ -63,7 +63,7 @@ public record SimConfig(
     startingPosition =
         Objects.requireNonNull(
             startingPosition,
-            "SimConfig: a starting position is required — it is where the mechanism sits when the "
+            "SimConfig: a starting position is required. It is where the mechanism sits when the "
                 + "simulator opens. Pass Inches.of(0) for an elevator at the bottom, or "
                 + "Degrees.of(95) for an arm stowed upright.");
   }
@@ -71,7 +71,7 @@ public record SimConfig(
   /**
    * A linear mechanism: a carriage of some mass, starting somewhere, with gravity on.
    *
-   * @param carriageMass everything that moves — the carriage, the arm bolted to it, the game piece
+   * @param carriageMass everything that moves: the carriage, the arm bolted to it, the game piece
    * @param startingPosition where it sits when the simulation starts
    * @return the config
    */
@@ -88,7 +88,7 @@ public record SimConfig(
    * An arm: a length, a mass and a starting angle, with gravity on.
    *
    * <p>The moment of inertia is estimated from the length and the mass with
-   * {@link #estimateArmMoi(Distance, Mass)}, and the centre of mass is taken as half the length —
+   * {@link #estimateArmMoi(Distance, Mass)}, and the center of mass is taken as half the length,
    * the uniform-bar approximation. It is an approximation, and a good one for a first simulation;
    * a team that has a CAD model should pass the real number through
    * {@link #rotary(MomentOfInertia, Distance, Angle)}.
@@ -110,10 +110,10 @@ public record SimConfig(
   }
 
   /**
-   * A rotary mechanism whose moment of inertia and centre of mass are known, with gravity on.
+   * A rotary mechanism whose moment of inertia and center of mass are known, with gravity on.
    *
    * @param momentOfInertia the moment of inertia about the joint
-   * @param centreOfMass the distance from the joint to the centre of mass
+   * @param centreOfMass the distance from the joint to the center of mass
    * @param startingPosition the angle the mechanism sits at when the simulation starts
    * @return the config
    */
@@ -127,7 +127,7 @@ public record SimConfig(
    * A flywheel or a roller: a moment of inertia and nothing else, with gravity off.
    *
    * <p>A flywheel's mass is balanced about its axis, so gravity contributes no net torque and
-   * simulating it would be modelling a force that is not there.
+   * simulating it would be modeling a force that is not there.
    *
    * @param momentOfInertia the moment of inertia of the wheel and everything geared to it
    * @return the config
@@ -140,7 +140,7 @@ public record SimConfig(
   /**
    * The moment of inertia of a uniform bar rotating about one end.
    *
-   * <p>Wraps WPILib's own estimate, {@code m·L²/3}, so that the number a Rootstock simulation uses
+   * <p>Wraps WPILib's own estimate, {@code m*L^2/3}, so that the number a Rootstock simulation uses
    * is the number WPILib's arm simulation was written against.
    *
    * @param length the length of the arm
@@ -221,30 +221,30 @@ public record SimConfig(
   }
 
   /**
-   * The moment of inertia in kilogram square metres.
+   * The moment of inertia in kilogram square meters.
    *
-   * @return kg·m², or {@code NaN} when not declared
+   * @return kg*m^2, or {@code NaN} when not declared
    */
   public double moiKgM2() {
     return momentOfInertia.in(KilogramSquareMeters);
   }
 
   /**
-   * The distance from the joint to the centre of mass, in metres.
+   * The distance from the joint to the center of mass, in meters.
    *
-   * @return metres, or {@code NaN} when not declared
+   * @return meters, or {@code NaN} when not declared
    */
   public double armLengthMeters() {
     return armLength.in(Meters);
   }
 
   /**
-   * The starting position in SI — metres for a linear mechanism, radians for a rotary one.
+   * The starting position in SI: meters for a linear mechanism, radians for a rotary one.
    *
    * <p>SI rather than user units because the simulation plant is the one place in the library that
-   * is unambiguously SI: WPILib's own plants take metres and radians.
+   * is unambiguously SI: WPILib's own plants take meters and radians.
    *
-   * @return metres or radians, or {@code NaN} when the starting position is neither a distance nor
+   * @return meters or radians, or {@code NaN} when the starting position is neither a distance nor
    *     an angle
    */
   public double startingPositionSi() {
@@ -274,7 +274,7 @@ public record SimConfig(
               + fmt(massKg(), "kg")
               + ", which must be greater than zero. A massless carriage accelerates instantly, so "
               + "the simulation will look nothing like the robot. Fix: weigh the carriage, or "
-              + "estimate from CAD — being within 30% is plenty.");
+              + "estimate from CAD. Being within 30% is plenty.");
     }
     if (hasMomentOfInertia() && moiKgM2() <= 0.0) {
       out.add(
@@ -287,7 +287,7 @@ public record SimConfig(
       out.add(
           "SimConfig: arm length = "
               + fmt(armLengthMeters(), "m")
-              + ", which must be greater than zero. It is the distance from the joint to the centre "
+              + ", which must be greater than zero. It is the distance from the joint to the center "
               + "of mass, and it is what gravity torque is computed from.");
     }
     if (Double.isNaN(startingPositionSi())) {
@@ -324,7 +324,7 @@ public record SimConfig(
       sb.append("MOI ").append(fmt(moiKgM2(), "kg m^2"));
     }
     if (hasArmLength()) {
-      sb.append(", centre of mass ").append(fmt(armLengthMeters(), "m")).append(" from the joint");
+      sb.append(", center of mass ").append(fmt(armLengthMeters(), "m")).append(" from the joint");
     }
     if (sb.length() == 0) {
       sb.append("nothing declared");
@@ -338,12 +338,12 @@ public record SimConfig(
    * Value equality that treats the {@link #kUnset} sentinel as equal to itself.
    *
    * <p>The record's generated {@code equals} delegates to {@code Measure.equals}, which compares
-   * magnitudes numerically — and {@link #kUnset} is {@code NaN}, which is not numerically equal to
+   * magnitudes numerically, and {@link #kUnset} is {@code NaN}, which is not numerically equal to
    * anything including itself. So two {@code SimConfig.linear(...)} values built from identical
    * inputs compared <em>unequal</em>, and that inequality propagated up through {@link
    * PositionConfig}, {@link VelocityConfig} and {@link SimpleConfig}, all of which carry a {@code
    * SimConfig} component. Any {@code List.contains}, {@code Map} key or overlay diff over a config
-   * was therefore silently wrong on every mechanism that did not declare all four sim fields —
+   * was therefore silently wrong on every mechanism that did not declare all four sim fields,
    * which is every mechanism, since no axis uses more than two of them.
    *
    * <p>The comparison below uses {@link Double#compare}, whose NaN ordering is total, so an unset
@@ -405,7 +405,7 @@ public record SimConfig(
     if (startingPosition instanceof Angle a) {
       return String.format(Locale.ROOT, "%.2f deg", a.in(Degrees));
     }
-    return "an unrecognised measure";
+    return "an unrecognized measure";
   }
 
   private static String fmt(double value, String unit) {
@@ -414,7 +414,7 @@ public record SimConfig(
 
   private static final String kNullLength =
       "SimConfig: the arm length must not be null. It is the distance from the joint to the far end "
-          + "of the arm — measure it on the robot.";
+          + "of the arm. Measure it on the robot.";
 
   private static final String kNullMass =
       "SimConfig: the mass must not be null. Weigh it, or estimate from CAD; within 30% is plenty "

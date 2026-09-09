@@ -10,11 +10,11 @@
 
 | # | Decision | Effect here |
 |---|---|---|
-| A | **1 — one release, v0.1, containing everything** | §13's v0.1 / v0.2 / v0.3 / v0.4 delivery plan is **deleted as a release plan** and survives only as build **order**, remapped onto **M9, M11, M15** (and the port, **M12**) in [`ROADMAP.md` §5](../ROADMAP.md), which is authoritative for every date. Nothing in this domain is deferred *out of* the release. Where this document said "deferred to v0.2/v0.3," read "built at a later milestone of the same release." Two items — `MecanumBackend` and `RootstockNav.useProfile` — are **not in any milestone** and are therefore *post-v0.1*, which is a genuine reduction and is labelled as one. |
+| A | **1 — one release, v0.1, containing everything** | §13's v0.1 / v0.2 / v0.3 / v0.4 delivery plan is **deleted as a release plan** and survives only as build **order**, remapped onto **M9, M11, M15** (and the port, **M12**) in [`ROADMAP.md` §5](../ROADMAP.md), which is authoritative for every date. Nothing in this domain is deferred *out of* the release. Where this document said "deferred to v0.2/v0.3," read "built at a later milestone of the same release." Two items — `MecanumBackend` and `RootstockNav.useProfile` — are **not in any milestone** and are therefore *post-v0.1*, which is a genuine reduction and is labeled as one. |
 | B | **2 — `RootstockTemplate` is the front door** | The template's `differential` variant is the reason `DifferentialBackend` is non-optional; it is **not real until M15**, and `rootstock init --template differential` must fail with a named message before then rather than generate a non-driving project. |
 | C | **3 — AdvantageKit is REQUIRED** | The `RootstockLog` **fan-out SPI in §1.1 is deleted.** There is one logging path (AdvantageKit's `Logger`) and no `AdvantageKitSink` / `DataLogSink` / `HootSink` / `NtSink` / `NullSink` to choose between. Replay determinism — which `LocalADStarAK`, the trigger engine and `OdometryReport` all depend on — is now a **guarantee**, not a configuration. The cost: a team on DogLog or plain Epilogue cannot adopt Rootstock at all. |
 | D | **1 + §7.2 of the roadmap** | The **two-artifacts-from-one-tree** plan in §12 item 7 is reversed. The project is **single-line** after M12; the 2026 line and the rename generator are deleted at the end of it. |
-| E | **4 — BSD-3-Clause** | Licence decided. No "TBD" anywhere. |
+| E | **4 — BSD-3-Clause** | License decided. No "TBD" anywhere. |
 
 **Revision 3.1 changelog — what the 2026-08-07 six-lens design review did to this document.** Five findings were routed here. Three were applied in full at the time; two were cross-domain contract changes that a separate reconciliation pass owned, and were marked in place with `<!-- CONTRACT-PENDING -->` comments rather than edited, so two parallel edits could not collide on the same seam.
 
@@ -26,7 +26,7 @@
 | R2 | Binding **D17** deleted `VisionObservation`; this document still defines it and still declares `addVisionMeasurement(VisionObservation)`. `[SUPERSEDED-NAME]` | major | ~~**CONTRACT-PENDING** for the type change~~ — **APPLIED, revision 3.2 (2026-08-08).** The record is deleted from §1.3, `VisionConsumer` is declared in §3.3.2, `RootstockDrive implements … VisionConsumer` and its sink is `accept(Pose2d, double, Matrix<N3,N1>)` (§3.3), and §8.3's timestamp paragraph names the method. **The part that needed a design answer rather than a mechanical edit was answered in full at revision 3.1** — `tagCount`/`avgTagDistanceMeters` do not survive D17's three-argument signature, and §8.3 says where they go and why widening the signature would be wrong. |
 | R3 | The auto DSL claimed **2 cm** from `alignAtEnd`, a fused-pose controller; `design/03` §13.3 states as an invariant that 2 cm "is achievable [in `alignToTag`] and nowhere else," and `alignToTag` was unreachable from `AutoStep`. | major | **APPLIED, both halves.** `AutoStep.alignToTagAtEnd(...)` added (§6.4) with a documented fallback to `alignAtEnd` when vision is absent, wired through `RootstockAuto.withVision(...)` (§5.1) so `org.rootstock.auto` imports nothing from `org.rootstock.vision`; **and** every 2 cm claim on the fused-pose path is corrected with the arithmetic shown (§6.7, §9). +0.2 pw booked against M11 (§13). |
 | R4 | `design/03` §13.2's *"required change, not a suggestion"* — `RootstockDriveToPose` default `tolerance(0.02 m, 1.5°)` → `tolerance(0.05 m, 2.0°)` — was never made, in the builder or in either worked example. | major | **APPLIED** at §9's builder and §10's example, with `design/03` §13.2's javadoc and the sigma derivation reproduced at the builder (§9). The third site, `DESIGN.md` §10B line 1112, belongs to that document — requested, not edited here. **Extended 2026-08-08 (`DESIGN.md` §16 item 2's named residue, which was this document's one-line edit and is now made):** the number is declared **once**, at §9's `RootstockDriveToPose.kDefaultTolerance` / `kDefaultAngularTolerance`, and the three sites that used to retype it read it by name instead — §10's worked example, §9's builder-default comment, and §6.5's `alignToTagAtEnd` fused fallback. §6.7.1 still *states* 5 cm / 2.0°, because that is the section that derives it, and it now says so explicitly rather than reading like a second declaration. **Verified 2026-08-08:** `grep -n 'tolerance(Meters\.of(0\.05)' design/05-drivetrain-auto.md` returns **zero**, and `grep -c 'kDefaultTolerance\|kDefaultAngularTolerance' design/05-drivetrain-auto.md` returns **11** lines — the 2-line declaration (§9), the 2-line DSL fused fallback (§6.5), the 2-line builder-default comment (§9), the 2-line §10 call site, §6.7.1's derivation pointer, §15.2 row 12's record, and this cell. **The count is not the gate**; the gate is that the *literal* count is zero, which is the grep above it. `DESIGN.md` §10B was independently closed at that document's revision 7 and also reads the constants by name, so the tolerance is now a literal in exactly one place in the whole design. |
-| R5 | Raw literal `9_999_999` for vision heading trust where `design/03` §8.0 Rule 1 establishes `StdDevModels.UNTRUSTED_SIGMA = 1e6` as the library-wide named sentinel. | minor | **APPLIED** at all four sites (§3.4.4, §8.2, §8.3 ×2), and §8.3's competing std-dev *formula* is retired in favour of `design/03` §8.4's model, which that domain owns (§0.2). |
+| R5 | Raw literal `9_999_999` for vision heading trust where `design/03` §8.0 Rule 1 establishes `StdDevModels.UNTRUSTED_SIGMA = 1e6` as the library-wide named sentinel. | minor | **APPLIED** at all four sites (§3.4.4, §8.2, §8.3 ×2), and §8.3's competing std-dev *formula* is retired in favor of `design/03` §8.4's model, which that domain owns (§0.2). |
 
 Four further items that name this document elsewhere in the review, and are applied here because nothing else edits this file:
 
@@ -35,7 +35,7 @@ Four further items that name this document elsewhere in the review, and are appl
 - **`DESIGN.md` §16 item 2 (a)–(d)** — four corrections that document ordered on this one and tracked as outstanding. All four applied: `RootstockDriveConfig.v01Competition()` (§3.7), the four-argument `driverNudge` (§9), the `TunerConstants.kFrontLeftXPos`/`kFrontLeftYPos` + four-argument `CtreSwerveBackend` fix to §10's example, and the `OdometryReport`-ships-with-the-funnel note (§13, already M9).
 - The `~6 cm` trajectory-terminal-error figure in §6.7 was uncited. Under Principle 10 it is now tagged and pointed at `OdometryReport.trajectoryTest`, the routine in this document that measures it.
 
-> **The `[SUPERSEDED-NAME]` marker — why three deleted names still appear in this document (added 2026-08-08).** `getGyroHeading`, `VisionObservation` and `RootstockAlerts.` are all dead, and every one of them still occurs here, in a **labelled supersession or review-log site**. `[SUPERSEDED-NAME]` Deleting those occurrences would delete the record of the correction — R1, R2, §15.2 rows 9/10 and §15.3 row 14 exist precisely to say that this document *used to* declare `getGyroHeading()` and *used to* declare the `VisionObservation` record, which is the finding, not a residue of it. So [`DESIGN.md`](../DESIGN.md) §16 items **6** and **7** carve them out with the literal marker above, and this document now carries it.
+> **The `[SUPERSEDED-NAME]` marker — why three deleted names still appear in this document (added 2026-08-08).** `getGyroHeading`, `VisionObservation` and `RootstockAlerts.` are all dead, and every one of them still occurs here, in a **labeled supersession or review-log site**. `[SUPERSEDED-NAME]` Deleting those occurrences would delete the record of the correction — R1, R2, §15.2 rows 9/10 and §15.3 row 14 exist precisely to say that this document *used to* declare `getGyroHeading()` and *used to* declare the `VisionObservation` record, which is the finding, not a residue of it. So [`DESIGN.md`](../DESIGN.md) §16 items **6** and **7** carve them out with the literal marker above, and this document now carries it.
 >
 > **Marker scope is [`design/02`](02-tuning.md) §0's, not a second definition:** the same line; or any line of the same **fenced code block**, the same **block-quote**, or the same **markdown table**, plus the block-quote immediately preceding a fence. **This document places every marker on the same line as the name it carves** — the strictest reading — except for this definition block, which relies on the block-quote clause for its own second paragraph.
 >
@@ -103,7 +103,7 @@ package org.rootstock.telemetry;
 /** Tiered STATIC facade over AdvantageKit's Logger. AdvantageKit is a REQUIRED dependency
  *  (maintainer decision 3), so this is NOT a fan-out SPI: the AdvantageKitSink /
  *  DataLogSink / HootSink / NtSink / NullSink implementations named in revision 2 are
- *  DELETED, along with the LogBackend SPI itself. One path, one behaviour, and
+ *  DELETED, along with the LogBackend SPI itself. One path, one behavior, and
  *  deterministic replay is a GUARANTEE rather than a property of the sink a team picked --
  *  which is what LocalADStarAK (§8), the trigger engine (§6.2) and OdometryReport rely on. */
 public final class RootstockLog {
@@ -198,11 +198,11 @@ public final class Alerts {
 public enum MatchImpact { BLOCKS_MATCH, PIT_ONLY }
 ```
 
-> **`info` takes TWO arguments, and revision 3.1 of this document was the outlier that said otherwise — corrected 2026-08-08 (`design/03` §2.7 contract **C13**).** This mirror previously declared `info(String group, String text, MatchImpact impact)`, i.e. three arguments. `design/06` **owns** the alert facade under **D10**, and `design/06`, `design/01` and `design/03` §2.4 all declare `public static RootstockAlert info(String group, String text);` with the same comment: *INFO is PIT_ONLY by definition — an informational alert cannot stop a match.* Three documents to one, and the one is a labelled mirror rather than the declaration site, so **this document conforms.** A `MatchImpact` parameter on `info` is not a question the author can meaningfully answer — the only answer the type permits that is consistent with the severity is `PIT_ONLY` — and a parameter with one legal value is a parameter that teaches a student to type a word instead of make a decision, which is the exact failure D10 exists to prevent on `error`/`warning`.
+> **`info` takes TWO arguments, and revision 3.1 of this document was the outlier that said otherwise — corrected 2026-08-08 (`design/03` §2.7 contract **C13**).** This mirror previously declared `info(String group, String text, MatchImpact impact)`, i.e. three arguments. `design/06` **owns** the alert facade under **D10**, and `design/06`, `design/01` and `design/03` §2.4 all declare `public static RootstockAlert info(String group, String text);` with the same comment: *INFO is PIT_ONLY by definition — an informational alert cannot stop a match.* Three documents to one, and the one is a labeled mirror rather than the declaration site, so **this document conforms.** A `MatchImpact` parameter on `info` is not a question the author can meaningfully answer — the only answer the type permits that is consistent with the severity is `PIT_ONLY` — and a parameter with one legal value is a parameter that teaches a student to type a word instead of make a decision, which is the exact failure D10 exists to prevent on `error`/`warning`.
 >
 > **This does not weaken D10.** D10's requirement is that `MatchImpact` be *"required at every call site with no default and no single-argument overload"*, and it binds `error` and `warning`, which are the two that can mean *do not take the field*. Both keep the third argument here and everywhere. **`DESIGN.md` §16 item 7 still owes the one sentence that records which way this was adjudicated** — its Required text spells the sweep target as three-argument `info` — and that sentence is `DESIGN.md`'s to write, not this document's; it is named here so the residue is not lost.
 >
-> **Adjudicated in the master, not just settled here: `DESIGN.md` §5.2 **D32** (revision 8, 2026-08-08) rules for the two-argument form** and narrows D10 explicitly rather than weakening it — *"D10's 'required at every call site, no default, no single-argument overload' **binds `error` and `warning`**… `info` is exempt because its impact is constant, and the exemption is `info`'s alone and does not generalise."* D32 also forbids `Alerts` adding a two-argument `error` or `warning`, and states that a future `Severity` whose impact is *not* constant takes the three-argument form. **`DESIGN.md` §16 item 7's owed sentence is discharged by D32; this document's job was to stop being the outlier, and it has.**
+> **Adjudicated in the master, not just settled here: `DESIGN.md` §5.2 **D32** (revision 8, 2026-08-08) rules for the two-argument form** and narrows D10 explicitly rather than weakening it — *"D10's 'required at every call site, no default, no single-argument overload' **binds `error` and `warning`**… `info` is exempt because its impact is constant, and the exemption is `info`'s alone and does not generalize."* D32 also forbids `Alerts` adding a two-argument `error` or `warning`, and states that a future `Severity` whose impact is *not* constant takes the three-argument form. **`DESIGN.md` §16 item 7's owed sentence is discharged by D32; this document's job was to stop being the outlier, and it has.**
 >
 > **Zero call sites were affected, verified with a call-shaped grep rather than a bare-string one:** `grep -rn 'Alerts\.info([^)]*)[[:space:]]*;' design/ DESIGN.md README.md` returns **zero** (2026-08-08). *(The bare `Alerts\.info(` grep returns 4 and rising — D10's cell, D32's cell, `DESIGN.md` §16 item 7 and `design/04` §2's ownership sentence — all **prose about the signature**. A gate that counts documents correctly describing a method is not a gate, which is the lesson `DESIGN.md` §16 draws four times over.)* This document raises no INFO alert; every entry in the impact table below is an `error` or a `warning`, and every one carries its `MatchImpact`.
 
@@ -598,7 +598,7 @@ m_backend.existingSubsystem().ifPresent(s ->
 
 #### 3.3.2 The four drive-facing interfaces — **declared here, and only here**
 
-Binding **D16** (`DESIGN.md` §5.3): *"Drive owns all four, in `org.rootstock.drive`. `RootstockDrive` implements `PoseProvider`, `AlignableDrive` and `DriveTelemetry`, and accepts a `VisionConsumer`."* This subsection is that declaration. `design/03` §2.2 and §13.1 and `design/04` §1.2 carry consumed-surface mirrors, each labelled as a mirror and each deferring to this document; **there is no second declaration anywhere in the design.**
+Binding **D16** (`DESIGN.md` §5.3): *"Drive owns all four, in `org.rootstock.drive`. `RootstockDrive` implements `PoseProvider`, `AlignableDrive` and `DriveTelemetry`, and accepts a `VisionConsumer`."* This subsection is that declaration. `design/03` §2.2 and §13.1 and `design/04` §1.2 carry consumed-surface mirrors, each labeled as a mirror and each deferring to this document; **there is no second declaration anywhere in the design.**
 
 ```java
 package org.rootstock.drive;
@@ -1445,7 +1445,7 @@ package org.rootstock.auto;
  * @param cameraIndex      which camera owns this alignment
  * @param acceptableTagIds tag ids allowed to drive it; the camera's tag filter is set to these on
  *                         init and RESTORED on end, so a defender's bumper tag cannot steal the
- *                         solve. Vision owns that behaviour; auto only supplies the ids.
+ *                         solve. Vision owns that behavior; auto only supplies the ids.
  * @param tagRelativeGoal  TAG -> desired ROBOT ORIGIN. Written once, correct at every tag on the
  *                         field, and — this is the reason the step exists — expressed in a frame
  *                         where odometry drift, gyro-offset error, AprilTag-layout error and
@@ -1841,7 +1841,7 @@ public final class AutoStep {
   public AutoStep hold();                                    // no drive motion this step
 
   // ---- what the mechanisms do --------------------------------------------
-  /** Runs in parallel with the drive motion; cancelled when the step ends. */
+  /** Runs in parallel with the drive motion; canceled when the step ends. */
   public AutoStep with(Command parallel);
   /** Request a superstructure goal now, fire-and-forget. Never takes requirements. */
   public <G extends Enum<G>> AutoStep goal(G goal);
@@ -2151,7 +2151,7 @@ private Command fusedAlign(AutoStep s, Distance tol, Angle angTol, String pathLa
 }
 ```
 
-`Rootstock/Auto/Steps/<i>/AlignPath` is a **CRITICAL** string topic. Which of the three paths a step actually took — `"tag-relative"`, `"fused"`, `"fused-fallback"` — is the first question anyone asks about an auto that scored a few centimetres off, and it must be answerable from a match log rather than by reproducing the camera state in the shop.
+`Rootstock/Auto/Steps/<i>/AlignPath` is a **CRITICAL** string topic. Which of the three paths a step actually took — `"tag-relative"`, `"fused"`, `"fused-fallback"` — is the first question anyone asks about an auto that scored a few centimeters off, and it must be answerable from a match log rather than by reproducing the camera state in the shop.
 
 `retry` wraps this in a bounded loop using `Commands.repeatingSequence(...).until(...)` with an explicit counter; `orSkipTo` sets an index on a shared `RoutineState` that the outer `Commands.select(...)` reads.
 
@@ -2286,7 +2286,7 @@ The distance dependence is steep enough to be worth writing out, because it is a
 
 **Term 2 — and this is the one that makes the close-range column misleading — field-layout error.** The fused pose is expressed in the *published* field frame; the scoring pose is authored in that same frame; the tag is a *physical object* that may not be where the layout says. On a fused-pose align, any difference between the published layout and the as-built field is a pure, uncorrectable bias — it moves the goal without moving the estimate. FIRST's own 2025 Team Update 12 documents that on an AndyMark field perimeter the PROCESSOR opening and its AprilTags shift about **2.7 in (6.9 cm)** in X relative to the published layout, and that the CORAL STATION connection varies overall field width and those tags in both X and Y ([Team Update 12](https://firstfrc.blob.core.windows.net/frc2025/Manual/TeamUpdates/TeamUpdate12.pdf)). **[UNVERIFIED — this figure comes from a search summary of the primary PDF; the PDF could not be machine-read in this pass. Re-read it before quoting the number in published docs.]** The existence of WPILib's **WPIcal** tool, and `design/03`'s `FieldLayouts` WPIcal-ingestion + delta-logging path, are themselves evidence that this term is real and non-trivial ([WPIcal docs](https://docs.wpilib.org/en/stable/docs/software/wpilib-tools/wpical/index.html)). On the tag-relative path this term is **exactly zero**: the goal is expressed relative to the tag we are looking at, so a mislocated tag moves the measurement and the goal together.
 
-**Term 3 — heading.** Vision never corrects heading in Rootstock: `σ_θ` is pinned to `StdDevModels.UNTRUSTED_SIGMA` for every gyro-fused source (§8.2, §8.3), so field heading is the gyro plus the offset seeded at the last `resetPose`. A residual heading error `ε` displaces a control point offset `r` from the robot centre by `r · sin ε` — at `r = 0.35 m` and `ε = 1.0°` that is `0.35 · sin(1°) = 0.0061 m ≈ 6 mm`. Small, but it is a *bias*, and it is one more term the tag-relative path does not carry, because the tag-relative controller measures its own yaw error against the tag face directly.
+**Term 3 — heading.** Vision never corrects heading in Rootstock: `σ_θ` is pinned to `StdDevModels.UNTRUSTED_SIGMA` for every gyro-fused source (§8.2, §8.3), so field heading is the gyro plus the offset seeded at the last `resetPose`. A residual heading error `ε` displaces a control point offset `r` from the robot center by `r · sin ε` — at `r = 0.35 m` and `ε = 1.0°` that is `0.35 · sin(1°) = 0.0061 m ≈ 6 mm`. Small, but it is a *bias*, and it is one more term the tag-relative path does not carry, because the tag-relative controller measures its own yaw error against the tag face directly.
 
 **The budget, and the two numbers that come out of it.**
 
@@ -2396,7 +2396,7 @@ public final class RootstockAutoSelector {
 }
 ```
 
-Behaviour rules, all non-negotiable:
+Behavior rules, all non-negotiable:
 
 1. **Responses freeze on the first autonomous enable.** A dropdown changed mid-match is a lost match.
 2. **Everything is force-warmed at `robotInit`.** Lazy generation is a chooser convenience, not a reason to load a `.traj` during autonomous — loading is blocking and can cost seconds on a roboRIO. `RootstockAuto.warmup()` walks `allVariants()`, builds each command once, discards it, and logs total warmup time.
@@ -2614,10 +2614,10 @@ public final class CharacterizationSafety {
    *  2. MatchContext.isFMSAttached() is FALSE. Characterization never runs at an event on a
    *     field. NOT DriverStation.isFMSAttached() — ArchUnit rule 10 permits only
    *     org.rootstock.core.match.. to name DriverStation, and MatchContext latches the value on
-   *     the DS-connect edge, which is also the behaviour we want here: a DS that drops out
+   *     the DS-connect edge, which is also the behavior we want here: a DS that drops out
    *     mid-ramp must not silently re-arm a stall test. (Revision 3.1; DESIGN.md §16 item 3.)
    *  3. The operator has acknowledged this specific routine's physical setup THIS BOOT
-   *     (confirm(...) below). Acknowledgement does not persist across a reboot.
+   *     (confirm(...) below). Acknowledgment does not persist across a reboot.
    *  4. Every drive motor reports connected, and no drive motor is above the temperature ceiling.
    *  5. The last OdometryReport verdict is not UNTRUSTWORTHY for the routines that depend on
    *     pose (wheelCof, momentOfInertia). A bad pose makes the measurement wrong AND the abort
@@ -2628,7 +2628,7 @@ public final class CharacterizationSafety {
   public enum Routine { FEEDFORWARD, WHEEL_RADIUS, SLIP_CURRENT, MOMENT_OF_INERTIA, WHEEL_COF }
 
   /**
-   * Operator acknowledgement. Set from the dashboard boolean Rootstock/Char/<Routine>/Confirm,
+   * Operator acknowledgment. Set from the dashboard boolean Rootstock/Char/<Routine>/Confirm,
    * which RootstockCharacterization publishes as FALSE at every boot. The prompt text names the
    * physical setup — this is the whole point:
    *
@@ -2738,7 +2738,7 @@ public final class OdometryTrust {
    *     as a MULTIPLIER on whatever matrix arrives:
    *         effective = arriving ⊙ skidInflation(skidReport)
    *     applied inside accept(...), clamped to [1, 100] by withSkidInflation.
-   *   - The reject predicates below (gyro rate, off-field, no tags) are POLICY, not modelling.
+   *   - The reject predicates below (gyro rate, off-field, no tags) are POLICY, not modeling.
    *     rejectWhenNoTags() is expressed as "reject when the arriving σ_xy exceeds the no-tag
    *     threshold", because a zero-tag frame is exactly a frame vision already assigned an
    *     enormous sigma. No extra field is required to implement it.
@@ -2757,7 +2757,7 @@ public final class OdometryTrust {
 - **vision, enabled:** whatever `design/03` §8.4's selected `StdDevModel` returns. The default is `StdDevModels.rootstockDefault()` == `advantageKit(0.02, 0.06)`, i.e. `σ_xy = 0.02·d²/n` with MegaTag2 taking a further 0.5× on the linear term — **4.5 cm at 3 m with two tags**, derived in §6.7.1. `σ_θ` is pinned to `StdDevModels.UNTRUSTED_SIGMA`.
 - **vision, disabled, ≥2 tags:** `σ_θ = 0.3`; **disabled, 1 tag:** `σ_θ = 0.9`. This is the one place this domain sets a rotation sigma, because it is the disabled-seed policy (§8.2), not a model.
 
-If a team wants the looser behaviour the withdrawn formula produced, that is `StdDevModels.quadraticGrowth(base)` or a custom `StdDevModel` — selected in the vision domain, in one place, where it is logged.
+If a team wants the looser behavior the withdrawn formula produced, that is `StdDevModels.quadraticGrowth(base)` or a custom `StdDevModel` — selected in the vision domain, in one place, where it is logged.
 
 **Timestamp discipline:** the `fpgaTimestampSeconds` argument handed to `RootstockDrive.accept(...)` (§3.3.2's `VisionConsumer`) is preserved byte-for-byte to the estimator. At 4 m/s a 20 ms timestamp error is `4.0 · 0.020 = 0.08 m = 8 cm` — larger than the 5 cm fused-pose alignment tolerance §9 defaults to, and 4× the 2 cm tag-relative one. `accept(...)` never re-timestamps and never buffers; the only legal transformation is the CTRE Phoenix-timebase conversion, which happens one layer down in `CtreSwerveBackend` (§3.4.1) and is unchanged by D17.
 
@@ -3280,7 +3280,7 @@ public class RobotContainer {
     m_driver.x().whileTrue(Commands.run(m_drive::brake, m_drive.requirement()));
 
     // ---- 4. One-button scoring alignment -----------------------------------------
-    // FUSED-POSE align: the target is "nearest scoring pose", a multi-metre approach in the field
+    // FUSED-POSE align: the target is "nearest scoring pose", a multi-meter approach in the field
     // frame, so 5 cm / 2 deg is the honest tolerance and is now also the default (§6.7.1).
     // Asking for 2 cm here is what produced a timeout alert on every alignment in revision 3.
     // Driver nudge suppliers are DRIVER-PERSPECTIVE (forward-positive, left-positive), so the
@@ -3458,7 +3458,7 @@ What this design does about it, concretely:
 
 11. **Where does `WheelForces` module-order validation live?** PathPlanner emits FL, FR, BL, BR. CTRE's `SwerveDrivetrain` module order is whatever Tuner X generated. If a team reorders modules in Tuner X, the force arrays silently fight the robot under acceleration and nothing errors. We can detect it at runtime (correlate commanded force direction against measured module velocity direction during a hard acceleration) — is that worth ~60 lines in `DriveSelfCheck`, or is a documented convention plus the geometry sign check in §3.8 sufficient? **Leaning: add the runtime correlation check as a `RootstockCharacterization.verifyModuleOrder(drive)` command rather than a boot check.**
 
-12. ~~**Does the auto DSL get a tag-relative alignment step, or do the auto examples retreat to fused-pose-honest 5 cm claims?**~~ **RESOLVED (revision 3.1), and the answer is BOTH, because they are answers to different questions.** The review posed it as an either/or (REVIEW §10 open question 1). It is not one: the 5 cm correction is mandatory regardless — `alignAtEnd` exists, teams will use it on non-tag targets, and a default it cannot hit is a defect whether or not a second step exists. The tag-relative step is *additionally* worth +0.2 pw because the controller it wraps is already built at M10 and the alternative is that the library's own flagship auto example demonstrates the worse of its two alignment paths. So: `alignToTagAtEnd` ships (§6.4), `RootstockDriveToPose`'s default becomes 5 cm / 2.0° (§9), §6.7.1 carries the arithmetic, and both worked examples say which path they take and why. **Still open, narrowly:** whether `alignToTagAtEnd`'s no-vision fallback should be a build-time *warning* as well as a runtime log. Current answer is log-only — an auto that refuses to build because a camera is unplugged is a worse failure than one that aligns 3 cm loose — but that is a judgement call, and a team that only ever runs with vision might want the louder version.
+12. ~~**Does the auto DSL get a tag-relative alignment step, or do the auto examples retreat to fused-pose-honest 5 cm claims?**~~ **RESOLVED (revision 3.1), and the answer is BOTH, because they are answers to different questions.** The review posed it as an either/or (REVIEW §10 open question 1). It is not one: the 5 cm correction is mandatory regardless — `alignAtEnd` exists, teams will use it on non-tag targets, and a default it cannot hit is a defect whether or not a second step exists. The tag-relative step is *additionally* worth +0.2 pw because the controller it wraps is already built at M10 and the alternative is that the library's own flagship auto example demonstrates the worse of its two alignment paths. So: `alignToTagAtEnd` ships (§6.4), `RootstockDriveToPose`'s default becomes 5 cm / 2.0° (§9), §6.7.1 carries the arithmetic, and both worked examples say which path they take and why. **Still open, narrowly:** whether `alignToTagAtEnd`'s no-vision fallback should be a build-time *warning* as well as a runtime log. Current answer is log-only — an auto that refuses to build because a camera is unplugged is a worse failure than one that aligns 3 cm loose — but that is a judgment call, and a team that only ever runs with vision might want the louder version.
 
 13. **Should `AutoStep` expose a tag-relative *goal library* rather than raw `Transform3d`s?** `alignToTagAtEnd(cam, ids, tagRelativeGoal, timeout)` is honest but verbose at the call site, and every scoring face on a given field shares a small set of goals ("20 cm out, squared up"; "20 cm out, 15 cm left"). A `TagGoals` holder in the field-constants domain would let a step read `.alignToTagAtEnd(kReefCamera, kReefLeftTags, TagGoals.kL4Left, 0.6)`. That is field-year-specific data, which is the field domain's job and not this one's, so the DSL keeps the raw type and the team keeps the constants file. **Revisit if `FieldMap` grows a scoring-pose table**, at which point the tag-relative goals belong next to the blue poses.
 
@@ -3503,7 +3503,7 @@ One item was found while applying the review and is not attributable to it: **§
 Four items were changed **beyond** the five findings routed here, and are flagged as such in place:
 
 - **§1.4 / D10 `MatchImpact`** — REVIEW M5 found that `MatchImpact`, *"required at every call site with no default and no single-argument overload,"* appears in **zero** of the five domain docs. This document used a two-argument `RootstockAlerts` facade throughout. Swept, with the impact for each of the eight call sites chosen and tabulated at §1.4 rather than left to the implementer — the point of D10 is that the author of a guard answers "does this stop us taking the field?" while writing it.
-- **§0.3 rule 4 and §8.1.1 / ArchUnit rule 10** — `RobotBase.isSimulation()` and `DriverStation.isFMSAttached()` named directly. Only `org.rootstock.core.match..` may read `DriverStation`. Both corrected; the `MatchContext` version is also the *better* behaviour for a stall test, because it latches on the DS-connect edge and a DS that drops out mid-ramp must not silently re-arm.
+- **§0.3 rule 4 and §8.1.1 / ArchUnit rule 10** — `RobotBase.isSimulation()` and `DriverStation.isFMSAttached()` named directly. Only `org.rootstock.core.match..` may read `DriverStation`. Both corrected; the `MatchContext` version is also the *better* behavior for a stall test, because it latches on the DS-connect edge and a DS that drops out mid-ramp must not silently re-arm.
 - **`DESIGN.md` §16 item 2 (a)–(d)** — four corrections that document ordered on this one and has been tracking as outstanding. All four applied: `RootstockDriveConfig.v01Competition()` with a *complaining* rather than silently-downgrading `competition()`; the four-argument driver-perspective `driverNudge`; §10's non-existent `TunerConstants.kFrontLeftLocation` replaced with the real `kFrontLeftXPos`/`kFrontLeftYPos` and a four-argument `CtreSwerveBackend`; and the `OdometryReport`-ships-in-M9 note made explicit.
 - **§3.4.2's dropped "~10-15%"** — an uncited performance number inside an alert string, i.e. a folklore statistic in the one place a team is guaranteed to read it. Deleted, on the same grounds §8 deleted its own.
 

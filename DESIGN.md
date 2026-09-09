@@ -581,12 +581,13 @@ org.rootstock.hardware
 org.rootstock.config                 MotorSpec (sealed), MotorGroup, FeedbackSpec (sealed), SensorSpec,
                                       CurrentLimits, PositionLimits, ControlConfig, MotionConstraints,
                                       SimConfig, Setpoint, HardStop, Follower, Registry (opt-OUT enum),
+                                      HomingStrategy (sealed; declared with the axis it homes),
                                       PositionConfig / VelocityConfig / SimpleConfig (+Builders, +with*()),
                                       Validation, ConfigError, MechanismConfigSnapshot
 
 org.rootstock.mechanism              Mechanism (implements Subsystem, TelemetrySource, HealthSource,
                                       SelfTestable, TuningTarget), PositionMechanism, VelocityMechanism,
-                                      SimpleMechanism, MechanismMode, HomingStrategy (sealed), ManualControl,
+                                      SimpleMechanism, MechanismMode, HomingRunner, ManualControl,
                                       ContinuousUnwrap, GoalBus
 
 org.rootstock.superstructure         Superstructure (implements GoalBus), SuperState, AxisGoal (sealed),
@@ -842,6 +843,8 @@ Revision 1 presented one flagship example and a 12× line-count claim, both writ
 
 The line-count comparison in §10.7 is computed against **§10A only**, because that is the block whose denominator was measured against real repositories.
 
+**Where the compiling copy lives.** The four blocks below were extracted from this document, compiled against the `rootstock` and `rootstock-phoenix6` classes with `javac`, and edited until the compiler was silent. Nothing re-checks them on every commit yet, so the authority when they drift is `rootstock/src/test/java/org/rootstock/example/`, which holds the same robot against the shipped API and is compiled by the build. [`design/01` §9](design/01-core-mechanisms.md) is the longer form of the same example, with a roller and a fuller state machine; when §10A and §9 disagree, §9 owns the domain.
+
 ### 10A.1 `RobotConfig.java` — the physical robot, as data
 
 ```java
@@ -849,13 +852,10 @@ package frc.robot;
 
 import static edu.wpi.first.units.Units.*;
 
-import org.rootstock.config.*;
-import org.rootstock.control.Gains;
-import org.rootstock.mechanism.HomingStrategy;
-import org.rootstock.pure.units.Reduction;
-import org.rootstock.superstructure.SafetyModel;
+import org.rootstock.config.*;          // PositionConfig, MotorSpec, HomingStrategy, Setpoint, ...
+import org.rootstock.control.Gains;     // Gains is in control, NOT config
+import org.rootstock.pure.units.Reduction;   // Reduction is in pure.units, NOT units
 import org.rootstock.units.LinearAxis;
-import org.rootstock.units.Range;
 import org.rootstock.units.RotaryAxis;
 
 /** Every number that describes this robot's mechanisms. Nothing else. */
@@ -873,7 +873,7 @@ public final class RobotConfig {
       .currentLimits(CurrentLimits.of(Amps.of(70), Amps.of(40)))
       // ControlLocation is omitted on purpose: it DEFAULTS to ON_MOTOR_PROFILED because the
       // leader is a TalonFX, and describe() prints that, with provenance DEFAULTED.
-      .gains(Gains.UNTUNED)                                // <-- run the wizard. See §10A.6.
+      .gains(Gains.UNTUNED)                                // <-- run the wizard. See section 10A.6.
       .constraints(MotionConstraints.of(/* m/s */ 1.6, /* m/s^2 */ 6.0))
       .tolerance(Inches.of(0.5), /* m/s */ 0.05, /* debounce s */ 0.06)
       .manualControl(/* deadband */ 0.10, /* scale */ 0.30)
@@ -919,14 +919,9 @@ public final class RobotConfig {
   public static final Setpoint ARM_SCORE     = ARM.setpoint("SCORE");
   public static final Setpoint ARM_INTAKE    = ARM.setpoint("INTAKE");
 
-  // ---- Interlocks ship with the superstructure in M4. The collision-avoidance ROUTER
-  //      (SafetyModel's 2-axis bounding-box router) is M14. Both are v0.1. ----
-  public static final SafetyModel SAFETY = SafetyModel.over(ELEVATOR, ARM)
-      .forbid("arm-through-chassis",
-              Range.of(Inches.of(0), Inches.of(9)),
-              Range.of(Degrees.of(-15), Degrees.of(40)),
-              "the arm hits the chassis crossbar below 9 in")
-      .build();
+  // The collision model is NOT here. SafetyModel.over() reads the two axes' measured positions
+  // every loop, so it takes the constructed mechanisms, not these config records; it is built in
+  // 10A.3 instead. This file holds numbers.
 }
 ```
 
@@ -1005,16 +1000,21 @@ public enum SuperState implements org.rootstock.superstructure.SuperState {
 ```java
 package frc.robot;
 
+import static edu.wpi.first.units.Units.*;
+
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 
 import org.rootstock.core.RootstockRegistry;
 import org.rootstock.core.hid.ControlMap;
 import org.rootstock.core.selftest.SelfTest;
-import org.rootstock.hardware.phoenix.TalonFXMotorIO;
+import org.rootstock.hardware.phoenix.TalonFXMotorIO;   // rootstock-phoenix6 artifact
 import org.rootstock.mechanism.PositionMechanism;
 import org.rootstock.superstructure.AxisGoal;
+import org.rootstock.superstructure.Interlock;
+import org.rootstock.superstructure.SafetyModel;
 import org.rootstock.superstructure.Superstructure;
 import org.rootstock.tuning.wizard.TuningWizard;
+import org.rootstock.units.Range;
 
 public class RobotContainer {
 
@@ -1022,20 +1022,35 @@ public class RobotContainer {
   public static final PositionMechanism ELEVATOR = new PositionMechanism(RobotConfig.ELEVATOR);
   public static final PositionMechanism ARM      = new PositionMechanism(RobotConfig.ARM);
 
+  // ---- 1b. The collision model, built HERE and not in RobotConfig, because SafetyModel.over()
+  //      reads the two axes' MEASURED positions every loop: it takes the mechanisms, not the
+  //      config records. Interlocks ship with the superstructure in M4; the 2-axis bounding-box
+  //      ROUTER is M14. Both are v0.1. ----
+  public static final SafetyModel SAFETY = SafetyModel.over(ELEVATOR, ARM)
+      .forbid("arm-through-chassis",
+              Range.of(Inches.of(0), Inches.of(9)),
+              Range.of(Degrees.of(-15), Degrees.of(40)),
+              "the arm hits the chassis crossbar below 9 in")
+      .build();
+
   // ---- 2. The drivetrain you already have. Rootstock does not touch it in v0.1. ----
   private final CommandSwerveDrivetrain m_drive = TunerConstants.createDrivetrain();
 
   // ---- 3. Superstructure: interlocks + default-output inversion ----
   private final Superstructure<SuperState> m_super =
-      Superstructure.builder(SuperState.class, SuperState.IDLE)
-          .mechanisms(ELEVATOR, ARM)
-          .safety(RobotConfig.SAFETY)
+      new Superstructure.Builder<>(SuperState.class, SuperState.IDLE)
+          .safety(SAFETY)
+          // defaultFor registers the mechanism as well as declaring what it does when no state
+          // names it, so there is no separate "here are my mechanisms" list to keep in sync.
           .defaultFor(ELEVATOR, AxisGoal.of(RobotConfig.ELEVATOR_STOW))
           .defaultFor(ARM,      AxisGoal.of(RobotConfig.ARM_STOW))
-          .interlock("no-score-until-homed",
+          // interlock() takes the Interlock record, not five loose arguments: the record is the
+          // thing SuperstructureReport lists and the dashboard names.
+          .interlock(new Interlock<>(
+                     "no-score-until-homed",
                      from -> true, to -> to != SuperState.IDLE,
                      () -> ELEVATOR.isHomed() && ARM.isHomed(),
-                     "the elevator has not homed yet; press Start to home")
+                     "the elevator has not homed yet; press Start to home"))
           .build();
 
   private final CommandXboxController m_driver = new CommandXboxController(0);
@@ -1125,6 +1140,13 @@ public class Robot extends RootstockRobot {
 If you do not want to change your base class — which is the normal case on an existing robot — do not. See §11b:
 
 ```java
+package frc.robot;
+
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import org.littletonrobotics.junction.LoggedRobot;
+import org.rootstock.core.RootstockLifecycle;
+import org.rootstock.core.spi.LogConfig;   // core.spi, NOT telemetry (D31, ArchUnit rule 9)
+
 public class Robot extends LoggedRobot {                // or TimedRobot -- see the note below.
   private final RootstockLifecycle m_rootstock;
   private final RobotContainer m_container;

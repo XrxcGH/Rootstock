@@ -78,7 +78,8 @@ import org.rootstock.units.SiDomain;
  * same {@link RioControlLoop} every other roboRIO-side loop in this library runs — <b>in SI</b>,
  * because the gains are volts-per-SI and nothing else would mean anything.
  */
-public final class VelocityMechanism extends Mechanism {
+public final class VelocityMechanism extends Mechanism
+    implements org.rootstock.config.Validation.ConfigCarrier {
 
   /** The voltage ceiling the roboRIO-side loop clamps its own output to. */
   public static final double kMaxOutputVolts = 12.0;
@@ -102,6 +103,22 @@ public final class VelocityMechanism extends Mechanism {
   public static final double kDefaultSettleFractionPerSecond = 0.5;
 
   private final VelocityConfig m_config;
+
+  /**
+   * The config this mechanism was built from, for the boot-time validation sweep.
+   *
+   * <p>Implementing {@link org.rootstock.config.Validation.ConfigCarrier} is what makes validation
+   * reach a robot that registers its MECHANISMS rather than its configs, which is the flow every
+   * worked example teaches. Without it {@code Validation.addAll} received mechanisms, {@code
+   * errorsOf} recognised only configs, and the whole pipeline found nothing: no per-config faults
+   * and no CAN id collision check, on a robot that had done exactly what the documents said.
+   *
+   * @return the config, never null
+   */
+  @Override
+  public Object config() {
+    return m_config;
+  }
   private final ControlConfig m_control;
   private final ControlLocation m_location;
   private final RioControlLoop m_loop;
@@ -517,7 +534,7 @@ public final class VelocityMechanism extends Mechanism {
               m_name
                   + "/gains-untuned: closed-loop velocity control is refused because kP is the "
                   + "UNTUNED placeholder. Expected measured gains. Fix: run the tuning wizard, or "
-                  + "set .gains(Gains.feedforward(kS, kV, kA)) — a flywheel runs well on "
+                  + "set .gains(Gains.feedforward(kS, kV, kA)). A flywheel runs well on "
                   + "feedforward alone.")
           .set(true);
       m_outputVolts = 0.0;
@@ -711,7 +728,7 @@ public final class VelocityMechanism extends Mechanism {
         .append(m_location == m_control.location() ? "" : " (downgraded from " + m_control.location() + ")");
     sb.append(System.lineSeparator()).append("  loop:     ").append(m_loop.describe());
     sb.append(System.lineSeparator())
-        .append("  signals NOT read: position — a velocity mechanism does not pay CAN for a ")
+        .append("  signals NOT read: position. A velocity mechanism does not pay CAN for a ")
         .append("position it never uses, so MotorInputs.positionRot is NaN by design.");
     sb.append(System.lineSeparator())
         .append(
@@ -777,7 +794,7 @@ public final class VelocityMechanism extends Mechanism {
                 + "running in simulation, so Rootstock derived "
                 + guess.describe(SiDomain.ROTATIONAL_RADIANS)
                 + " from your declared moment of inertia and gearing. They were DERIVED, not "
-                + "measured — run the tuning wizard before trusting them on hardware.")
+                + "measured. Run the tuning wizard before trusting them on hardware.")
         .set(true);
     return guess;
   }
@@ -791,7 +808,10 @@ public final class VelocityMechanism extends Mechanism {
   private static MotorIO backendFor(VelocityConfig config) {
     Objects.requireNonNull(config, "VelocityMechanism: config must not be null");
     return MotorIOFactory.create(
-        config.motors().leader(),
+        // limits is null on purpose: a flywheel has no travel range, and inventing one would arm a
+        // firmware soft limit against a mechanism that is supposed to spin forever.
+        new MotorIOFactory.DeviceSetup(
+            config.motors(), config.current(), null, config.feedback()),
         config.units(),
         config.control(),
         MechanismKind.VELOCITY,

@@ -177,10 +177,10 @@ A team forks or clones **`RootstockTemplate`** and has a working robot project i
 
 | Rejected | Why |
 |---|---|
-| **MIT** | Functionally similar, but it does not *match WPILib*. Matching matters here for a specific, practical reason: a team copying one file out of Rootstock into their robot project is already doing that with WPILib source, under a licence their mentors have already accepted. Same licence, same answer, no new question. |
+| **MIT** | Functionally similar, but it does not *match WPILib*. Matching matters here for a specific, practical reason: a team copying one file out of Rootstock into their robot project is already doing that with WPILib source, under a license their mentors have already accepted. Same license, same answer, no new question. |
 | **Apache-2.0** | The patent grant and the NOTICE-file obligation are real value in a commercial context and pure friction in a high-school one. A rookie team should not have to reason about a NOTICE file to vendor a 40-line class. |
-| **GPL / LGPL** | Copyleft on a robot codebase that teams routinely copy from each other is a hazard, not a protection, and it is incompatible with the vendoring behaviour the library explicitly wants to encourage (`docs/graduation.md`, `docs/removing-rootstock.md`). |
-| **Leaving it TBD until v0.1** | Under MD1 that is a **three-to-four-year** wait. R21 (maintainer continuity) makes the licence a *mitigation*, not a formality: if the maintainer stops, a permissive licence plus Maven Central mirroring is what lets someone else continue. Deciding it late would have meant carrying the project's largest continuity risk unmitigated for its entire build. |
+| **GPL / LGPL** | Copyleft on a robot codebase that teams routinely copy from each other is a hazard, not a protection, and it is incompatible with the vendoring behavior the library explicitly wants to encourage (`docs/graduation.md`, `docs/removing-rootstock.md`). |
+| **Leaving it TBD until v0.1** | Under MD1 that is a **three-to-four-year** wait. R21 (maintainer continuity) makes the license a *mitigation*, not a formality: if the maintainer stops, a permissive license plus Maven Central mirroring is what lets someone else continue. Deciding it late would have meant carrying the project's largest continuity risk unmitigated for its entire build. |
 
 **Rationale, as given:** a team must be able to vendor a single file with no legal question, and anyone must be able to fork if the project stalls.
 
@@ -391,9 +391,9 @@ Requirement conflicts and periodic registration are independent in WPILib, so ke
 
 # Part 3 — Decisions made in response to the adversarial review
 
-### R1. `Gains.UNTUNED` is a real sentinel with defined behaviour, and quickstarts ship it
+### R1. `Gains.UNTUNED` is a real sentinel with defined behavior, and quickstarts ship it
 
-**Chosen:** `Gains.UNTUNED` (`kP = NaN`). In **simulation** it resolves at mechanism construction to a physics-derived first guess from `PlantPrior`, the demo moves, and the boot dump says *"derived from your declared mass, not measured — run the tuning wizard."* On **real hardware** the mechanism **refuses closed-loop control**: `goTo()` raises a `kError` alert and holds neutral. Homing and manual control still work. Numeric literals move to a labelled *"a tuned elevator, for reference — 8793's numbers for 8793's hardware"* block.
+**Chosen:** `Gains.UNTUNED` (`kP = NaN`). In **simulation** it resolves at mechanism construction to a physics-derived first guess from `PlantPrior`, the demo moves, and the boot dump says *"derived from your declared mass, not measured — run the tuning wizard."* On **real hardware** the mechanism **refuses closed-loop control**: `goTo()` raises a `kError` alert and holds neutral. Homing and manual control still work. Numeric literals move to a labeled *"a tuned elevator, for reference — 8793's numbers for 8793's hardware"* block.
 
 **Rejected:** revision 1's quickstart, which shipped `kP 6.0, kD 0.1, kS 0.15, kV 0.62, kA 0.03, kG 0.32` as pasteable literals and told a rookie the only thinking required was *"edit four numbers: the two CAN IDs, the gear stages, the sprocket."*
 
@@ -499,7 +499,7 @@ Requirement conflicts and periodic registration are independent in WPILib, so ke
 
 **Rejected (a):** revision 1's ordering, which put `SelfTest` in v0.2 and the entire tuning wizard in v0.2 at 14 pw across a Jan–Apr 2027 window whose own capacity model yields 4–10 pw. It therefore would not have existed during the 2027 season. Worse, revision 1's stated downside ship excluded the tunables package entirely: **the library requested to teach tuning would have shipped unable to change a gain.**
 
-**Rejected (b):** keeping vision and auto in v0.1 and deferring the wizard. Every team already has a working drivetrain (Tuner X, an AdvantageKit template, YAGSL), working vision (the AdvantageKit vision template, LimelightHelpers) and working autos (PathPlanner's GUI and docs). **The wizard has no substitute.** Deferring the domains that have ecosystem alternatives in favour of the one that does not is the correct trade — and it makes incremental adoption the *normal* path rather than an escape hatch, which is the strongest thing the reordering buys.
+**Rejected (b):** keeping vision and auto in v0.1 and deferring the wizard. Every team already has a working drivetrain (Tuner X, an AdvantageKit template, YAGSL), working vision (the AdvantageKit vision template, LimelightHelpers) and working autos (PathPlanner's GUI and docs). **The wizard has no substitute.** Deferring the domains that have ecosystem alternatives in favor of the one that does not is the correct trade — and it makes incremental adoption the *normal* path rather than an escape hatch, which is the strongest thing the reordering buys.
 
 **Rejected (c):** shipping `OdometryReport` a version later than the drive layer. Odometry accuracy gates alignment and every score-on-the-move capability. Shipping wheel-radius characterization with no instrument to tell a team whether it worked makes the gating rule fire unconditionally on every alignment, and therefore be ignored on day one. *(Preserved under MD1 as a hard constraint on M9: `OdometryReport.outAndBack()` / `.squareTest()` ship **in the same milestone** as the drive layer. R8 in the risk register.)*
 
@@ -509,7 +509,7 @@ Requirement conflicts and periodic registration are independent in WPILib, so ke
 
 > **⚠ AMENDED by MD2 + MD3 (2026-08-07).** The two-hour honesty, the Command-Robot-template correction and the deleted compile-time claim all stand. Two changes: **MD3 withdraws the "zero *vendor* `requires`" rule entirely** (see the consequence paragraph, already rewritten below), and **MD2 changes what step 1 produces** — `rootstock init` now yields a whole working project from a template variant rather than a wiring session, which is the largest single improvement to the first-session number in the design. The two hours are **not** re-estimated downward here, because the estimate was never dominated by wiring; it was dominated by the cold GradleRIO build, AdvantageScope/Elastic unfamiliarity, and reading. Claiming MD2 buys back an hour would be exactly the overclaiming the adversarial review removed.
 
-**Chosen:** four honest blocks totalling 100–170 minutes; `rootstock init` as step 1; the **Command Robot** template, not Timed Skeleton; `WPILibNewCommands.json` declared in `requires[]`; an 8–20 minute cold-build estimate; and the sentence *"the compiler will not let you build a `PositionConfig` missing `reduction`"* **deleted** — a fluent builder terminating in `.build()` cannot enforce that in Java, and the design's own validation section confirms it is a runtime check.
+**Chosen:** four honest blocks totaling 100–170 minutes; `rootstock init` as step 1; the **Command Robot** template, not Timed Skeleton; `WPILibNewCommands.json` declared in `requires[]`; an 8–20 minute cold-build estimate; and the sentence *"the compiler will not let you build a `PositionConfig` missing `reduction`"* **deleted** — a fluent builder terminating in `.build()` cannot enforce that in Java, and the design's own validation section confirms it is a runtime check.
 
 **Rejected:** revision 1's 30-minute table, which (a) started from a template that does not install `WPILibNewCommands`, so every `Subsystem`, `Command`, `Trigger` and `SysIdRoutine` in the library fails to resolve with nothing naming the cause; (b) pasted a config block that did not compile against its own import list; (c) claimed a compile-time guarantee Java cannot provide; (d) budgeted 3 minutes for a cold GradleRIO build; (e) assumed AdvantageScope and Elastic fluency in 6 minutes; and (f) did not use the CLI that ships in the same version.
 
@@ -548,9 +548,9 @@ Recommendations from the adversarial review that we **did not adopt**, with reas
 
 **Reviewer asked for:** an ArchUnit rule forbidding the throw of any unchecked exception from any method transitively reachable from `Mechanism.periodic()` or `MotorIO.*`.
 
-**We rejected the rule and adopted the substance.** The behavioural fix is applied in full: `throw new IllegalStateException("…This is a Rootstock bug.")` is replaced by degrade-and-name — a sticky `kError` alert, `setNeutral()`, and a latched no-op routing-fault flag.
+**We rejected the rule and adopted the substance.** The behavioral fix is applied in full: `throw new IllegalStateException("…This is a Rootstock bug.")` is replaced by degrade-and-name — a sticky `kError` alert, `setNeutral()`, and a latched no-op routing-fault flag.
 
-**Why the rule itself is rejected:** transitive reachability means every array index, every division, and every WPILib or vendor call can throw. The rule either flags the entire JDK or is vacuous. Two enforceable rules replace it: (1) no explicit `throw` statement in `org.rootstock.mechanism..` or `org.rootstock.hardware..` outside constructors, static factories and `Validation`; (2) a bytecode test asserting the `try/catch(Throwable)` wrapper exists in `Mechanism.periodic()`. The invariant itself is asserted by a behavioural test.
+**Why the rule itself is rejected:** transitive reachability means every array index, every division, and every WPILib or vendor call can throw. The rule either flags the entire JDK or is vacuous. Two enforceable rules replace it: (1) no explicit `throw` statement in `org.rootstock.mechanism..` or `org.rootstock.hardware..` outside constructors, static factories and `Validation`; (2) a bytecode test asserting the `try/catch(Throwable)` wrapper exists in `Mechanism.periodic()`. The invariant itself is asserted by a behavioral test.
 
 ---
 
@@ -564,7 +564,7 @@ Recommendations from the adversarial review that we **did not adopt**, with reas
 
 ---
 
-### X3. Deleting both vision structs in favour of flat parallel arrays
+### X3. Deleting both vision structs in favor of flat parallel arrays
 
 **Reviewer asked for:** delete `implements StructSerializable`, `TargetObservationStruct` and `VisionFrameStruct` entirely, and log flat parallel arrays per camera (`TagIds` int[], `TagTx` double[], `TagTy` double[], …), on the grounds that decision 19 says "zero custom structs."
 
@@ -661,7 +661,7 @@ Three remain genuinely undecided. They are listed **in the order they block work
 
 `Rootstock` / `org.rootstock` (package root) / `dev.rootstock` (Maven group) assumes the **`rootstock.dev` domain is available and stays paid for**. Fallback for the **Maven group only** is `io.github.<org>`; **the package root never changes** under any outcome.
 
-**MD1 changes the weight of this.** Under the old plan the domain had to survive one season. Under MD1 it must be continuously renewed for **three to four years before it fronts a release**, and then indefinitely after. A lapsed domain behind a published Maven group is a supply-chain hazard, not an inconvenience. **MD4 partially covers this**: BSD-3-Clause means a fork can republish under different coordinates if the domain is ever lost, which is why the licence decision and this one are related.
+**MD1 changes the weight of this.** Under the old plan the domain had to survive one season. Under MD1 it must be continuously renewed for **three to four years before it fronts a release**, and then indefinitely after. A lapsed domain behind a published Maven group is a supply-chain hazard, not an inconvenience. **MD4 partially covers this**: BSD-3-Clause means a fork can republish under different coordinates if the domain is ever lost, which is why the license decision and this one are related.
 
 **Also folded in here:** which GitHub org owns the repository (shared with Q2), since it determines the `io.github.<org>` fallback and the Pages URL that `Rootstock.json` will point at forever.
 

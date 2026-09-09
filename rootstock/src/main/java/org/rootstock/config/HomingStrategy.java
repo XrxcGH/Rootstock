@@ -381,7 +381,7 @@ public sealed interface HomingStrategy
             "HomingStrategy.currentSpike: the drive voltage is "
                 + volts
                 + " V, so the mechanism would never move and homing would always time out. "
-                + "Fix: .voltage(Volts.of(1.5)) — the sign comes from .direction(...), and the "
+                + "Fix: .voltage(Volts.of(1.5)). The sign comes from .direction(...), and the "
                 + "magnitude is clamped to "
                 + kMaxHomingVolts
                 + " V no matter what you write.");
@@ -392,7 +392,7 @@ public sealed interface HomingStrategy
                 + currentThresholdAmps
                 + " A, which can never be exceeded, so the routine would run until it timed out "
                 + "and the mechanism would sit on its hard stop for the whole timeout. "
-                + "Fix: .currentThreshold(Amps.of(30)) — pick roughly twice the free-running "
+                + "Fix: .currentThreshold(Amps.of(30)). Pick roughly twice the free-running "
                 + "current you see at this voltage; the riolog prints it while homing.");
       }
       if (Double.isNaN(debounceSeconds) || debounceSeconds < 0.0) {
@@ -409,14 +409,14 @@ public sealed interface HomingStrategy
                 + timeoutSeconds
                 + " s, so the routine could never give up and a mechanism that misses its stop "
                 + "would push against it until the robot was disabled. "
-                + "Fix: .timeout(Seconds.of(4.0)) — a little longer than a full-travel move.");
+                + "Fix: .timeout(Seconds.of(4.0)), a little longer than a full-travel move.");
       }
       if (Double.isNaN(seedToUserUnits)) {
         out.add(
             "HomingStrategy.currentSpike: the seed position is NaN, so the mechanism would declare "
                 + "itself to be at NaN and every goal after that would be NaN too. "
                 + "Fix: .seedTo(Inches.of(0.0)) for a height, .seedTo(Degrees.of(-15)) for an "
-                + "angle — it is the position the mechanism is at when it is against the stop.");
+                + "angle. It is the position the mechanism is at when it is against the stop.");
       }
       if (Double.isNaN(backoffUserUnits) || backoffUserUnits < 0.0) {
         out.add(
@@ -578,7 +578,7 @@ public sealed interface HomingStrategy
       if (Double.isNaN(seedToUserUnits)) {
         out.add(
             "HomingStrategy.limitSwitch: the seed position is NaN. "
-                + "Fix: .seedTo(Inches.of(0.0)) — the position the mechanism is at when the switch "
+                + "Fix: .seedTo(Inches.of(0.0)), the position the mechanism is at when the switch "
                 + "asserts.");
       }
       return List.copyOf(out);
@@ -639,7 +639,7 @@ public sealed interface HomingStrategy
     public String describe() {
       return String.format(
           Locale.ROOT,
-          "assumeAtBoot (%.4f user units, ASSUMED — no sensor confirms it)",
+          "assumeAtBoot (%.4f user units, ASSUMED: no sensor confirms it)",
           seedToUserUnits);
     }
   }

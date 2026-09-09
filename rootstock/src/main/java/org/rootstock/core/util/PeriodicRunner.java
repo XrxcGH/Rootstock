@@ -147,7 +147,7 @@ public final class PeriodicRunner {
           method
               + ": name was "
               + (name == null ? "null" : "blank")
-              + "; it must be a stable non-blank identifier — it is both the rate's phase key and "
+              + "; it must be a stable non-blank identifier: it is both the rate's phase key and "
               + "how this task appears in the boot dump. Fix: pass something like \"LogBudget\".");
     }
     return name;

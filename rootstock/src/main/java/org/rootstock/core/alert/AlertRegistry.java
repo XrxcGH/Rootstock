@@ -202,7 +202,7 @@ public final class AlertRegistry {
             + kDriverDisplayCap
             + " of them:\n  "
             + offenders
-            + "\nNothing was dropped — all "
+            + "\nNothing was dropped: all "
             + blocking.size()
             + " are still in AlertRegistry.blocking(). If one of these is really a 'a programmer "
             + "should look at this' alert, mark it MatchImpact.PIT_ONLY. If the hardware is "
@@ -397,7 +397,7 @@ public final class AlertRegistry {
             + kBlockingBudget
             + ", driver tab shows "
             + kDriverDisplayCap
-            + "). Nothing was dropped — see the console, or AlertRegistry.describe().";
+            + "). Nothing was dropped. See the console, or AlertRegistry.describe().";
     if (m_budgetAlert == null) {
       // Never BLOCKS_MATCH: an alert about too many blocking alerts must not cascade.
       m_budgetAlert = Alerts.warning(kSelfGroup, headline, MatchImpact.PIT_ONLY);

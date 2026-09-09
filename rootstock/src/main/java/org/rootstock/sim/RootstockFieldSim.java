@@ -310,7 +310,7 @@ public final class RootstockFieldSim {
     public String describe() {
       return String.format(
           Locale.ROOT,
-          "KINEMATIC (no maple-sim adapter installed) — %d robot(s), %d game-piece type(s), "
+          "KINEMATIC (no maple-sim adapter installed): %d robot(s), %d game-piece type(s), "
               + "%d projectile(s) recorded but not flown. No collisions, no game-piece physics; "
               + "paths and odometry are still meaningful.",
           m_poses.size(),

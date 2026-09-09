@@ -19,19 +19,68 @@ dependencies {
     testImplementation "com.tngtech.archunit:archunit-junit5:${archunitVersion}"
 }
 
-// Same split as :rootstock. REVLib is stricter than Phoenix here: SparkMaxConfig's static
-// initialiser loads REVLibDriver, so even building a configuration object needs the natives. Those
-// tests are tagged "hal" and excluded from the default `test` task. Everything expressible on plain
-// doubles — which is the whole gain conversion and the whole MAXMotion unit chain — is asserted in
-// RevGainSinkTest and runs in the default build.
+// Same split as :rootstock: tests tagged "hal" are excluded from the default `test` task, and
+// everything expressible on plain doubles is asserted in RevGainSinkTest, which runs in the default
+// build. That includes the whole gain conversion and the whole MAXMotion unit chain, so the 60x
+// cruise-velocity defect REVIEW.md calls B5 is pinned by a test `./gradlew build` runs.
+//
+// The line that used to stand here said SparkMaxConfig's static initializer loads REVLibDriver, so
+// that even building a configuration object needs the natives. That is not true, and the correction
+// matters because it is the reason a REV config assertion was put behind a tag it did not need.
+// Measured 2026-09-09 on a bare JVM, nothing on java.library.path: `new SparkMaxConfig()` constructs
+// and `closedLoop.p(1.8626667)` stores. The only call in that chain that reaches the driver is
+// `flatten()`: BaseConfig.flatten (BaseConfig.java:112) touches RevJNIWrapper's static initializer,
+// which is what throws "no REVLibDriver in java.library.path".
 tasks.named('test') {
     useJUnitPlatform {
         excludeTags 'hal'
     }
 }
 
+// halTest here is red on every machine, it is deliberately NOT wired into `verify`, and both of its
+// two tests were run down on 2026-09-09 rather than guessed at. Reasons, in order of who has to act:
+//
+// 1. The task never had the native setup. rootstock/build.gradle resolves the WPILib -cpp zips,
+//    extracts them and points java.library.path at the result; this task does none of that, so both
+//    tests die at class-init with "no REVLibDriver in java.library.path". That is a build defect
+//    and it is this file's to fix.
+//
+// 2. SparkMotorIOHalTest.describeReportsTheConvertedUnitsWithNoStrayTimesSixty PASSES once the
+//    natives are there, and the natives are gettable. Verified outside Gradle by compiling this
+//    module and running that test body against REVLibDriver.dll, BackendDriver.dll, REVLibWpi.dll
+//    (three separate maven modules: REVLib-driver, RevLibBackendDriver, RevLibWpiBackendDriver) and
+//    the wpiutil, hal, wpimath, wpinet and ntcore -cpp sets: `new SparkMax(9, kBrushless)`
+//    constructs on a desktop with no CAN bus, and describe() reports "cruise 5.7266 output rot/s"
+//    and "NO x60".
+//
+//    One thing beyond what rootstock/build.gradle does is required, and getting it wrong is what
+//    makes this look unfixable: the extracted directory must be on PATH as well as on
+//    java.library.path. Measured both ways on 2026-09-09. With PATH set, the run above succeeds.
+//    With java.library.path alone, BackendDriver.dll prints "Unable to find wpi driver binary" and
+//    the JVM dies outright with EXCEPTION_UNCAUGHT_CXX_EXCEPTION, which under Gradle is a dead test
+//    worker rather than a failed test. Windows resolves a DLL's dependent DLLs from PATH, not from
+//    java.library.path, and REVLibDriver.dll has dependents.
+//
+// 3. SparkMotorIOHalTest.flattenShowsTheConvertedGainsOnARealDevice CANNOT PASS, natives or not,
+//    and the natives are not why. It asserts `config.flatten().contains("1.8626667")`. REVLib
+//    2026.0.5's flatten() does not render decimals: it emits one "<parameterId>,<IEEE-754 hex>" per
+//    line, and the kP row comes out "13,3FEE6BDD", which decodes to exactly 1.8626667f. The value
+//    the adapter writes is correct; the assertion is written against a rendering this REVLib never
+//    produces. Fixing it is a change to the test, not to this build file, which is why the wiring
+//    in point 1 has been left undone: doing it alone would trade a misleading build error for a
+//    misleading test failure while the task stays red either way.
+//
+// Worth weighing before anyone spends the afternoon: the test in point 2 guards less than its name
+// suggests. describe() at SparkMotorIO.java:818 recomputes
+// `bounded(m_control.constraints().maxVelocityRps(m_units))` rather than reading back what the
+// write site at :386 put into the config, so a stray `* 60` reintroduced at :386 would still print
+// 5.7266 and still pass. The arithmetic itself is already pinned by RevGainSinkTest in the default
+// build. So this task is worth repairing for the device-level confirmation, not because B5 is
+// currently unguarded.
+//
+// When the assertion in point 3 is rewritten, do point 1 and add this task to `verify`.
 tasks.register('halTest', Test) {
-    description = 'Runs tests that require REVLib / WPILib JNI natives.'
+    description = 'Runs the 2 hal-tagged REVLib tests. Known red: see the comment in this file.'
     group = 'verification'
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath

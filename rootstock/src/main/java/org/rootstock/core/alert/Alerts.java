@@ -129,7 +129,7 @@ public final class Alerts {
       throw new IllegalArgumentException(
           "Alert group was \""
               + group
-              + "\". Every alert needs a non-blank group — it is the dashboard heading and the "
+              + "\". Every alert needs a non-blank group: it is the dashboard heading and the "
               + "pit-tab path segment. Use the mechanism name, e.g. \"Arm\".");
     }
     if (text == null || text.isBlank()) {
@@ -139,7 +139,7 @@ public final class Alerts {
               + "\" was \""
               + text
               + "\". Every alert needs a non-blank message naming the thing, the value, the "
-              + "expected range and the fix, e.g. \"leader TalonFX 21 at 84 C (limit 70 C) — check "
+              + "expected range and the fix, e.g. \"leader TalonFX 21 at 84 C (limit 70 C): check "
               + "the fan and the gearbox grease\".");
     }
     if (severity == null) {

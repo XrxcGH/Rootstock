@@ -17,10 +17,13 @@ import org.rootstock.config.FeedbackSpec;
 import org.rootstock.config.HardStop;
 import org.rootstock.config.MechanismKind;
 import org.rootstock.config.MotorGroup;
+import org.rootstock.config.MotorModel;
 import org.rootstock.config.MotorSpec;
 import org.rootstock.config.PositionLimits;
 import org.rootstock.control.NeutralMode;
+import org.rootstock.core.compat.Platform;
 import org.rootstock.core.spi.SimMotorHandle;
+import org.rootstock.hardware.MotorIOFactory;
 import org.rootstock.core.spi.Tier;
 import org.rootstock.units.MechanismUnits;
 
@@ -43,13 +46,18 @@ import org.rootstock.units.MechanismUnits;
  *
  * <h2>Two constructors, and why the second one exists</h2>
  *
- * <p>{@link org.rootstock.hardware.MotorIOFactory.Backend} hands a backend only the spec, the
- * units, the control config and the mechanism kind — so the factory form configures gearing, gains,
- * profile, inversion, neutral mode and default current limits, and leaves the soft limits and
- * followers alone because it has not been told about them. The full form takes the mechanism's
- * {@link PositionLimits}, {@link FeedbackSpec} and follower list as well and configures everything.
- * A mechanism builder uses the second; a bare {@code MotorSpec} used on its own gets the first, and
- * {@link #describe()} says which.
+ * <p>{@link org.rootstock.hardware.MotorIOFactory.Backend} hands a backend a {@link
+ * MotorIOFactory.DeviceSetup}: the whole motor group, the declared {@link CurrentLimits}, the
+ * {@link PositionLimits} travel range and hard stops, and the {@link FeedbackSpec} absolute
+ * plumbing. That form configures everything the mechanism declared. The other form takes a bare
+ * {@code MotorSpec}, for a motor used on its own outside a mechanism, and can configure only what a
+ * spec carries: gearing, gains, profile, inversion, neutral mode and the motor model's default
+ * current limits. {@link #describe()} says which form built a given backend.
+ *
+ * <p>This distinction is not academic. Until the {@code DeviceSetup} existed, every mechanism the
+ * library built went through the bare-spec form, so a declared 70 A stator limit, a declared soft
+ * limit, a declared CANcoder and a declared second Kraken all stopped at the seam and never reached
+ * the device -- while the boot dump reported the mechanism as configured.
  */
 public final class TalonFXMotorIO extends AbstractPhoenixMotorIO {
 
@@ -58,10 +66,17 @@ public final class TalonFXMotorIO extends AbstractPhoenixMotorIO {
   private final TalonFXConfiguration m_config = new TalonFXConfiguration();
   private final TalonFXConfiguration[] m_followerConfigs;
   private final MotorSpec.TalonFXSpec m_talonSpec;
-  private final boolean m_fullyConfigured;
+  private final CurrentLimits m_currentLimits;
+  private final MotorModel[] m_followerModels;
+  private final boolean m_fullSetup;
 
   /**
-   * The form {@link org.rootstock.hardware.MotorIOFactory} calls.
+   * The bare-spec form, for a motor used on its own rather than inside a mechanism.
+   *
+   * <p>A {@code MotorSpec} does not carry a travel range, a follower list, an absolute encoder or
+   * the mechanism's real current limits, so none of those are configured here. That is honest for a
+   * lone motor and wrong for a mechanism; a mechanism uses the {@link MotorIOFactory.DeviceSetup}
+   * form below, and {@link #describe()} states which form ran.
    *
    * @param spec the declared motor
    * @param units the mechanism's one converter
@@ -73,54 +88,68 @@ public final class TalonFXMotorIO extends AbstractPhoenixMotorIO {
       MechanismUnits units,
       ControlConfig control,
       MechanismKind kind) {
-    this(spec, units, control, kind, null, null, List.of(), Tier.STANDARD);
-  }
-
-  /**
-   * The full form, used by a mechanism builder that knows the limits, the feedback plumbing and the
-   * followers.
-   *
-   * @param spec the declared leader motor
-   * @param units the mechanism's one converter
-   * @param control gains, constraints, gravity model, neutral mode and control location
-   * @param kind whether this mechanism goes to a place, holds a speed, or is open loop
-   * @param limits soft limits, current limits and hard stops; null configures no soft limits and
-   *     the model's default current limits rather than inventing a travel range
-   * @param feedback how absolute position is plumbed; null means rotor only
-   * @param followers the follower motors and their sense; empty for a single-motor mechanism
-   * @param tier the telemetry tier, which gates the diagnostic-only status signals
-   */
-  public TalonFXMotorIO(
-      MotorSpec.TalonFXSpec spec,
-      MechanismUnits units,
-      ControlConfig control,
-      MechanismKind kind,
-      PositionLimits limits,
-      FeedbackSpec feedback,
-      List<MotorGroup.FollowerSpec> followers,
-      Tier tier) {
     this(
         new TalonFX(spec.deviceId(), PhoenixUtil.bus(spec.canBus())),
-        buildFollowers(followers),
+        buildFollowerSet(List.of()),
         spec,
         units,
         control,
         kind,
-        limits,
-        feedback,
-        tier);
+        CurrentLimits.defaultsFor(spec.model()),
+        null,
+        null,
+        Tier.STANDARD,
+        false);
+  }
+
+  /**
+   * The full form, which is what {@link MotorIOFactory} calls for every mechanism.
+   *
+   * <p>Everything the team declared is configured on the device: the current limits, the soft limits
+   * and hard stops when a travel range is present, the CANcoder plumbing, and every follower.
+   *
+   * @param setup the motors, current limits, travel range and feedback plumbing the team declared
+   * @param units the mechanism's one converter
+   * @param control gains, constraints, gravity model, neutral mode and control location
+   * @param kind whether this mechanism goes to a place, holds a speed, or is open loop
+   * @param tier the telemetry tier, which gates the diagnostic-only status signals
+   * @throws IllegalArgumentException if the leader is not a TalonFX; a constructor is one of the
+   *     three places design section 5.6 allows a throw, and this backend handed a SPARK is a
+   *     programming error rather than a field condition
+   */
+  public TalonFXMotorIO(
+      MotorIOFactory.DeviceSetup setup,
+      MechanismUnits units,
+      ControlConfig control,
+      MechanismKind kind,
+      Tier tier) {
+    this(
+        new TalonFX(
+            leaderSpecOf(setup).deviceId(), PhoenixUtil.bus(leaderSpecOf(setup).canBus())),
+        buildFollowerSet(setup.motors().followers()),
+        leaderSpecOf(setup),
+        units,
+        control,
+        kind,
+        setup.current(),
+        setup.limits(),
+        setup.feedback(),
+        tier,
+        true);
   }
 
   private TalonFXMotorIO(
       TalonFX leader,
-      List<FollowerDevice> followers,
+      FollowerSet followers,
       MotorSpec.TalonFXSpec spec,
       MechanismUnits units,
       ControlConfig control,
       MechanismKind kind,
+      CurrentLimits current,
       PositionLimits limits,
       FeedbackSpec feedback,
-      Tier tier) {
+      Tier tier,
+      boolean fullSetup) {
     super(
         new Setup(
             spec.name(),
@@ -134,18 +163,24 @@ public final class TalonFXMotorIO extends AbstractPhoenixMotorIO {
             tier),
         leader,
         leader,
-        followers);
+        followers.devices());
     m_leaderFx = leader;
     m_talonSpec = spec;
-    m_fullyConfigured = limits != null;
+    // Never null: a TalonFX with no current limit at all is a fire risk, so the bare-spec form
+    // substitutes the model defaults rather than leaving the device unlimited.
+    m_currentLimits = current == null ? CurrentLimits.defaultsFor(spec.model()) : current;
+    m_followerModels = followers.models();
+    m_fullSetup = fullSetup;
 
-    m_followerFx = new TalonFX[followers.size()];
-    m_followerConfigs = new TalonFXConfiguration[followers.size()];
-    for (int i = 0; i < followers.size(); i++) {
-      m_followerFx[i] = (TalonFX) followers.get(i).device();
+    List<FollowerDevice> devices = followers.devices();
+    m_followerFx = new TalonFX[devices.size()];
+    m_followerConfigs = new TalonFXConfiguration[devices.size()];
+    for (int i = 0; i < devices.size(); i++) {
+      m_followerFx[i] = (TalonFX) devices.get(i).device();
       m_followerConfigs[i] = new TalonFXConfiguration();
     }
 
+    applySimMotorType();
     buildConfig();
     // CONSTRUCTION path: blocking, read back and verified. This is one of the few legal callers.
     PhoenixUtil.applyVerified(m_leaderFx, m_config, motorName());
@@ -209,8 +244,12 @@ public final class TalonFXMotorIO extends AbstractPhoenixMotorIO {
 
     // 4. CURRENT LIMITS. Stator limits torque; supply limits what the battery is asked for. Setting
     //    one when you meant the other is a whole class of mystery brownout.
-    CurrentLimits current =
-        m_limits != null ? m_limits.current() : CurrentLimits.defaultsFor(m_talonSpec.model());
+    // These come from the DeviceSetup, NOT from m_limits.current(): a shooter and an intake have
+    // no travel range at all, so reading the limits off a PositionLimits meant their declared
+    // 80/40 A was silently replaced by the motor model's defaults while PositionMechanism set its
+    // stall threshold from the declared number. The software's protection was calibrated to a
+    // figure the device did not have.
+    CurrentLimits current = m_currentLimits;
     m_config.CurrentLimits.StatorCurrentLimit = current.statorAmps();
     m_config.CurrentLimits.StatorCurrentLimitEnable = true;
     m_config.CurrentLimits.SupplyCurrentLimit = current.supplyAmps();
@@ -225,10 +264,16 @@ public final class TalonFXMotorIO extends AbstractPhoenixMotorIO {
       double b = u.toOutputRotations(m_limits.range().max());
       double lo = Math.min(a, b);
       double hi = Math.max(a, b);
+      // hi > lo, not merely finite. A PositionConfig whose .softLimits(...) was never called still
+      // carries a placeholder range of exactly zero to zero, which validation reports as a fatal
+      // config error. Arming the firmware at [0, 0] on top of that would pin the mechanism at zero
+      // and turn a readable config error into a mechanism that does not move for a reason the
+      // driver station never mentions.
+      boolean usable = Double.isFinite(lo) && Double.isFinite(hi) && hi > lo;
       m_config.SoftwareLimitSwitch.ForwardSoftLimitThreshold = hi;
-      m_config.SoftwareLimitSwitch.ForwardSoftLimitEnable = Double.isFinite(hi);
+      m_config.SoftwareLimitSwitch.ForwardSoftLimitEnable = usable;
       m_config.SoftwareLimitSwitch.ReverseSoftLimitThreshold = lo;
-      m_config.SoftwareLimitSwitch.ReverseSoftLimitEnable = Double.isFinite(lo);
+      m_config.SoftwareLimitSwitch.ReverseSoftLimitEnable = usable;
     }
 
     // 5b. HARDWARE limit switches, enabled only when the team declared one. A hard limit wired into
@@ -452,35 +497,132 @@ public final class TalonFXMotorIO extends AbstractPhoenixMotorIO {
                     "[%.4f, %.4f] output rotations, ENABLED on the device AND re-clamped in Java",
                     m_config.SoftwareLimitSwitch.ReverseSoftLimitThreshold,
                     m_config.SoftwareLimitSwitch.ForwardSoftLimitThreshold)
-                : "NONE configured -- this backend was built without a PositionLimits, so the"
-                    + " firmware backstop that works when robot code hangs is NOT armed")
+                : m_limits == null
+                    ? "NONE -- this mechanism declared no travel range, which is right for a roller"
+                        + " or a flywheel and wrong for anything with two ends"
+                    : "NONE armed -- the declared range is empty, so the firmware backstop that"
+                        + " still works when robot code hangs is NOT armed")
         .append(nl);
+    sb.append("  ")
+        .append(String.format("%-20s", "current limits"))
+        .append(
+            String.format(
+                java.util.Locale.ROOT,
+                "%.0f A stator, %.0f A supply%s",
+                m_config.CurrentLimits.StatorCurrentLimit,
+                m_config.CurrentLimits.SupplyCurrentLimit,
+                m_config.CurrentLimits.SupplyCurrentLimitEnable ? "" : " (supply limit DISABLED)"))
+        .append(nl);
+    sb.append("  ")
+        .append(String.format("%-20s", "followers"))
+        .append(
+            m_followerFx.length == 0
+                ? "none declared"
+                : m_followerFx.length + " configured and following this leader")
+        .append(nl);
+    if (Platform.isSimulation()) {
+      sb.append("  ")
+          .append(String.format("%-20s", "sim motor curve"))
+          .append(
+              simMotorType(m_talonSpec.model()) == null
+                  ? m_talonSpec.model().displayName()
+                      + " -- Phoenix ships no simulation curve for it, so the device simulator uses"
+                      + " its Kraken X60 default. Simulated current is NOT this motor's."
+                  : m_talonSpec.model().displayName() + ", set on the device simulator")
+          .append(nl);
+    }
     sb.append("  ")
         .append(String.format("%-20s", "built by"))
         .append(
-            m_fullyConfigured
-                ? "the full constructor (limits, feedback and followers configured)"
-                : "the MotorIOFactory constructor -- soft limits, hard stops and followers were not"
-                    + " supplied, so they are not configured on the device")
+            m_fullSetup
+                ? "the DeviceSetup constructor: current limits, soft limits, hard stops, feedback"
+                    + " plumbing and followers all configured on the device"
+                : "the bare-spec constructor -- soft limits, hard stops, absolute feedback and"
+                    + " followers were not supplied, so they are not configured on the device")
         .append(nl);
     return sb.toString().stripTrailing();
   }
 
   // ===================================================================================== private
 
-  private static List<FollowerDevice> buildFollowers(List<MotorGroup.FollowerSpec> specs) {
-    List<FollowerDevice> out = new ArrayList<>();
+  /**
+   * The follower devices and their motor models, built in ONE pass.
+   *
+   * <p>One pass because the two lists are index-aligned and the filter that skips a non-TalonFX
+   * follower has to be applied identically to both. Two loops with two copies of that filter is one
+   * edit away from a device that is configured as the wrong motor.
+   *
+   * @param devices the constructed followers, in declaration order
+   * @param models each follower's motor model, at the same index
+   */
+  private record FollowerSet(List<FollowerDevice> devices, MotorModel[] models) {}
+
+  private static FollowerSet buildFollowerSet(List<MotorGroup.FollowerSpec> specs) {
+    List<FollowerDevice> devices = new ArrayList<>();
+    List<MotorModel> models = new ArrayList<>();
     if (specs == null) {
-      return out;
+      return new FollowerSet(devices, new MotorModel[0]);
     }
     for (MotorGroup.FollowerSpec follower : specs) {
       if (follower == null || !(follower.spec() instanceof MotorSpec.TalonFXSpec fx)) {
         continue;
       }
       TalonFX device = new TalonFX(fx.deviceId(), PhoenixUtil.bus(fx.canBus()));
-      out.add(new FollowerDevice(device, device, follower.sense()));
+      devices.add(new FollowerDevice(device, device, follower.sense()));
+      models.add(fx.model());
     }
-    return out;
+    return new FollowerSet(devices, models.toArray(new MotorModel[0]));
+  }
+
+  private static MotorSpec.TalonFXSpec leaderSpecOf(MotorIOFactory.DeviceSetup setup) {
+    if (setup.leader() instanceof MotorSpec.TalonFXSpec fx) {
+      return fx;
+    }
+    throw new IllegalArgumentException(
+        "TalonFXMotorIO was given a "
+            + setup.leader().deviceType()
+            + " as its leader. This backend only drives a TalonFX; use MotorSpec.talonFX(...) or"
+            + " let MotorIOFactory choose the backend.");
+  }
+
+  /**
+   * Tell the device simulator which motor is inside, once.
+   *
+   * <p>Phoenix 6 26.3.0 ships two TalonFX motor curves and defaults to the Kraken X60. Running the
+   * pinned wpimath 2026.2.2 jar, the two differ by more than a rounding error: X60 R = 0.03279 ohm
+   * and kV = 52.65, X44 R = 0.04301 ohm and kV = 68.19, which at 6 V stalled is 183.0 A against
+   * 139.5 A. A team that declares a Kraken X44 and sets a stall-detection threshold in simulation
+   * is otherwise reading the wrong motor's current.
+   *
+   * <p>Set once, in the constructor, and not on the per-cycle sim path: {@code setMotorType} pushes
+   * a physics input over JNI and the value never changes.
+   *
+   * <p>There is no Falcon 500 {@code MotorType}. A Falcon keeps simulating on the Kraken X60 curve
+   * whatever this method does, and {@link #describe()} says so rather than implying otherwise.
+   */
+  private void applySimMotorType() {
+    if (!Platform.isSimulation()) {
+      return;
+    }
+    TalonFXSimState.MotorType leaderType = simMotorType(m_talonSpec.model());
+    if (leaderType != null) {
+      m_leaderFx.getSimState().setMotorType(leaderType);
+    }
+    for (int i = 0; i < m_followerFx.length && i < m_followerModels.length; i++) {
+      TalonFXSimState.MotorType followerType = simMotorType(m_followerModels[i]);
+      if (followerType != null) {
+        m_followerFx[i].getSimState().setMotorType(followerType);
+      }
+    }
+  }
+
+  private static TalonFXSimState.MotorType simMotorType(MotorModel model) {
+    return switch (model) {
+      case KRAKEN_X60 -> TalonFXSimState.MotorType.KrakenX60;
+      case KRAKEN_X44 -> TalonFXSimState.MotorType.KrakenX44;
+      // Every other model a TalonFXSpec accepts is a Falcon 500, for which Phoenix ships no curve.
+      default -> null;
+    };
   }
 
   /**

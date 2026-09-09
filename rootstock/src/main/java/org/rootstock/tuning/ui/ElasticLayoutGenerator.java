@@ -83,7 +83,7 @@ public final class ElasticLayoutGenerator {
                   + destination
                   + " ("
                   + e
-                  + "). Nothing on the robot is broken — you will have to lay the tuning tab out by"
+                  + "). Nothing on the robot is broken. You will have to lay the tuning tab out by"
                   + " hand, which takes about ninety seconds because every topic is a plain NT4"
                   + " double or string. Fix: check the directory exists and is writable.",
               MatchImpact.PIT_ONLY)

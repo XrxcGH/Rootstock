@@ -56,7 +56,7 @@ public record Setpoint(String mechanism, String name, Measure<?> value, boolean 
     value =
         Objects.requireNonNull(
             value,
-            "Setpoint: the value must not be null. Type the unit you think in — Inches.of(52.5) "
+            "Setpoint: the value must not be null. Type the unit you think in: Inches.of(52.5) "
                 + "for a height, Degrees.of(35) for an angle.");
   }
 
@@ -170,7 +170,7 @@ public record Setpoint(String mechanism, String name, Measure<?> value, boolean 
       String whitespaceNote =
           name.equals(name.strip())
               ? ""
-              : " NOTE: the name you asked for has leading or trailing whitespace — \""
+              : " NOTE: the name you asked for has leading or trailing whitespace. \""
                   + name
                   + "\" is not the same string as \""
                   + name.strip()

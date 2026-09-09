@@ -361,7 +361,7 @@ final class RootstockSimTest {
 
       assertEquals(1, problems.size(), problems.toString());
       assertTrue(problems.get(0).contains("a 50.0% disagreement"), problems.get(0));
-      assertTrue(problems.get(0).contains("a missing stage is exactly a factor of two"), problems.get(0));
+      assertTrue(problems.get(0).contains("missing stage is exactly a factor of two"), problems.get(0));
     }
 
     /**
@@ -517,7 +517,7 @@ final class RootstockSimTest {
       String line = report.describe();
 
       assertTrue(
-          line.contains("RootstockSim stress test — every mechanism stalled simultaneously"), line);
+          line.contains("RootstockSim stress test: every mechanism stalled simultaneously"), line);
       assertTrue(
           line.contains(
               String.format(

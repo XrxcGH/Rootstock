@@ -31,7 +31,7 @@ import org.rootstock.hardware.GyroIO;
  * feedforward that a turret needs in order to stay pointed at a target while the chassis spins. That
  * term reaches the motor through {@code MotorIO.setPositionGoal(rot, rps, arbFf)}'s <b>velocity</b>
  * parameter, and on a Phoenix backend it is carried to the device as volts because the Motion Magic
- * requests have no velocity field. {@link #yawVelocityRadPerSec} is therefore load-bearing, not
+ * requests have no velocity field. {@link GyroIO.GyroInputs#yawVelocityRadPerSec} is therefore load-bearing, not
  * decorative, and is subscribed at the same rate as yaw.
  *
  * <h2>Units, stated because two of them are easy to get wrong</h2>

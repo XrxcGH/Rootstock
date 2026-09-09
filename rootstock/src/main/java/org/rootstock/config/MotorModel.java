@@ -238,7 +238,7 @@ public enum MotorModel {
    * @return a human-readable description
    */
   public String describe() {
-    String note = this == BRUSHED_UNKNOWN ? " (simulated with a CIM curve — model unknown)" : "";
+    String note = this == BRUSHED_UNKNOWN ? " (simulated with a CIM curve, model unknown)" : "";
     return String.format(
         "%s, %s, free speed %.0f rpm%s",
         m_displayName,

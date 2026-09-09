@@ -31,12 +31,26 @@ tasks.named('test') {
     }
 }
 
-tasks.register('halTest', Test) {
-    description = 'Runs tests that require Phoenix 6 / WPILib JNI natives.'
-    group = 'verification'
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath
-    useJUnitPlatform {
-        includeTags 'hal'
-    }
-}
+// There is no halTest task in this module, and that is a statement rather than an omission.
+//
+// This module has no hal-tagged test at all. Measured 2026-09-09:
+// `grep -rl '@Tag("hal")' rootstock-phoenix6/src/test` matches zero files, and the whole test tree
+// is two classes, PhoenixArchitectureTest and Phoenix6GainSinkTest. A halTest task here can only
+// select zero tests, which is the failure mode rootstock/build.gradle names in terms: it looks like
+// coverage and asserts nothing. One was registered here until now; it is gone.
+//
+// The excludeTags above is kept anyway, so `test` means the same thing in all three modules. If a
+// Phoenix test that needs natives is ever written, it needs a task to run it: copy the natives
+// configuration, the Copy task, the pinned Adoptium launcher and the java.library.path doFirst from
+// rootstock/build.gradle, add Phoenix's own desktop natives to that set, then wire the new task
+// into `verify` the way :rootstock does.
+//
+// Worth knowing before writing one: the Phoenix configuration objects do NOT need natives, so the
+// conversions they carry belong in the default `test` task and not behind a tag. Measured
+// 2026-09-09 on a bare JVM with only wpiapi-java-26.3.0 and the WPILib jars on the classpath and
+// nothing on java.library.path: `new TalonFXConfiguration()` constructs, and Feedback
+// .SensorToMechanismRatio, the three MotionMagic fields, SoftwareLimitSwitch.ForwardSoftLimitThreshold
+// and Slot0.kP all take and return their values. What is missing is not a task. TalonFXMotorIO
+// .buildConfig() is `private void` at line 210 and derives everything from instance fields, so no
+// test can reach it without constructing a live TalonFX; giving it a package-private seam that
+// takes its inputs as parameters is the change that would let the default build cover it.

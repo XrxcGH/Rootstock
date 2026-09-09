@@ -22,7 +22,7 @@ import java.util.Objects;
  *
  * <p><b>Supply current</b> is the current drawn from the battery through the breaker. At low speeds
  * a motor controller is a step-down converter, so supply current is much <em>lower</em> than stator
- * current — a motor pulling 200 A of stator at a near-stall might draw only 40 A from the battery.
+ * current: a motor pulling 200 A of stator at a near-stall might draw only 40 A from the battery.
  * A supply limit is a <em>breaker and battery</em> limit: it is what stops a robot from browning out
  * when four mechanisms move at once.
  *
@@ -31,7 +31,7 @@ import java.util.Objects;
  * it now has a fifth of the torque it should have, it stalls partway up, and no message anywhere
  * explains why. Setting a 120 A <em>supply</em> limit because "the motor can do 120 A" trips the
  * main breaker on the first hard acceleration. The two numbers are typed separately, in that order,
- * and validation flags a supply limit above the stator limit — which is physically backwards and is
+ * and validation flags a supply limit above the stator limit, which is physically backwards and is
  * a reliable sign the two were swapped.
  *
  * <h2>What each vendor does with these</h2>
@@ -39,7 +39,7 @@ import java.util.Objects;
  * <ul>
  *   <li><b>Phoenix 6</b> implements both, plus a two-tier supply limit: it allows
  *       {@code supplyAmps} indefinitely, and if the draw exceeds it for {@code supplyLowerSeconds}
- *       it clamps down to {@code supplyLowerAmps}. That models a breaker's trip curve — a short
+ *       it clamps down to {@code supplyLowerAmps}. That models a breaker's trip curve: a short
  *       surge is fine, a sustained overdraw is not.
  *   <li><b>REVLib</b> has a single {@code smartCurrentLimit}, which behaves as a stator limit. The
  *       supply fields are recorded and printed but the SPARK cannot enforce them, and
@@ -86,7 +86,7 @@ public record CurrentLimits(
   }
 
   /**
-   * A stator and supply pair with an explicit second supply tier, for a team modelling its breaker's
+   * A stator and supply pair with an explicit second supply tier, for a team modeling its breaker's
    * trip curve.
    *
    * @param stator the winding-current (torque) limit
@@ -109,7 +109,7 @@ public record CurrentLimits(
    * A stator limit only, leaving the battery draw unlimited.
    *
    * <p>Correct for a mechanism whose supply draw is already bounded by its stator limit and its
-   * gearing — a small roller, say. Not correct for anything that can stall hard.
+   * gearing (a small roller, say). Not correct for anything that can stall hard.
    *
    * @param stator the winding-current (torque) limit
    * @return the limits
@@ -124,9 +124,9 @@ public record CurrentLimits(
   /**
    * Sensible limits for a motor, so a first config can omit current limits entirely.
    *
-   * <p>Chosen to be safe on a mechanism nobody has characterised, not to be fast. The point is that
-   * forgetting this line never destroys hardware — notably a NEO 550, which gets 20 A rather than
-   * the 40 A a NEO gets, because it has almost no thermal mass.
+   * <p>Chosen to be safe on a mechanism nobody has characterized, not to be fast. The point is that
+   * forgetting this line never destroys hardware: a NEO 550 gets 20 A rather than the 40 A a NEO
+   * gets, because it has almost no thermal mass.
    *
    * @param model the motor
    * @return the default limits for that motor
@@ -238,8 +238,8 @@ public record CurrentLimits(
    * Every problem visible from these limits alone.
    *
    * <p><b>Never throws, never returns null.</b> The interesting case is the third one: a supply limit
-   * above the stator limit is physically backwards — supply current is always the lower of the two
-   * at the speeds where limiting matters — and is a reliable sign that the two arguments were
+   * above the stator limit is physically backwards (supply current is always the lower of the two
+   * at the speeds where limiting matters) and is a reliable sign that the two arguments were
    * swapped at the call site.
    *
    * @param owner the mechanism these limits belong to, for the message
@@ -255,7 +255,7 @@ public record CurrentLimits(
               + ": statorAmps = "
               + fmt(statorAmps)
               + ", which must be a finite current greater than zero. The stator limit is the "
-              + "TORQUE limit — with no value the mechanism has no protection against driving "
+              + "TORQUE limit. With no value the mechanism has no protection against driving "
               + "itself into a hard stop. Fix: CurrentLimits.defaultsFor(motor), or a number you "
               + "have measured.");
     }
@@ -344,10 +344,10 @@ public record CurrentLimits(
   }
 
   private static final String kNullStator =
-      "CurrentLimits: the stator limit must not be null. It is the TORQUE limit — the number that "
+      "CurrentLimits: the stator limit must not be null. It is the TORQUE limit, the number that "
           + "stops a mechanism tearing itself apart against a hard stop.";
 
   private static final String kNullSupply =
-      "CurrentLimits: the supply limit must not be null. It is the BATTERY limit — the number that "
+      "CurrentLimits: the supply limit must not be null. It is the BATTERY limit, the number that "
           + "stops the robot browning out when several mechanisms move at once.";
 }

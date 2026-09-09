@@ -235,7 +235,7 @@ public final class CanIdRegistry {
             .append(kMinDeviceId)
             .append("..")
             .append(kMaxDeviceId)
-            .append(" — Phoenix 6 and REVLib both stop at ")
+            .append("; Phoenix 6 and REVLib both stop at ")
             .append(kMaxDeviceId)
             .append(". Constructing a device\n")
             .append("  with id ")

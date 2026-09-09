@@ -116,7 +116,8 @@ import org.rootstock.units.SiDomain;
  * backstop rather than the plan. Unknown setpoint names, refused commands and failed homing are all
  * named alerts and named refusals, never exceptions and never silent no-ops.
  */
-public final class PositionMechanism extends Mechanism {
+public final class PositionMechanism extends Mechanism
+    implements org.rootstock.config.Validation.ConfigCarrier {
 
   /** The voltage ceiling the roboRIO-side loop clamps its own output to. */
   public static final double kMaxOutputVolts = 12.0;
@@ -149,6 +150,22 @@ public final class PositionMechanism extends Mechanism {
   private record Profile(String name, MotionConstraints constraints, BooleanSupplier when) {}
 
   private final PositionConfig m_config;
+
+  /**
+   * The config this mechanism was built from, for the boot-time validation sweep.
+   *
+   * <p>Implementing {@link org.rootstock.config.Validation.ConfigCarrier} is what makes validation
+   * reach a robot that registers its MECHANISMS rather than its configs, which is the flow every
+   * worked example teaches. Without it {@code Validation.addAll} received mechanisms, {@code
+   * errorsOf} recognised only configs, and the whole pipeline found nothing: no per-config faults
+   * and no CAN id collision check, on a robot that had done exactly what the documents said.
+   *
+   * @return the config, never null
+   */
+  @Override
+  public Object config() {
+    return m_config;
+  }
   private final ControlConfig m_control;
   private final ControlLocation m_location;
   private final Range m_travel;
@@ -1846,7 +1863,7 @@ public final class PositionMechanism extends Mechanism {
                 + "in simulation, so Rootstock derived "
                 + guess.describe(
                     prior.isLinear() ? SiDomain.LINEAR_METERS : SiDomain.ROTATIONAL_RADIANS)
-                + " from your declared mass and gearing. They were DERIVED, not measured — run the "
+                + " from your declared mass and gearing. They were DERIVED, not measured. Run the "
                 + "tuning wizard before trusting them on hardware.")
         .set(true);
     return guess;
@@ -1892,7 +1909,8 @@ public final class PositionMechanism extends Mechanism {
   private static MotorIO backendFor(PositionConfig config) {
     Objects.requireNonNull(config, "PositionMechanism: config must not be null");
     return MotorIOFactory.create(
-        config.motors().leader(),
+        new MotorIOFactory.DeviceSetup(
+            config.motors(), config.limits().current(), config.limits(), config.feedback()),
         config.units(),
         config.control(),
         MechanismKind.POSITION,

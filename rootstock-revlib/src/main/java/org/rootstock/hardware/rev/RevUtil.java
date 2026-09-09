@@ -175,7 +175,7 @@ public final class RevUtil {
                 + " attempts (last error "
                 + name(last)
                 + "). The mechanism will run with WHATEVER was previously stored on the"
-                + " controller — possibly last season's gear ratio. Fix: check the CAN wiring and"
+                + " controller, possibly last season's gear ratio. Fix: check the CAN wiring and"
                 + " that the device ID matches the sticker, then re-deploy.",
             MatchImpact.BLOCKS_MATCH)
         .set(true);

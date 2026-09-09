@@ -37,7 +37,7 @@ public final class Rolling {
           "Rolling: windowSamples was "
               + windowSamples
               + "; it must be at least 1. Fix: if you are thinking in seconds, convert with "
-              + "Clock.cyclesFor(Seconds.of(...)) — this window counts robot loops, not time.");
+              + "Clock.cyclesFor(Seconds.of(...)). This window counts robot loops, not time.");
     }
     m_window = new double[windowSamples];
   }

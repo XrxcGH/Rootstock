@@ -29,7 +29,7 @@
 | J | **Config-reachable validation is collected, never thrown.** `TravelLimits` and `PlantPrior` return `List<ConfigError>` from a pure `validate(owner)`; `TuningRegistry.register` surfaces them through the same three-tier pipeline and SAFE_MODE that `design/01` §5.6 owns. | §3.1, §14.1, §16.3 | Compact constructors that throw — the `ExceptionInInitializerError`-at-11pm failure `DESIGN.md` §14 row 7 declares structurally unrepresentable |
 | K | **§4.2's headline conversion example had a π-factor geometry error** (`0.0879 m` where the stated geometry gives `0.2794 m`). Recomputed, with the derivation printed, against **one** plant shared with `design/01` §5.4. | §4.2, §5.5, §11.4, §11.5c | Every downstream number in the flagship unit-correctness demo derived from a figure that was `0.2794/π` |
 | L | **`kGprior` divided by `motorCount` while prescribing an n-motor `DCMotor`**, making the prior n× low and exhausting the kG bracket on healthy two-motor mechanisms. Corrected, verified against WPILib's `DCMotor` source. | §6.5, §8.4, §16.2 | `kGprior = tau / (G * Kt/R * motorCount)` |
-| M | **`SafetyEnvelope.derive`'s guard degenerated for any `softMargin ≥ 5%` of travel.** Now `guard = softMargin + max(0.03·range, floor)`, which is strictly greater than the margin for every legal margin, with the proof and three new test rows. | §7.1, §16.2 | `guard = max(softMargin, 0.05·range)` — the supervisor band **equalled** the device soft-limit band at 5% and above |
+| M | **`SafetyEnvelope.derive`'s guard degenerated for any `softMargin ≥ 5%` of travel.** Now `guard = softMargin + max(0.03·range, floor)`, which is strictly greater than the margin for every legal margin, with the proof and three new test rows. | §7.1, §16.2 | `guard = max(softMargin, 0.05·range)` — the supervisor band **equaled** the device soft-limit band at 5% and above |
 | N | **The kG drift probe could not see drift in brake mode or through gearbox stiction**, and silently set `kG = 0` on exactly the archetypes that need it. Now: idle-mode read-back, a supervised coast borrow, and a **breakaway-asymmetry** fallback that measures the sign in brake mode. The `kG = 0` shortcut is reserved for archetypes whose pre-flight gravity test already passed. | §8.4, §8.5, §3.1 | A 0.5 s zero-voltage probe on a brake-mode arm, followed by kS coming out ten times too large |
 | O | **`abort()` neutralled gravity mechanisms**, contradicting the taper note and `abortProbe` in the same section. Pre-flight now **requires** BRAKE for `hasGravity()` archetypes, and the coast borrow restores BRAKE *before* neutralling. | §7.3, §7.5, §8.7, §8.8 | A coast-mode arm dropped onto its hard stop on every `ENABLE_RELEASED` |
 | P | **`probe()` and `recentre()` were blocking `while` loops** in a codebase that bans threads and drives steps from `periodic()`, with no `supervisor.check()` and no timeout. Respecified as an explicit sub-state machine. | §8.4, §16.2 | Pseudocode that could not be implemented on the 20 ms main loop |
@@ -50,7 +50,7 @@ The table above deletes five type names, and this document deliberately keeps me
 > 3. A struck-through (`~~name~~`) or explicitly negated occurrence **still needs the marker** — the marker, not the prose, is what the grep can see.
 > 4. **The reverse gate must be defined over the *union* of every carved name set, not over these five.** [`DESIGN.md`](../DESIGN.md) §16 items **6** and **7** carve a *different* name set with the *same* `[SUPERSEDED-NAME]` literal — `getGyroHeading`, `VisionObservation`, `RootstockAlerts.` — in `design/03`, `design/04`, `design/05` and `DESIGN.md`. Those markers are not placed yet. **When they are, a reverse gate written against only the five names above — `LoopLocation`, `GainStore`, `GainsExporter`, `Nt4TunableTransport`, `LinearMechanism` — will report every one of them as an orphan** and red-flag correct work on the day it lands, which is the exact failure mode this whole marker mechanism was invented to avoid. Stated here rather than discovered later: one marker literal, one union of carved names, one reverse gate over that union.
 >
-> **Run by hand 2026-08-08 and both directions PASS.** Across all of `design/`, **21** lines contain one of the five literals and **21** lines carry a marker, and they are the *same twenty-one*: every occurrence is marked **on its own line**, which is the strictest reading of scope, so the fenced-block / table / block-quote clauses are not being leaned on by any current site. Sixteen of the twenty-one are the supersession sites themselves — [`DESIGN.md`](../DESIGN.md) §16 item 4(f) enumerates them — and five are this definition block, which names the literals in order to forbid them and therefore needs the carve-out like anything else. No occurrence is unmarked; no marker is orphaned; `design/01` and `design/03`–`design/06` contain none of the five literals at all, so the repo-wide grep is satisfied by this file alone. It becomes a CI job at **M24** alongside the `design/01` §4.2 gate it is modelled on.
+> **Run by hand 2026-08-08 and both directions PASS.** Across all of `design/`, **21** lines contain one of the five literals and **21** lines carry a marker, and they are the *same twenty-one*: every occurrence is marked **on its own line**, which is the strictest reading of scope, so the fenced-block / table / block-quote clauses are not being leaned on by any current site. Sixteen of the twenty-one are the supersession sites themselves — [`DESIGN.md`](../DESIGN.md) §16 item 4(f) enumerates them — and five are this definition block, which names the literals in order to forbid them and therefore needs the carve-out like anything else. No occurrence is unmarked; no marker is orphaned; `design/01` and `design/03`–`design/06` contain none of the five literals at all, so the repo-wide grep is satisfied by this file alone. It becomes a CI job at **M24** alongside the `design/01` §4.2 gate it is modeled on.
 
 ### Revision 3 — what the four maintainer decisions did to this document
 
@@ -61,7 +61,7 @@ No tuning mathematics, no safety condition and no teaching content changed. Scop
 | A | **1 — one release, v0.1, containing everything** | This domain is built across **M6** (tunables + persistence + Elastic, 1.1 pw), **M7** (wizard core + `ELEVATOR`/`FLYWHEEL`, 3.0 pw) and **M13** (`ARM`/`TURRET`/`STEER`/`DRIVE_VELOCITY` + `MechanicalHealthCheck` + step-response refinement, 3.5 pw) — **all one release.** [`ROADMAP.md`](../ROADMAP.md) is authoritative for dates. **The honest number: at solo pace M7 completes 2027-04-24, one week AFTER the 2027 season ends**; at +2 committers it completes 2026-12-15, before kickoff. That gap is the single strongest argument in the whole plan for adding a committer, and it lands squarely on this document, because the wizard is the reason the project exists. The optional web UI (§12, §18 q5) is in **no** milestone and is therefore outside v0.1. |
 | B | **2 — `RootstockTemplate` is the front door** | `src/main/deploy/rootstock/` and `gains.json` (schema-stamped `rootstock.gains/1`) ship **inside the template**, pre-created, rather than being something a team is told to make. The generated Elastic tuning layout ships there too. |
 | C | **3 — AdvantageKit is REQUIRED** | §5.6's reflective transport probe is deleted; `AdvantageKitTunableTransport` is the only implementation and replay-safe tunables are a **guarantee**. **The "No AdvantageKit dependency" advantage over 6328's `LoggedTunableNumber` (§5.1) is WITHDRAWN** — we now have exactly the dependency they do, and it must not be claimed as differentiation anywhere. The remaining differentiators (one poller, FMS default-deny in constant time, the `/applied` echo, 4-tier persistence, the export path) never rested on it. |
-| D | **4 — BSD-3-Clause** | Licence decided; no "TBD" anywhere. `gains.json` and exported Java carry no licence question for a team that vendors them. |
+| D | **4 — BSD-3-Clause** | License decided; no "TBD" anywhere. `gains.json` and exported Java carry no license question for a team that vendors them. |
 
 ### Revision 2 — what changed and why
 
@@ -73,7 +73,7 @@ Five of these were findings that would have broken a real mechanism or shipped a
 | 2 | **kG bisection rebuilt**: physics-derived bracket, in-window position guard, aborts as signed measurements, real closed-loop `recentre()`, 18 → 10 iterations | §8.4 | Open-loop 3.6 V on a 1.2 V arm, position guard evaluated only *after* a 0.5 s window, `recentre()` referenced and never defined. It would have slammed a hard stop on iteration 1 |
 | 3 | **`arm()` refuses without a trustworthy position reference** — `isHomed()`, the position reference, absolute-vs-rotor agreement, ARM zero re-checked at arm time | §3.1, §7.3.1 | Six preconditions, none of which was "the mechanism knows where it is" |
 | 4 | **`getFeedbackVolts()` added to the SPI**; the steady-state rules gate on it and say so when it is absent | §3.1, §9.3.1 | `residualVolts` was not computable on an on-motor loop — the recommended default — so the whole kS/kG diagnosis was dead code falling through to `kP *= 1.4` |
-| 5 | **Supervisor band derived from travel, not from the margin**; `TravelLimits` rejects a margin under 2% of travel | §3.1, §7.1 | With the default `softMargin = 0` the supervisor band equalled the device soft limits and the documented guarantee was false |
+| 5 | **Supervisor band derived from travel, not from the margin**; `TravelLimits` rejects a margin under 2% of travel | §3.1, §7.1 | With the default `softMargin = 0` the supervisor band equaled the device soft limits and the documented guarantee was false |
 | 6 | **Sim gate tests the envelope, not the fit**: 9 Monte-Carlo perturbed runs, promotion on containment; demoted from headline safety property | §7.6 | In sim the plant *is* `PlantPrior`, so the gate could not fail — pure friction with an escape hatch |
 | 7 | **`PredictStep`** — the wizard asks, scores, and reports `Predictions: n/m`; `LqrSuggestStep` shows `wn`/`zeta` instead of an oracle number; `Lessons.WHAT_THE_SLIDERS_DO` | §8.4, §9.2.2, §13.5a | Eleven steps of read-then-watch-then-press-A, with no way for the wizard or a mentor to tell learning from button-mashing |
 | 8 | **`TuningRecipe.express()`** — identification only, ~90 s, teaching mode default in sim only | §8.12 | Eight minutes x four mechanisms x one shared robot, raised as OQ#10 and not answered |
@@ -135,11 +135,11 @@ This is the headline feature and it is a genuinely unoccupied niche. The only FR
 | From | What I need | Why |
 |---|---|---|
 | [`design/01`](01-core-mechanisms.md) | Every `Mechanism` implements `org.rootstock.control.TuningTarget` (§3.1) | The tuner is generic; it needs voltage-in / SI-state-out / limits / plant prior |
-| [`design/01`](01-core-mechanisms.md) | Mechanisms **consume** `org.rootstock.control.Gains` as their gain type, and expose a `GainSink` that writes through to the vendor | Otherwise tuned values sit on a dashboard next to a controller that ignores them (this is exactly the failure in `C:/Users/ericj/GitHub/0000-XXXX-Robot-Template` — see §2.4) |
+| [`design/01`](01-core-mechanisms.md) | Mechanisms **consume** `org.rootstock.control.Gains` as their gain type, and expose a `GainSink` that writes through to the vendor | Otherwise tuned values sit on a dashboard next to a controller that ignores them (this is exactly the failure §2.4 records in `0000-XXXX-Robot-Template` at commit `f02b51d`) |
 | [`design/01`](01-core-mechanisms.md) | `PlantPrior` inputs (`DCMotor`, `Reduction`, mass or MOI, drum radius or arm length) from the mechanism's own config | Sanity-bounding the fit and generating the sim plant. **D7**: `TuningRegistry.register(target)` asserts `PlantPrior.reduction().rotorPerOutput() == config.reduction().rotorPerOutput()` and refuses the registration with a named `ConfigError` if they disagree |
 | [`design/01`](01-core-mechanisms.md) | `TravelLimits` (min, max, soft margin) derived from `PositionLimits`, with device soft limits already configured | `TuningSupervisor` refuses to arm without them (§7.1, §7.3) |
 | [`design/01`](01-core-mechanisms.md) | `ControlLocation` per mechanism, **defaulted from the leader's `MotorSpec`** (**D5**) | kP means different things and the refinement loop's dt differs. Tuning asks `controlLocation().runsOnMotor()`; it never asks a team to type it |
-| [`design/01`](01-core-mechanisms.md) | Guarantee that encoder direction, gear ratio and zero offset are already correct before a `TuningTarget` is handed to us — enforced by the `rotorPerSensor × sensorPerOutput == reduction` Tier-1 rule and by `describe()` | Tuning a wrong-signed mechanism destroys hardware; we detect it (§7.5, §8.2) but we must not be the primary defence. **Revision 4:** revisions 1–3 assigned this guarantee to a "bring-up domain (09)" that does not exist, which left it unowned — a hole in the safety argument, now closed by naming the real owners |
+| [`design/01`](01-core-mechanisms.md) | Guarantee that encoder direction, gear ratio and zero offset are already correct before a `TuningTarget` is handed to us — enforced by the `rotorPerSensor × sensorPerOutput == reduction` Tier-1 rule and by `describe()` | Tuning a wrong-signed mechanism destroys hardware; we detect it (§7.5, §8.2) but we must not be the primary defense. **Revision 4:** revisions 1–3 assigned this guarantee to a "bring-up domain (09)" that does not exist, which left it unowned — a hole in the safety argument, now closed by naming the real owners |
 | [`design/01`](01-core-mechanisms.md) vendor adapters (`hardware/phoenix`, `hardware/rev`, `hardware/generic`) | `GainSink` implementations for Phoenix 6, REVLib, and RIO-side wpimath | Canonical-volts → vendor-native conversion (§4) |
 | [`design/04`](04-telemetry-replay-viz.md) | `RootstockLog` and AdvantageKit's `Logger`/`LoggableInputs`/`LogTable` — **not optional; AdvantageKit is a required dependency** (maintainer decision 3) | Replay-safe tunables as a **guarantee**, not as a property of what the team happened to install (§5.6) |
 | [`design/05`](05-drivetrain-auto.md) | A `DriveBackend`-backed `TuningTarget` per module for the `DRIVE_VELOCITY` and `STEER` recipes, plus `DriveSelfCheck`'s bring-up verdict | Per-module gains are the point; averaging four modules hides a bad one (§8.10) |
@@ -149,7 +149,7 @@ This is the headline feature and it is a genuinely unoccupied niche. The only FR
 | [`design/06`](06-platform-compday.md) | `LifecycleHook` priority 30 (drain the poller) and one `SliceScheduler` slice named `Tuning` (metadata, echoes, write-through) | `TuningRegistry` must not own its own rate gate (`DESIGN.md` §16 item 3, §6 runtime diagram) |
 | [`design/06`](06-platform-compday.md) | The template's `src/main/deploy/rootstock/` directory and `elastic-tuning-layout.json` served on port 5800 | Persistence baseline + zero-click UI. Decision 2: these ship **inside `RootstockTemplate`**, pre-created |
 | [`design/06`](06-platform-compday.md) | `RobotIdentity.current()` returning a `RobotId` (`SIM`, `COMP`, `PRACTICE`, …) | The full *teaching* recipe is the default only in `SIM`; on hardware the wizard offers both and remembers the choice (§8.12) |
-| [`design/06`](06-platform-compday.md) | `ControlMap.isPortRegistered(int port)` — the driver/operator controller port registry | `TuningWizard` refuses to share a controller with the driver without an explicit, logged acknowledgement (§7.4.2) |
+| [`design/06`](06-platform-compday.md) | `ControlMap.isPortRegistered(int port)` — the driver/operator controller port registry | `TuningWizard` refuses to share a controller with the driver without an explicit, logged acknowledgment (§7.4.2) |
 | [`design/06`](06-platform-compday.md) | `ConfigError` / `Severity` / `Validation.printAll` / SAFE_MODE entry, reached through `RootstockRegistry.addAll` (**D27**) | Config-reachable validation is collected and printed, never thrown (§3.1) |
 
 ### 2.2 What I provide TO other documents
@@ -180,11 +180,13 @@ Vendor libraries (Phoenix 6, REVLib) are reached **only** through `GainSink` imp
 
 ### 2.4 Evidence this is the right scope
 
-From the user's own repositories:
+From the maintainer's own repositories. Paths are relative to each repository's root, and every
+claim below is pinned to a commit or to a read date, because neither repository is part of this
+one and neither is reachable from a clone of it:
 
-- `C:/Users/ericj/GitHub/0000-XXXX-Robot-Template/src/main/java/frc/robot/util/LoggedTunableNumber.java` exists, is well-documented, and **has zero call sites in the entire repo.** No IO class exposes `setGains`. Every gain is a `static final` in `Constants.java` behind a `// TUNE` marker. The template author *wanted* live tuning, wrote the primitive, and it never got wired — because wiring it per-mechanism is more work than redeploying once. **A tunable primitive without a mechanism contract that consumes it is dead code.** This is why §3.1 and the `GainSink` requirement are non-negotiable.
-- `C:/Users/ericj/GitHub/8793-2026-Robot/src/main/java/frc/robot/subsystems/ShooterSubsystem.java:91-168` holds three `InterpolatingDoubleTreeMap`s of ~20 hand-measured points each, populated in a `static {}` block. Every re-measurement is an edit plus `./gradlew deploy`. Grep across `src/main/java` returns **14 `SmartDashboard.put*` calls and zero `getNumber`/`Preferences`** — the dashboard is write-only. This is a real, competition-season team with a genuinely sophisticated shoot-on-the-move solver that still cannot change a number at the field.
-- `C:/Users/ericj/GitHub/8793-2026-Robot/src/main/java/frc/robot/constants/Constants.java:45` — `TURRET_ROTATOR_GEAR_RATIO = -20 / 200.0;` with conversions written as `angle / 360.0 / GEAR_RATIO` in seven places and a comment admitting "gear ratio is negative, so signs cancel." **Any tuning system that hands a student a number in a unit they cannot reason about is making this worse.** §4 exists because of this line, and **D7**'s positive-only `Reduction` makes it unrepresentable.
+- `0000-XXXX-Robot-Template` at commit `f02b51d` (2026-07-30): `src/main/java/frc/robot/util/LoggedTunableNumber.java` existed, was well-documented, and **had zero call sites outside its own file.** No IO class exposed `setGains`. Every gain was a `static final` in `Constants.java` behind a `// TUNE` marker. The template author *wanted* live tuning, wrote the primitive, and it never got wired — because wiring it per-mechanism is more work than redeploying once. **A tunable primitive without a mechanism contract that consumes it is dead code.** This is why §3.1 and the `GainSink` requirement are non-negotiable. (Commit `4143604`, 2026-08-07, wired it into ten subsystem files in response to this research. The state described above is what motivated the requirement, not a standing defect in that repository.)
+- 8793's 2026 robot code, a separate repository, read 2026-08: `src/main/java/frc/robot/subsystems/ShooterSubsystem.java` held three `InterpolatingDoubleTreeMap`s of ~20 hand-measured points each, populated in a `static {}` block. Every re-measurement was an edit plus `./gradlew deploy`. A grep across `src/main/java` returned **14 `SmartDashboard.put*` calls and zero `getNumber`/`Preferences`** — the dashboard was write-only. This is a real, competition-season team with a genuinely sophisticated shoot-on-the-move solver that still could not change a number at the field.
+- Same repository, same read: `src/main/java/frc/robot/constants/Constants.java` defined `TURRET_ROTATOR_GEAR_RATIO = -20 / 200.0;` with conversions written as `angle / 360.0 / GEAR_RATIO` in seven places and a comment admitting "gear ratio is negative, so signs cancel." **Any tuning system that hands a student a number in a unit they cannot reason about is making this worse.** §4 exists because of this line, and **D7**'s positive-only `Reduction` makes it unrepresentable.
 
 ---
 
@@ -207,7 +209,7 @@ import org.rootstock.units.SiDomain;
 /**
  * The seam between a mechanism and the tuning system.
  *
- * <p>Every quantity is in canonical SI: metres and metres/second for linear mechanisms,
+ * <p>Every quantity is in canonical SI: meters and meters/second for linear mechanisms,
  * radians and radians/second for rotational ones. {@link #siDomain()} declares which.
  * Volts are always volts.
  *
@@ -226,7 +228,7 @@ public interface TuningTarget {
   MechanismArchetype archetype();
 
   /**
-   * Linear (metres) or rotational (radians). Derived, never typed by a team:
+   * Linear (meters) or rotational (radians). Derived, never typed by a team:
    * Rootstock's mechanisms return {@code config.units().siDomain()} (D3).
    */
   SiDomain siDomain();
@@ -258,7 +260,7 @@ public interface TuningTarget {
 
   // ---- measurement ------------------------------------------------------------------
 
-  /** Position in metres or radians. For a COSINE-gravity axis, see {@link #horizontalReferenceSi()}. */
+  /** Position in meters or radians. For a COSINE-gravity axis, see {@link #horizontalReferenceSi()}. */
   double measuredSi();
 
   /** Velocity in m/s or rad/s. */
@@ -379,7 +381,7 @@ public interface TuningTarget {
   // ---- idle mode (new in revision 4; see section 8.4) --------------------------------
 
   /**
-   * The idle/neutral behaviour the device is configured for right now. Empty when the adapter
+   * The idle/neutral behavior the device is configured for right now. Empty when the adapter
    * cannot read it back.
    *
    * <p>This exists because of a real failure: the kG drift probe releases the mechanism for half a
@@ -503,7 +505,7 @@ public sealed interface PositionReference {
 package org.rootstock.control;
 
 import java.util.List;
-import org.rootstock.pure.ConfigError;
+import org.rootstock.config.ConfigError;
 
 /**
  * All values in SI (m or rad).
@@ -591,7 +593,7 @@ package org.rootstock.control;
 
 import edu.wpi.first.math.system.plant.DCMotor;
 import java.util.List;
-import org.rootstock.pure.ConfigError;
+import org.rootstock.config.ConfigError;
 import org.rootstock.pure.units.Reduction;
 
 /**
@@ -711,7 +713,7 @@ package org.rootstock.control;
  *   kD  volts / (unit/second)       (derivative)
  * </pre>
  *
- * where "unit" is metres for {@link org.rootstock.units.SiDomain#LINEAR_METERS}
+ * where "unit" is meters for {@link org.rootstock.units.SiDomain#LINEAR_METERS}
  * and radians for {@link org.rootstock.units.SiDomain#ROTATIONAL_RADIANS}.
  *
  * <p>Conversion to Phoenix 6 output-per-rotation and REVLib duty-cycle-per-rotation happens
@@ -949,7 +951,7 @@ public final class Controllers {
 
 ### 4.1 The problem this solves
 
-The same physical mechanism, the same physical behaviour, three different numbers:
+The same physical mechanism, the same physical behavior, three different numbers:
 
 | Where the loop runs | kP unit | Same steer motor's real starting kP |
 |---|---|---|
@@ -957,7 +959,7 @@ The same physical mechanism, the same physical behaviour, three different number
 | Phoenix 6 `Slot0Configs` (VoltageOut) | output per *rotation* | 100 (CTRE Tuner X generated) |
 | REVLib `ClosedLoopConfig` | duty cycle per rotation | 0.01 (YAGSL SparkMax default) |
 
-That is a 10,000× spread for one mechanism. `C:/Users/ericj/GitHub/0000-XXXX-Robot-Template/src/main/java/frc/robot/subsystems/swerve/ModuleIOTalonFX.java:79-98` already fights this by hand (`config.Slot0.kV = SwerveConstants.DRIVE_kV * 2.0 * Math.PI;`) with a unit test pinning the invariant. Good instinct, wrong layer.
+That is a 10,000× spread for one mechanism. `0000-XXXX-Robot-Template`'s `src/main/java/frc/robot/subsystems/swerve/ModuleIOTalonFX.java:82`, at commit `f02b51d`, already fights this by hand (`config.Slot0.kV = SwerveConstants.DRIVE_kV * 2.0 * Math.PI;`) with a unit test pinning the invariant. Good instinct, wrong layer.
 
 **Decision:** Rootstock gains are *always* volts-per-SI. Conversion happens exactly once, in a `GainSink`. Every number the tuner shows, stores, or writes back to source is in these units. A number a student learns from the WPILib arm tutorial transfers unchanged to their Kraken or their NEO.
 
@@ -993,7 +995,7 @@ public interface GainSink {
   default String describeConversion() { return ""; }
 
   /**
-   * Metres-per-mechanism-rotation (LINEAR_METERS) or radians-per-mechanism-rotation
+   * Meters-per-mechanism-rotation (LINEAR_METERS) or radians-per-mechanism-rotation
    * (ROTATIONAL_RADIANS = 2*pi). This is the ONLY number a Phoenix/REV sink needs to convert every
    * gain, and it is exactly {@code MechanismUnits.siPerOutputRotation()}.
    */
@@ -1001,7 +1003,7 @@ public interface GainSink {
 }
 ```
 
-Conversion rules, stated once so the vendor adapters have no room to guess. Let `U = siUnitsPerMechanismRotation()` (metres per drum-or-wheel rotation for `LINEAR_METERS`, `2*PI` for `ROTATIONAL_RADIANS`), and assume the device's feedback is configured so **one device "rotation" equals one mechanism rotation** (Phoenix `FeedbackConfigs.SensorToMechanismRatio`, REV `ClosedLoopConfig` with a position conversion factor):
+Conversion rules, stated once so the vendor adapters have no room to guess. Let `U = siUnitsPerMechanismRotation()` (meters per drum-or-wheel rotation for `LINEAR_METERS`, `2*PI` for `ROTATIONAL_RADIANS`), and assume the device's feedback is configured so **one device "rotation" equals one mechanism rotation** (Phoenix `FeedbackConfigs.SensorToMechanismRatio`, REV `ClosedLoopConfig` with a position conversion factor):
 
 | Canonical | Phoenix 6 `Slot0Configs` with a *Voltage* request | REVLib `ClosedLoopConfig`, voltage-compensated at `Vnom` |
 |---|---|---|
@@ -1089,7 +1091,7 @@ package org.rootstock.tuning;
 
 import java.util.List;
 import org.rootstock.control.TuningTarget;
-import org.rootstock.pure.ConfigError;
+import org.rootstock.config.ConfigError;
 
 /**
  * Process-wide owner of every tunable value and every {@link TuningTarget}.
@@ -1450,7 +1452,7 @@ Metadata lives **outside** `/Tuning`, as one JSON string per mechanism, so it ne
 ### 5.6 Interaction with AdvantageKit replay
 
 This is the subtle part and it must be right, because the user's own template
-(`C:/Users/ericj/GitHub/0000-XXXX-Robot-Template`) makes deterministic replay a
+(`0000-XXXX-Robot-Template`) makes deterministic replay a
 non-negotiable architectural constraint — and under maintainer decision 3 it is a **guarantee of the
 library**, not a property of what a team happened to install.
 
@@ -1482,7 +1484,7 @@ public interface TunableTransport {
 
 One implementation ships; one more is named and reserved:
 
-| Implementation | When selected | Replay behaviour |
+| Implementation | When selected | Replay behavior |
 |---|---|---|
 | `AdvantageKitTunableTransport` | **Always, unconditionally** (maintainer decision 3). Referenced at compile time — no reflection, no probe, no fallback. | `drain()` performs one `readQueue()` in real mode, writes every changed value into a single hand-written `TuningInputs implements LoggableInputs`, and calls `Logger.processInputs("Tuning", inputs)` once. **In replay, `processInputs` overwrites the struct from the log and the poller is never read**, so every tunable reproduces the exact dashboard value that was live at the time. Fully replay-safe, and **guaranteed** rather than dependent on what a team installed. |
 | `WpilibTunableTransport` | Reserved for WPILib's first-party `Tunable` API if and when it merges — see §5.7 and the annual relevance review in [`ROADMAP.md`](../ROADMAP.md) §7.3. Not built today. | To be determined by that API. |
@@ -1633,7 +1635,7 @@ public final class SysIdSweep {
 
 **Derivation of the config** (this is the whole point — the defaults are dangerous on short-travel mechanisms):
 
-Let `L = envelope.positionMax() - envelope.positionMin()` be the usable travel **inside the supervisor band** (metres or radians), `Vmax = envelope.maxVolts()` the voltage ceiling, and `kVprior`, `kAprior` the values implied by `PlantPrior` (§6.5).
+Let `L = envelope.positionMax() - envelope.positionMin()` be the usable travel **inside the supervisor band** (meters or radians), `Vmax = envelope.maxVolts()` the voltage ceiling, and `kVprior`, `kAprior` the values implied by `PlantPrior` (§6.5).
 
 ```
 // Predicted steady-state speed at the step voltage:
@@ -1925,7 +1927,7 @@ public record FeedforwardFit(
 }
 ```
 
-**Quality thresholds** (Rootstock's own, chosen to be conservative; not from a WPILib source, so labelled as ours in the UI):
+**Quality thresholds** (Rootstock's own, chosen to be conservative; not from a WPILib source, so labeled as ours in the UI):
 
 | `voltageFitR2` | `rmseVolts` | Quality | UI text |
 |---|---|---|---|
@@ -2062,7 +2064,7 @@ Every existing FRC live-tuning implementation ships with a documentation warning
 package org.rootstock.control;
 
 import java.util.List;
-import org.rootstock.pure.ConfigError;
+import org.rootstock.config.ConfigError;
 import org.rootstock.units.SiDomain;
 
 /** Every actuating tuning routine runs inside one of these. Derived from the target; overridable. */
@@ -2195,9 +2197,9 @@ Conditions 1–11 are checked **every loop**, in this order, by `TuningSuperviso
 
 > **Twelve `AbortReason` values, eleven loop-checked conditions.** [`ROADMAP.md`](../ROADMAP.md) M7's gate says *"all 12 abort conditions"* and revisions 1 through 3 listed eleven here while quietly using a twelfth (`UNSTABLE_RESPONSE`) in §9.3 and smuggling two fit failures into the same enum. `AbortReason` now has exactly these twelve values; fit failures are `FitFailure` (§6.4); and `SafetyAbortTest` runs one fault-injection case per value, twelve in total.
 
-> Condition 11 is a direct response to `C:/Users/ericj/GitHub/8793-2026-Robot/src/main/java/frc/robot/subsystems/ShooterSubsystem.java:180,185,189`, where `optimizeBusUtilization()` is called on three motors with **no preceding `setUpdateFrequency`**. Any `getPosition()` on those devices returns a frozen value forever, with no error. A tuner that fits a model to a frozen signal produces confident garbage; this check catches it in half a second and names it.
+> Condition 11 is a direct response to 8793's 2026 `ShooterSubsystem` as read in 2026-08, where `optimizeBusUtilization()` was called on three motors with **no preceding `setUpdateFrequency`** (that repository has since added one per motor). Any `getPosition()` on such a device returns a frozen value forever, with no error. A tuner that fits a model to a frozen signal produces confident garbage; this check catches it in half a second and names it.
 
-Velocity-runaway (condition 5) deserves a note: for a `FLYWHEEL` the free-speed prior is the right ceiling, but for `DRIVE_VELOCITY` on blocks the wheels spin to free speed instantly and the check fires immediately. That is *correct behaviour* — a drivetrain cannot be characterized on blocks — and the message says so: `"Stopped: the wheels reached free speed almost instantly. A drivetrain cannot be characterized on blocks; put it on the floor with at least 3 m of clear space."`
+Velocity-runaway (condition 5) deserves a note: for a `FLYWHEEL` the free-speed prior is the right ceiling, but for `DRIVE_VELOCITY` on blocks the wheels spin to free speed instantly and the check fires immediately. That is *correct behavior* — a drivetrain cannot be characterized on blocks — and the message says so: `"Stopped: the wheels reached free speed almost instantly. A drivetrain cannot be characterized on blocks; put it on the floor with at least 3 m of clear space."`
 
 ### 7.3 `TuningSupervisor`
 
@@ -2314,7 +2316,7 @@ Concretely:
 4. **`acknowledgeCoastRisk(String)`** is the same deliberate friction as `skipSimPromotion` and `acknowledgeSharedController`: a free-text reason, logged verbatim into the tuning report, and a persistent warning alert for the rest of the session.
 5. **`abort(reason)` restores the configured idle mode before it neutrals** (see the javadoc above), so the one window in which a gravity mechanism is legitimately in coast — the §8.4 sign probe — is not also a window in which an abort releases it.
 
-`SafetyAbortTest` gains a gravity case for `ENABLE_RELEASED` mirroring the existing `LIMIT_APPROACH` one: on a `SingleJointedArmSim` at mid-travel with brake modelled, releasing the trigger must leave the arm within 2° of where it was after one second.
+`SafetyAbortTest` gains a gravity case for `ENABLE_RELEASED` mirroring the existing `LIMIT_APPROACH` one: on a `SingleJointedArmSim` at mid-travel with brake modeled, releasing the trigger must leave the arm within 2° of where it was after one second.
 
 #### 7.3.2 The position-reference preconditions, and why they are hard throws
 
@@ -2377,11 +2379,11 @@ private final TuningWizard m_tuner =
 
 > `"The tuning wizard and the driver controls are both on controller port 0. Right trigger means 'shoot' to your driver and 'authorize motion' to the wizard. Move the wizard to its own port with TuningWizard.using(new CommandXboxController(2)), or call acknowledgeSharedController(\"why\") if you really only have one controller."`
 
-The acknowledgement string is logged verbatim into the tuning report and shown as a persistent warning alert for the rest of the session, matching the `skipSimPromotion` and `acknowledgeCoastRisk` patterns — the same deliberate friction, for the same reason.
+The acknowledgment string is logged verbatim into the tuning report and shown as a persistent warning alert for the rest of the session, matching the `skipSimPromotion` and `acknowledgeCoastRisk` patterns — the same deliberate friction, for the same reason.
 
 #### 7.4.3 The bindings
 
-| Control | Binding | Behaviour |
+| Control | Binding | Behavior |
 |---|---|---|
 | **Enable** | Right trigger held past 0.5 | Required for any motion. Release = immediate neutral, `ENABLE_RELEASED`. |
 | **Accept** | A | Commit the step's result and advance. |
@@ -2750,7 +2752,7 @@ The step is *never* wrong about its own arithmetic, and the arithmetic is the sa
 
 **The `Coach` text branches on right-vs-wrong**, which is the whole point — a correct prediction is the moment to name the concept, and an incorrect one is the moment to connect the lesson to what they just watched:
 
-> *(predicted clean, and it was clean)* "You said it would stop cleanly, and it did — 1.4% overshoot, no ringing. That is your mechanism's own kV doing the damping: 5.00 V per metre per second of back-EMF is worth more here than any kD we could add. That is exactly why the flywheel recipe leaves kD at zero."
+> *(predicted clean, and it was clean)* "You said it would stop cleanly, and it did — 1.4% overshoot, no ringing. That is your mechanism's own kV doing the damping: 5.00 V per meter per second of back-EMF is worth more here than any kD we could add. That is exactly why the flywheel recipe leaves kD at zero."
 
 > *(predicted overshoot, and it was clean)* "You said it would overshoot; it did not. Here is the tell, and it is the one most people miss: kV is *in the numerator* of the damping ratio. Your mechanism fights its own motion before kD does anything at all. With kD at zero, zeta is still 0.90 — comfortably above the 0.7 where bouncing starts. Watch the volts plot: the feedback line barely moves."
 
@@ -3125,7 +3127,7 @@ final class HoldBisectionStep implements TuningStep {
 ```
 
 - `driftDeadband = max(1e-3 m/s or 5e-3 rad/s, 3 * velocityNoiseStdDev)`.
-- **Resolution: 10 iterations.** The bracket width is `1.6 * kGprior` (from `0.2x` to `1.8x`), and ten halvings land within `1.6 / 2^10 = 1/640` of the range the mechanism's own mass and gearing predict. On this document's elevator (`kGprior = 0.253323 V`) that is `0.405317 / 1024 = 0.000396 V`; on this document's arm (`kGprior ≈ 1.2 V`) it is `1.92 / 1024 = 0.00188 V` — three decimal places, which is what WPILib actually asks for when it says "at least four decimal places" about a number of order 1 V. The old 18 iterations bought five decimal places of a quantity whose *measurement* noise floor is two orders of magnitude larger; it was resolution theatre paid for in hard-stop risk and wall-clock time.
+- **Resolution: 10 iterations.** The bracket width is `1.6 * kGprior` (from `0.2x` to `1.8x`), and ten halvings land within `1.6 / 2^10 = 1/640` of the range the mechanism's own mass and gearing predict. On this document's elevator (`kGprior = 0.253323 V`) that is `0.405317 / 1024 = 0.000396 V`; on this document's arm (`kGprior ≈ 1.2 V`) it is `1.92 / 1024 = 0.00188 V` — three decimal places, which is what WPILib actually asks for when it says "at least four decimal places" about a number of order 1 V. The old 18 iterations bought five decimal places of a quantity whose *measurement* noise floor is two orders of magnitude larger; it was resolution theater paid for in hard-stop risk and wall-clock time.
 - **Total time: 10 iterations x (0.35 s probe + up to ~0.15 s recentre) ≈ 5 s**, plus the 0.5 s sign probe.
 - The mechanism never leaves a **3%** band around its starting position, the guard is evaluated every loop *during* the probe, and the supervisor is live throughout with the gravity-aware taper from §7.3.
 - If the bracket is exhausted — ten iterations and `|drift|` still above the deadband at both ends — the step reports `RETRY_SUGGESTED` with `"I could not find a holding voltage between 0.0507 V and 0.4560 V, which is the range your mechanism's mass and gearing predict. Either the mass or the gear ratio in your PlantPrior is wrong, or something is binding."` The bracket never silently widens itself.
@@ -3160,7 +3162,7 @@ The canonical order taught by the wizard, and the order in which gains are final
 kS  ->  kV  ->  kA  ->  kG  ->  kP  ->  kD          (feedforward before feedback, always)
 ```
 
-**Gravity mechanisms need one adjustment, and here is why.** You cannot measure kS on an elevator until gravity is cancelled: ramp the voltage from zero and the "motion" you detect is the carriage falling, not friction breaking loose. So the wizard runs a **kG pre-pass** (`HoldBisectionStep`) before the kS step, uses that provisional kG to cancel gravity during the kS/kV/kA sweeps, and then **re-solves kG jointly with kS/kV/kA in the OLS** at the kG step. The student still learns the gains in canonical order; the pre-pass is presented as part of the pre-flight ("first we work out how hard gravity is pulling, so the rest of the measurements aren't fighting it").
+**Gravity mechanisms need one adjustment, and here is why.** You cannot measure kS on an elevator until gravity is canceled: ramp the voltage from zero and the "motion" you detect is the carriage falling, not friction breaking loose. So the wizard runs a **kG pre-pass** (`HoldBisectionStep`) before the kS step, uses that provisional kG to cancel gravity during the kS/kV/kA sweeps, and then **re-solves kG jointly with kS/kV/kA in the OLS** at the kG step. The student still learns the gains in canonical order; the pre-pass is presented as part of the pre-flight ("first we work out how hard gravity is pulling, so the rest of the measurements aren't fighting it").
 
 > **This is exactly why revision 3's silent `kG = 0` was so damaging, and why §8.4 no longer does it.** With `kG = 0`, `BreakawayRampStep`'s `gravityCompensation()` returns zero, so the kS ramp measures "volts to lift the elevator" and kS comes out about ten times too large — the failure this very paragraph warns about — and the joint OLS then inherits a gravity-shaped residual that corrupts kV and kA as well. A brake-mode arm and a high-reduction gearbox both produced that outcome, silently, on the two archetypes where gravity always exists.
 
@@ -3298,7 +3300,7 @@ Drive-specific pre-flight, all of which block:
 | At least 3 m of travel available | Asked, not measured: a `Toggle Switch` on the dashboard the student must set. |
 | All modules pointed forward and held | The recipe commands the steer axes to zero and holds them for the whole sweep, through `design/05`'s `RootstockDrive`. |
 | Only one module (or one side) under test at a time, unless `allModules()` was selected | Per-module gains are the point; averaging four modules hides a bad one. |
-| `DriveSelfCheck` reports no bring-up faults | The tuner consumes a correctly-brought-up module (§2.1); it is not the primary defence against a wrong offset or a wrong invert. |
+| `DriveSelfCheck` reports no bring-up faults | The tuner consumes a correctly-brought-up module (§2.1); it is not the primary defense against a wrong offset or a wrong invert. |
 
 **Multi-module mode.** `TuningRecipe.driveVelocity().allModules(4)` runs the sweep once with all four modules driven together and fits **four independent regressions** from the same motion. It then reports the spread:
 
@@ -3365,7 +3367,7 @@ public final class TuningRecipe {
    * narration screen and a single held trigger, then hands over the numbers and the profile
    * constraints. No PredictStep, no per-step review, no LQR panel, no refinement — kP and kD come
    * straight from {@link org.rootstock.tuning.FeedbackDesigner} at the archetype defaults and are
-   * labelled {@code WIZARD_LQR} with no {@code WIZARD_REFINE} pass.
+   * labeled {@code WIZARD_LQR} with no {@code WIZARD_REFINE} pass.
    *
    * <p>Every safety property is unchanged. Express skips *teaching*, never interlocks: the
    * mechanical health check still blocks, the supervisor's preconditions still throw, the sim
@@ -3386,7 +3388,7 @@ public final class TuningRecipe {
 
 | Where | Default | Reason |
 |---|---|---|
-| `RobotIdentity.current() == RobotId.SIM` | `TEACHING`, always, not overridable per-mechanism | Simulation is free, unqueued, and cannot break anything. This is where the learning is supposed to happen, and §13.11 already tells students to practise here. |
+| `RobotIdentity.current() == RobotId.SIM` | `TEACHING`, always, not overridable per-mechanism | Simulation is free, unqueued, and cannot break anything. This is where the learning is supposed to happen, and §13.11 already tells students to practice here. |
 | Real hardware, first time this mechanism has ever been tuned | The wizard **asks**, once, on one screen: *"Full walk-through (about eight minutes, teaches you what each number means) or express (about ninety seconds, just measures them)?"* | A student who has never tuned this mechanism should be offered the lesson, not silently given the shortcut. |
 | Real hardware, afterwards | The remembered choice, stored per mechanism in `gains.json` under `"preferredMode"` | The fourth mechanism of the day, and every re-tune after a bearing change, is express by default — which is the case OQ#10 raised. |
 
@@ -3404,7 +3406,7 @@ The wizard never *hides* the other mode: the state screen always shows `Mode: EX
 
 The rejection is on two grounds, and both go in the docs so the objection is pre-empted:
 
-1. **Safety.** Both relay autotune and Ziegler-Nichols work by *deliberately driving the loop into sustained oscillation* and measuring the resulting limit cycle. On a geared FRC arm or elevator, sustained oscillation means repeatedly slamming a hard stop with the full inertia of the mechanism, at a frequency chosen by the algorithm rather than by anyone watching. There is no version of this that a library aimed at unsupervised 14-year-olds should ship. Every abort condition in §7.2 exists to *prevent* the exact behaviour relay autotune requires.
+1. **Safety.** Both relay autotune and Ziegler-Nichols work by *deliberately driving the loop into sustained oscillation* and measuring the resulting limit cycle. On a geared FRC arm or elevator, sustained oscillation means repeatedly slamming a hard stop with the full inertia of the mechanism, at a frequency chosen by the algorithm rather than by anyone watching. There is no version of this that a library aimed at unsupervised 14-year-olds should ship. Every abort condition in §7.2 exists to *prevent* the exact behavior relay autotune requires.
 2. **It is worse, and the community already knows it.** The FRC-specific discussion of relay autotune concludes that hand tuning is *"usually rated as superior to the autotune relay method"* and that auto-tune *"is not for the uninitiated"*; the thread was redirected to SysId as the proper answer. Shipping a known-inferior, known-dangerous method as the headline feature would be indefensible.
 
 The chosen method has neither problem. LQR is a closed-form solve on a model we already measured — **zero motion required** to produce the initial gains. The refinement loop only ever runs bounded, profiled moves inside the supervisor's envelope, and its update rules are monotone and bounded. The community's stated objection to autotuning is *pedagogical* — that it hides understanding — and this method answers that directly: every number is derived from a physical quantity the student chose, and every iteration is explained.
@@ -3437,7 +3439,7 @@ public final class FeedbackDesigner {
 
   /** What the student actually chooses. */
   public record Preferences(
-      double maxAcceptableErrorSi,          // metres or radians (position) / m/s or rad/s (velocity)
+      double maxAcceptableErrorSi,          // meters or radians (position) / m/s or rad/s (velocity)
       double maxAcceptableVelocityErrorSi,  // position loops only; defaults to 10x the position error
       double maxControlEffortVolts,         // must be < nominal; the UI clamps at 12
       double measurementDelaySeconds,       // see 9.2.1
@@ -3502,7 +3504,7 @@ Let  q1 = 1/eMax^2,  q2 = 1/vMax^2,  r = 1/uMax^2,   P = a^2 + (q2/r) * b^2,   Q
     kD = ( sqrt( P + 2*sqrt(Q) ) - a ) / b
 ```
 
-**`kP` is exactly "how many volts, divided by how much error."** That is not a coincidence and it is not an approximation of the continuous solve — it falls straight out of the symmetric root locus, whose closed-loop poles are the stable roots of `r*s^4 - (r*a^2 + q2*b^2)*s^2 + q1*b^2 = 0`, whose product is `b*sqrt(q1/r)` and which is therefore `b*kP`. A student who is told *"four volts, one centimetre"* has, without knowing it, already said *"kP = 400 V/m"*, and that is a far better thing to teach than "the solver produced 400."
+**`kP` is exactly "how many volts, divided by how much error."** That is not a coincidence and it is not an approximation of the continuous solve — it falls straight out of the symmetric root locus, whose closed-loop poles are the stable roots of `r*s^4 - (r*a^2 + q2*b^2)*s^2 + q1*b^2 = 0`, whose product is `b*sqrt(q1/r)` and which is therefore `b*kP`. A student who is told *"four volts, one centimeter"* has, without knowing it, already said *"kP = 400 V/m"*, and that is a far better thing to teach than "the solver produced 400."
 
 > **[UNVERIFIED against WPILib's discrete implementation.]** `LinearQuadraticRegulator` **discretizes** the plant at `dtSeconds` before solving. The identity above is exact for the continuous ARE and is approached as `dt -> 0`; it departs from the returned value when the desired closed-loop bandwidth approaches the Nyquist rate of the loop. `FeedbackDesignerTest` therefore asserts **monotonicity** against the returned `getK()` (halving `maxAcceptableError` increases kP; doubling `maxControlEffort` increases kP; a positive `latencyCompensate` delay reduces kP) and asserts the closed-form identity only against the pure `LqrDesign` continuous solver, where it is exact. The panel prints the value WPILib actually returned, never the closed form.
 
@@ -3680,7 +3682,7 @@ The fix is `TuningTarget.getFeedbackVolts()` (§3.1), an `Optional<Double>` the 
 
 **Signature verified 2026-08-07** against the Phoenix 6 Java API docs ([CoreTalonFX](https://api.ctr-electronics.com/phoenix6/latest/java/com/ctre/phoenix6/hardware/core/CoreTalonFX.html)): `StatusSignal<Double> getClosedLoopOutput()` and `StatusSignal<Double> getClosedLoopFeedForward()` both exist, with `(boolean refresh)` overloads, documented as *"Closed loop total output"* and *"Feedforward passed by the user"* respectively.
 
-Two notes the adapter must honour:
+Two notes the adapter must honor:
 
 1. **[UNVERIFIED — inferred, needs a bench check]** The javadoc does **not** state the units of `getClosedLoopOutput()`. We infer that it carries the units of the active control request's output type, which makes it volts only for voltage-output requests (`PositionVoltage`, `VelocityVoltage`, `MotionMagicVoltage`, `MotionMagicExpoVoltage`). The adapter therefore returns `Optional.empty()` for duty-cycle and torque-current requests rather than guessing — the conservative direction, since a wrong scale factor here would feed a fabricated `residualVolts` straight into the kS/kG update rules. Someone with a Kraken on a bench must confirm the voltage-request case reads back in volts before 0.1 ships; this is open question 12.
 2. Neither signal is in the default subscribed set, so the Phoenix adapter adds them via `BaseStatusSignal.setUpdateFrequencyForAll(50, ...)` **only when `TuningRegistry` has registered this target**. A team that never tunes pays no bus bandwidth.
@@ -3759,7 +3761,7 @@ public final class SampleBuffer {
 
 ### 10.2 The metrics — actual math
 
-Let the analysed window be samples `i = 0..N-1` with time `t_i`, measurement `y_i`, setpoint `r_i`. Let `y0 = y_0`, `r = r_{N-1}` (final setpoint), and `D = r - y0` the commanded change. Define the normalized response `e_i = (y_i - y0) / D`. If `|D|` is below `4 * tolerance`, the step is too small to analyse and the analyzer returns `INSUFFICIENT_EXCITATION`.
+Let the analyzed window be samples `i = 0..N-1` with time `t_i`, measurement `y_i`, setpoint `r_i`. Let `y0 = y_0`, `r = r_{N-1}` (final setpoint), and `D = r - y0` the commanded change. Define the normalized response `e_i = (y_i - y0) / D`. If `|D|` is below `4 * tolerance`, the step is too small to analyze and the analyzer returns `INSUFFICIENT_EXCITATION`.
 
 **Rise time** — 10% to 90% of the commanded change, by linear interpolation between bracketing samples:
 
@@ -3925,7 +3927,7 @@ public final class StepResponseAnalyzer {
 | `STEADY_STATE_ERROR` (friction signature) | "It settles {sse} short of the target and just sits there. The controller is holding {residualVolts} V trying to close that gap. That voltage is friction — and friction is exactly what kS is for." | "Raise kS by {delta} V. Do **not** reach for kI: a constant offset means a feedforward term is missing, and adding an integrator hides the problem instead of fixing it." |
 | `STEADY_STATE_ERROR` (gravity signature) | "It settles {sse} low, every time, in the direction gravity pulls. The controller is holding {residualVolts} V just to stop it sinking further. That's gravity your kG isn't paying for." | "Raise kG by {delta} V. If raising kG makes it settle *high* on the way down but still low on the way up, your arm's zero angle is wrong — run the gravity pre-pass again." |
 | `UNSTABLE` | "Stopped. The oscillations were getting bigger, not smaller ({A1} then {A2}). That's how mechanisms break." | "kP has been cut to 40% of what it was and the routine is disarmed. Pull the trigger again when you're ready to retry. If this happens twice, your kV or kA measurement is probably wrong — re-run the identification steps." |
-| `INSUFFICIENT_EXCITATION` | "That move was too small to learn anything from — it only travelled {D}, and your tolerance is {tolerance}." | "Nothing changed. Increase the step size, or widen your tolerance if {tolerance} is unrealistically tight." |
+| `INSUFFICIENT_EXCITATION` | "That move was too small to learn anything from — it only traveled {D}, and your tolerance is {tolerance}." | "Nothing changed. Increase the step size, or widen your tolerance if {tolerance} is unrealistically tight." |
 | any, with `saturated == true` | (appended) "Also: the motor was commanded to its {ceiling} V ceiling for {duration} s during this move. While it's saturated, kP and kD do nothing at all — the mechanism is just going as fast as it can." | (appended) "Either use a motion profile so the setpoint stays reachable, or make the step smaller." |
 
 The saturation append is important and almost always missing from hand tuning: a student watching a saturated response draws conclusions about gains that were not in the loop at the time.
@@ -3952,12 +3954,12 @@ All filesystem access goes through `design/06`'s `Platform` facade, never throug
 
 | Path | Accessor | Persistence | Notes |
 |---|---|---|---|
-| `/home/lvuser/deploy` | `Platform.deployDir()` | Rewritten by `./gradlew deploy` | This is where `src/main/deploy/**` lands. **[UNVERIFIED]** whether GradleRIO deletes files not present in the source tree — behaviour has varied by year and by artifact config — so Rootstock treats anything here as *replaceable at any deploy* and never writes runtime state to it. |
+| `/home/lvuser/deploy` | `Platform.deployDir()` | Rewritten by `./gradlew deploy` | This is where `src/main/deploy/**` lands. **[UNVERIFIED]** whether GradleRIO deletes files not present in the source tree — behavior has varied by year and by artifact config — so Rootstock treats anything here as *replaceable at any deploy* and never writes runtime state to it. |
 | `/home/lvuser` | `Platform.persistentDir()` | Survives deploys and reboots | Where runtime state belongs. Cleared only by re-imaging. |
 | `/U` (USB stick) | — | Survives everything, removable | Used for logs, not for gains — a gains file that vanishes when someone borrows the stick is worse than no gains file. |
 | `Preferences` (NT-backed roboRIO flash) | — | Survives deploys and reboots | Flat `String -> double` keys, no structure, no metadata, no diffing, and the same key namespace as every other subsystem. Rejected as the primary store; see §11.7. |
 
-In desktop simulation, `Platform.persistentDir()` is the launch directory and `Platform.deployDir()` is `pwd/src/main/deploy` — both verified against the `Filesystem` behaviour the facade wraps. So the same code paths work in sim with no branching, and a student tuning in sim writes a file they can actually see in their project.
+In desktop simulation, `Platform.persistentDir()` is the launch directory and `Platform.deployDir()` is `pwd/src/main/deploy` — both verified against the `Filesystem` behavior the facade wraps. So the same code paths work in sim with no branching, and a student tuning in sim writes a file they can actually see in their project.
 
 ### 11.3 Load-order precedence
 
@@ -4314,7 +4316,7 @@ Everything below is plain NT4. No structs, no protobuf, no AdvantageKit-specific
 | `/RootstockTuner/plot/velocity` | double | Measured velocity, SI |
 | `/RootstockTuner/plot/amps` | double | Stator current, when available |
 
-Publishing the feedforward and feedback contributions **separately** is deliberate and is one of the highest-value teaching artefacts in the whole design: a student who can see that the feedforward line carries 95% of the voltage and the feedback line only wobbles around zero has *understood* feedforward-before-feedback in a way no paragraph achieves.
+Publishing the feedforward and feedback contributions **separately** is deliberate and is one of the highest-value teaching artifacts in the whole design: a student who can see that the feedforward line carries 95% of the voltage and the feedback line only wobbles around zero has *understood* feedforward-before-feedback in a way no paragraph achieves.
 
 **Result and diagnostics:**
 
@@ -4446,7 +4448,7 @@ Writing rules the content follows, and which CI enforces: no equations in the bo
 >
 > A spinning motor pushes back. The faster it spins, the more it fights you — that is the same effect that makes a motor work as a generator. So to hold a steady speed, you have to keep paying voltage the whole time.
 >
-> kV is the price. It is measured in volts per unit of speed: volts per metre-per-second for something that slides, volts per radian-per-second for something that turns. Want to go twice as fast? Pay twice as much.
+> kV is the price. It is measured in volts per unit of speed: volts per meter-per-second for something that slides, volts per radian-per-second for something that turns. Want to go twice as fast? Pay twice as much.
 >
 > kV is the single most important number in this whole process. Get kV right and your mechanism almost controls itself — the controller can predict, before it even starts moving, exactly how much voltage this move is going to need.
 >
@@ -4499,7 +4501,7 @@ Writing rules the content follows, and which CI enforces: no equations in the bo
 >
 > P is a spring made of software. The further you are from where you want to be, the harder it pulls you back. Twice the error, twice the push. That is all it does.
 >
-> Its unit is volts per unit of error — volts per metre for an elevator, volts per radian for an arm. That is also why a kP that is right for an elevator looks nothing like a kP that is right for a turret, and why a kP copied off the internet is almost never right for your robot.
+> Its unit is volts per unit of error — volts per meter for an elevator, volts per radian for an arm. That is also why a kP that is right for an elevator looks nothing like a kP that is right for a turret, and why a kP copied off the internet is almost never right for your robot.
 >
 > **If kP is too small:** the mechanism is sluggish. It gets there eventually, or stops slightly short and stays there.
 > **If kP is too big:** it overshoots and bounces, exactly like a spring that is too stiff. Turn it up further and the bouncing never stops. Turn it up further still and the bouncing gets *bigger* each time, and that is how mechanisms break.
@@ -4514,7 +4516,7 @@ Shown in the `LqrSuggestStep` panel, directly under the two sliders (§9.2.2). I
 >
 > Rootstock is not guessing your kP. It already measured how your mechanism responds to voltage, so there is a real answer — but the answer depends on what *you* want, and these two sliders are how you say it.
 >
-> **"How much error can I live with"** is how fussy you are. Tell it a millimetre and it will fight hard for that millimetre. Tell it a centimetre and it will relax.
+> **"How much error can I live with"** is how fussy you are. Tell it a millimeter and it will fight hard for that millimeter. Tell it a centimeter and it will relax.
 >
 > **"How many volts may I spend"** is how much muscle it is allowed to use getting there. More volts, more push.
 >
@@ -4536,7 +4538,7 @@ Shown in the `LqrSuggestStep` panel, directly under the two sliders (§9.2.2). I
 >
 > D does not care where you are. It cares how fast the error is shrinking. If you are rushing at the target too fast, D pushes back and slows you down so that you *arrive* instead of crashing through. That is why P and D go together: P gets you there, D stops the bounce.
 >
-> **If kD is too small:** you get the overshoot-and-ring behaviour from the P lesson.
+> **If kD is too small:** you get the overshoot-and-ring behavior from the P lesson.
 > **If kD is too big:** the mechanism gets jittery and buzzy, often at a frequency far too fast for the mechanism to actually be moving that quickly. That is D amplifying the noise in your encoder reading and feeding it straight back into the motor.
 >
 > *If Rootstock tells you it is halving kD because it saw a 14 Hz buzz, that is what happened.*
@@ -4559,7 +4561,7 @@ Shown in the `LqrSuggestStep` panel, directly under the two sliders (§9.2.2). I
 
 > **Motion profiles — a plan instead of a wish**
 >
-> A setpoint is a wish. If your elevator is at the bottom and you tell it "be at 1.4 metres," you have asked it to teleport. The error is instantly 1.4 metres, so the P term instantly asks for a hundred volts you do not have, the motor saturates, and every gain you tuned stops mattering because the controller is just holding the throttle wide open.
+> A setpoint is a wish. If your elevator is at the bottom and you tell it "be at 1.4 meters," you have asked it to teleport. The error is instantly 1.4 meters, so the P term instantly asks for a hundred volts you do not have, the motor saturates, and every gain you tuned stops mattering because the controller is just holding the throttle wide open.
 >
 > A motion profile is a plan. Instead of one impossible target, it hands the controller a new, *reachable* target every twenty milliseconds: a smooth path from where you are to where you want to be, with a speed limit and an acceleration limit that your mechanism can actually meet.
 >
@@ -4589,11 +4591,11 @@ Shown in the `LqrSuggestStep` panel, directly under the two sliders (§9.2.2). I
 >
 > The number "kP = 50" means nothing on its own. It means volts per *something*, and every system measures that something differently:
 >
-> - Rootstock and WPILib measure error in metres or radians, and output in volts.
+> - Rootstock and WPILib measure error in meters or radians, and output in volts.
 > - A Kraken running its own loop measures error in *motor-shaft rotations*, and its output might be volts, or a duty cycle, or amps, depending on which kind of request you send it.
 > - A SPARK MAX measures error in rotations and outputs a duty cycle from -1 to 1.
 >
-> That is why the published starting kP for the *same swerve steer motor* is 0.01 on a SPARK MAX and 50 on a TalonFX. Same mechanism, same behaviour, numbers five thousand times apart.
+> That is why the published starting kP for the *same swerve steer motor* is 0.01 on a SPARK MAX and 50 on a TalonFX. Same mechanism, same behavior, numbers five thousand times apart.
 >
 > Rootstock fixes this by having exactly one unit system — volts per SI unit — and converting once, at the boundary, inside the code that talks to your motor controller. Every number you see, save, and paste into `RobotConfig.java` is in those units. The number you learn from the WPILib arm tutorial transfers unchanged to your Kraken and to your NEO.
 >
@@ -4664,10 +4666,10 @@ Everything below is the *complete* code a team writes. This is a real elevator o
 package frc.robot;
 
 import static edu.wpi.first.units.Units.*;
-import org.rootstock.config.*;
-import org.rootstock.control.Gains;
-import org.rootstock.mechanism.HomingStrategy;
-import org.rootstock.pure.units.Reduction;
+import org.rootstock.config.*;          // PositionConfig, MotorSpec, HomingStrategy, Setpoint, ...
+import org.rootstock.control.Gains;     // Gains is in control, NOT config
+import org.rootstock.control.NeutralMode;
+import org.rootstock.pure.units.Reduction;   // Reduction is in pure.units, NOT units
 import org.rootstock.units.LinearAxis;
 
 public final class RobotConfig {
@@ -4752,7 +4754,7 @@ public final class Mechanisms {
 **And what happens if the derived margin is illegal.** Nothing throws. `TravelLimits.validate(owner)` returns a FATAL `ConfigError`, `TuningRegistry.register` hands it to `RootstockRegistry.addAll`, `Validation.printAll` prints it next to every other config error in the robot, and the robot **boots into SAFE_MODE** with a sentence on the driver station:
 
 ```
-org.rootstock.pure.ConfigError [FATAL]: Rootstock config error in "Elevator"
+org.rootstock.config.ConfigError [FATAL]: Rootstock config error in "Elevator"
 
   field    travelLimits.softMargin
   value    0.019
@@ -4782,12 +4784,12 @@ import org.littletonrobotics.junction.LoggedRobot;
 import org.rootstock.core.RootstockLifecycle;
 import org.rootstock.core.RootstockRegistry;
 import org.rootstock.core.spi.LogConfig;   // core.spi, NOT telemetry -- ArchUnit rule 9 (2026-08-08).
-                                            // `design/04` §2.2b is still the sole DEFINITION site and
+                                            // `design/04` section 2.2b is still the sole DEFINITION site and
                                             // telemetry still owns every field's meaning; only the
                                             // package moved, because RootstockLifecycle.create(LogConfig)
                                             // is a core signature and rule 9 forbids an arrow out of
                                             // core. Tier and RobotMode moved with it, for the same
-                                            // reason one level down. See `design/01` §1.1a.
+                                            // reason one level down. See `design/01` section 1.1a.
 import org.rootstock.tuning.wizard.TuningWizard;
 
 public class Robot extends LoggedRobot {
@@ -4812,7 +4814,9 @@ public class Robot extends LoggedRobot {
     //   instanceof TelemetrySource -> telemetry
     //   instanceof SelfTestable  -> SelfTest
     // The wizard registers as a LifecycleHook. Nothing here calls periodic() by hand.
-    RootstockRegistry.addAll(Mechanisms.ELEVATOR, Mechanisms.ARM, Mechanisms.SHOOTER, m_tuner);
+    // One entry per mechanism this robot has. Section 14.1 declares one; a real robot lists
+    // all of them here, plus the wizard.
+    RootstockRegistry.addAll(Mechanisms.ELEVATOR, m_tuner);
   }
 
   @Override public void robotPeriodic() {
@@ -5054,7 +5058,7 @@ Run against WPILib's own plants so the answers are checkable:
 | `RefinementBandTest` | For the same range × margin sweep, the refinement start `softMin + 0.35*range` and end `+ 0.25*range` both lie strictly inside `[positionMin, positionMax]`, or the recipe refuses with the "not enough safe travel" message. |
 | `SimPromotionGateTest` | The wizard refuses to arm a real-flagged target with no promotion record; accepts after **all nine** perturbed runs contain the mechanism; refuses again after `configHash` changes. `runsCompleted` must equal 9 or the promotion is void. Asserts the `worstMarginToHardStopSi == worstMarginToLimitSi + guard` identity. **And the failing case, which is the point:** a plant with 6x kA inside a 20-degree safe band reaches a hard stop in at least one run, and the gate must **refuse** and publish `worstCaseDescription`. A gate with no failing test case is a gate nobody has checked. |
 | `WizardTestModeTest` | With `MatchContext` simulated into teleop-enabled, `TuningSupervisor.arm()` throws and `commandVolts` is never reached, **while every wizard button is being held**. Repeated for autonomous and for disabled. Then in diagnostics-enabled, the same sequence arms and moves. **And the containment assertion:** no `IllegalStateException` escapes `wizard.periodic()` in any of those cases, and `/RootstockTuner/safety/message` carries the precondition text. This is the test that proves §7.4.1's and §7.3's claims rather than asserting them in prose. |
-| `SharedControllerTest` | Constructing `TuningWizard.using(controller on a ControlMap-registered port)` without `acknowledgeSharedController` raises an `Alerts.error(..., MatchImpact.PIT_ONLY)` whose text names the port number, and the wizard never leaves `IDLE`. With the acknowledgement, it proceeds and the reason string appears verbatim in `report()`. |
+| `SharedControllerTest` | Constructing `TuningWizard.using(controller on a ControlMap-registered port)` without `acknowledgeSharedController` raises an `Alerts.error(..., MatchImpact.PIT_ONLY)` whose text names the port number, and the wizard never leaves `IDLE`. With the acknowledgment, it proceeds and the reason string appears verbatim in `report()`. |
 | `CoastRiskTest` | Arming a `hasGravity()` target whose `neutralMode()` is `COAST`, or empty, throws from `arm()` with the §7.3.1 message; with `acknowledgeCoastRisk("...")` it proceeds and the reason appears verbatim in `report()` and on `/RootstockTuner/coastRiskAck`. |
 | `HoldBisectionSafetyTest` | Against `SingleJointedArmSim` with a **deliberately 3x-wrong `PlantPrior` mass**: the arm never leaves a 3% band around its start position across all 10 iterations, no probe exceeds `PROBE_SECONDS`, an aborted probe still narrows the bracket (assert `hi - lo` strictly decreases every iteration regardless of outcome), and `recentre` returns the arm to within the settle band. **Four revision-4 cases:** (a) a **two-motor** `SingleJointedArmSim` asserting the `[0.2, 1.8] × kGprior` bracket **contains** the true kG — the factor-of-n regression; (b) an inverted-sign case (a wrist whose positive direction is downward) asserting `gSign == -1` and a negative kG within 5% of truth; (c) a **brake-mode** case where `overrideNeutralMode` returns false, asserting the step takes the `SIGN_BREAKAWAY` path, recovers the correct `gSign`, and **does not** set kG = 0; (d) an injected stiction band larger than `kP * toleranceSi`, asserting `recentre` terminates within `m_recentreBudget` and the step ends `RETRY_SUGGESTED` holding `kGbest`. |
 | `PollerDrainTest` | With 12 mechanisms × 17 topics registered, one loop of `TuningRegistry.drainPoller()` performs exactly **one** `readQueue()` call (asserted with a counting `NetworkTableInstance` fake) regardless of tunable count, and exactly one `Logger.processInputs("Tuning", …)`. Pins D11a(b). |
@@ -5077,7 +5081,7 @@ Three constraints the extraction enforces, all of which this document has violat
 
 ### 16.4 What CI cannot test
 
-Stated honestly, because over-trusting green CI ships confident bugs: CAN latency, real motor saturation under a sagging battery, belt slip, a wire falling out, the actual units of Phoenix's `getClosedLoopOutput()` (§18 q12), and the feel of a tuned mechanism. The pre-flight health check (§7.5) and the pit-time `TuningHealth.check(...)` (§10.5) are the on-hardware counterparts, and the tuning report (§11.5c) is the human review artefact.
+Stated honestly, because over-trusting green CI ships confident bugs: CAN latency, real motor saturation under a sagging battery, belt slip, a wire falling out, the actual units of Phoenix's `getClosedLoopOutput()` (§18 q12), and the feel of a tuned mechanism. The pre-flight health check (§7.5) and the pit-time `TuningHealth.check(...)` (§10.5) are the on-hardware counterparts, and the tuning report (§11.5c) is the human review artifact.
 
 ---
 
@@ -5119,7 +5123,7 @@ The port is designed to be mechanical. Concretely:
 
 4. **Do the LQR-derived gains match SysId's Feedback Analysis?** The exact Q/R construction inside `sysid` could not be read from source. §9.2.0's closed form makes the *continuous* answer checkable — `kP = uMax/eMax` — but WPILib's implementation discretizes, and SysId's own weighting is still unread. If they diverge materially, students who cross-check against the official tool will lose trust. Someone should run both on the same kV/kA and publish the comparison before 0.1 ships.
 
-5. **Is a served web UI worth building at all?** *(Revision 2 asked "worth it in v0.2?"; there is no v0.2 — it is in no milestone M1–M24 and is therefore outside v0.1, so this is a post-v0.1 question and the honest answer for now is "not scheduled.")* Elastic covers everything functionally, but WPILib's browser tutorials are genuinely excellent and reproducing their exact interactive layout on the robot would be a stronger teaching artefact than a dashboard tab. The cost is an NT4 WebSocket client in JavaScript and a second UI to maintain. Also: ports 5800-5810 are conventionally open for team use, but that is **[UNVERIFIED]** against the 2027 game manual and must be re-checked at kickoff.
+5. **Is a served web UI worth building at all?** *(Revision 2 asked "worth it in v0.2?"; there is no v0.2 — it is in no milestone M1–M24 and is therefore outside v0.1, so this is a post-v0.1 question and the honest answer for now is "not scheduled.")* Elastic covers everything functionally, but WPILib's browser tutorials are genuinely excellent and reproducing their exact interactive layout on the robot would be a stronger teaching artifact than a dashboard tab. The cost is an NT4 WebSocket client in JavaScript and a second UI to maintain. Also: ports 5800-5810 are conventionally open for team use, but that is **[UNVERIFIED]** against the 2027 game manual and must be re-checked at kickoff.
 
 6. **Refinement on on-motor loops.** When the closed loop runs at 1 kHz on the device (`ControlLocation.ON_MOTOR_PROFILED`, `ON_MOTOR_DIRECT`, `RIO_PROFILE_MOTOR_LOOP`), our 50 Hz `SampleBuffer` aliases the response. Rise times below ~60 ms will be measured badly. Options: raise the signal update frequency in sim and on hardware for the duration of a refinement step (CTRE explicitly recommends higher rates plus a `Notifier` for better simulated PID fidelity), or accept the aliasing and widen the `GOOD` thresholds for fast mechanisms. I lean toward the former but it needs measurement. **Note this document's own elevator is squarely in the danger zone:** §9.2.2's panel reports `fn = 5.81 Hz` and a 0.31 s rise, which is fine, but a stiffer mechanism at the same 4 V / 1 cm preference would not be.
 
@@ -5378,7 +5382,7 @@ SparkClosedLoopController.setSetpoint(double setpoint, ControlType, ClosedLoopSl
 // Fault queries: hasActiveFault(), hasStickyFault(), hasActiveWarning(), hasStickyWarning(),
 //                getFaults()/getWarnings() returning Faults/Warnings.
 // setReference is DEPRECATED, not removed.
-// REVLib has kCos and NO arm-position-offset analogue to Phoenix's GravityArmPositionOffset --
+// REVLib has kCos and NO arm-position-offset analog to Phoenix's GravityArmPositionOffset --
 //   hence the Tier-1 Validation rule in section 4.2 requirement 2.
 ```
 

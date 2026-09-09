@@ -84,7 +84,7 @@ import org.rootstock.units.SiDomain;
  *
  * <h2>Setpoint names cannot fail at button-press time (§8.9)</h2>
  *
- * <p>{@link #Builder#build()} resolves every {@link AxisGoal.Named} and every unresolved
+ * <p>{@link Builder#build()} resolves every {@link AxisGoal.Named} and every unresolved
  * {@link Setpoint} handle in every state against the declaring mechanism's setpoint list, and
  * collects one <b>FATAL</b> {@code ConfigError} per miss — all of them at once, with a Levenshtein
  * "did you mean" and a search of the sibling mechanisms, into SAFE_MODE. A typo in a setpoint name
@@ -594,7 +594,7 @@ public final class Superstructure<S extends Enum<S> & SuperState>
               + state.name()
               + ") refused: the robot is in SAFE_MODE because a fatal configuration error was "
               + "collected at boot. The command did nothing and every mechanism is holding. Fix: "
-              + "read the boot dump — every fatal error is printed there with the field, the value "
+              + "read the boot dump. Every fatal error is printed there with the field, the value "
               + "and what to type instead.");
     }
     return Commands.runOnce(() -> setRequested(state), this)
@@ -1046,7 +1046,7 @@ public final class Superstructure<S extends Enum<S> & SuperState>
                 "Superstructure: "
                     + m_blockedText
                     + ". The request is RETAINED, so the move completes by itself the moment the "
-                    + "interlock releases — nobody has to press the button again.")
+                    + "interlock releases. Nobody has to press the button again.")
             .set(true);
         // Hold the current state; do NOT half-execute.
         applyGoals(m_active, false);
@@ -1345,7 +1345,7 @@ public final class Superstructure<S extends Enum<S> & SuperState>
       sb.append("  axis ")
           .append(m_receivers[i].describe())
           .append(" default = ")
-          .append(m_defaults[i] == null ? "NONE (outside the §8.5 inversion)" : m_defaults[i].describe())
+          .append(m_defaults[i] == null ? "NONE (outside the section 8.5 inversion)" : m_defaults[i].describe())
           .append(nl);
     }
     for (Interlock<S> interlock : m_interlocks) {
@@ -1409,8 +1409,8 @@ public final class Superstructure<S extends Enum<S> & SuperState>
                   + "Expected: every mechanism named by a state is passed to the builder. Fix: add "
                   + "Superstructure.Builder.defaultFor("
                   + mechanism.name()
-                  + ", receiver, AxisGoal.neutral()) — the default is what the §8.5 inversion needs "
-                  + "and registering it is what makes the goal take effect.")
+                  + ", receiver, AxisGoal.neutral()). The default is what the section 8.5 "
+                  + "inversion needs, and registering it is what makes the goal take effect.")
           .set(true);
       return null;
     }
@@ -1571,7 +1571,7 @@ public final class Superstructure<S extends Enum<S> & SuperState>
                 + m_allStates[i].name()
                 + ". A robot that can enter this state is a robot that cannot stow. Expected: every "
                 + "state to have a path back to idle. Fix: find the interlock that blocks the way "
-                + "out and give it an escape — an interlock on 'to' that never permits idle is the "
+                + "out and give it an escape. An interlock on 'to' that never permits idle is the "
                 + "usual cause.");
       }
     }
@@ -1668,7 +1668,7 @@ public final class Superstructure<S extends Enum<S> & SuperState>
                     + summarise(t)
                     + " while the superstructure was being validated. Expected: goals() returns a "
                     + "map built once in the enum's constructor. Fix: build the map in the "
-                    + "constructor and return the field — a goals() that touches a RobotContainer "
+                    + "constructor and return the field. A goals() that touches a RobotContainer "
                     + "field is a goals() that runs before that field is assigned."));
         continue;
       }
@@ -1695,7 +1695,7 @@ public final class Superstructure<S extends Enum<S> & SuperState>
                       + "silently ignored at runtime, which is the one thing this library will not "
                       + "do. Fix: pass "
                       + mechanism.name()
-                      + " to the builder — Superstructure.Builder.defaultFor("
+                      + " to the builder with Superstructure.Builder.defaultFor("
                       + mechanism.name()
                       + ", receiver, AxisGoal.neutral())."));
           continue;
@@ -1758,7 +1758,7 @@ public final class Superstructure<S extends Enum<S> & SuperState>
       int distance = editDistance(referenced, suggestion);
       sb.append(" Did you mean \"").append(suggestion).append("\"? (edit distance ").append(distance);
       if (!referenced.equals(referenced.strip())) {
-        sb.append(" — leading or trailing whitespace");
+        sb.append("; the name has leading or trailing whitespace");
       }
       sb.append(") ");
     }

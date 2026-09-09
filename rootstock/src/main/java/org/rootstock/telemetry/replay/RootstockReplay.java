@@ -176,7 +176,7 @@ public final class RootstockReplay {
                 + ". Its consumer is reading last cycle's struct while replay believes it is fresh. "
                 + "Fix: call RootstockLog.processInputs(\""
                 + key
-                + "\", inputs) every cycle, unconditionally — never inside an if.");
+                + "\", inputs) every cycle, unconditionally. Never inside an if.");
       }
     }
 

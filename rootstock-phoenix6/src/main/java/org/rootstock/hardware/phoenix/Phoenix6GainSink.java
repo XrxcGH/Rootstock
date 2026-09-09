@@ -317,7 +317,7 @@ public final class Phoenix6GainSink implements GainSink {
                   + ": the device would not take these gains ("
                   + (slotStatus.isOK() ? expoStatus : slotStatus).getName()
                   + "). The previously accepted gains are still running. Tuning is degraded, the "
-                  + "mechanism is not — but do not trust the sliders until this clears.")
+                  + "mechanism is not. Do not trust the sliders until this clears.")
           .set(true);
       return false;
     }

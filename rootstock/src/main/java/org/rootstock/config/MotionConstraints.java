@@ -273,7 +273,7 @@ public record MotionConstraints(double maxVelocity, double maxAcceleration, doub
   }
 
   private static final String kNullVelocity =
-      "MotionConstraints: the cruise velocity must not be null. Type the unit you think in — "
+      "MotionConstraints: the cruise velocity must not be null. Type the unit you think in: "
           + "MetersPerSecond.of(1.6) or DegreesPerSecond.of(180).";
 
   private static final String kNullAcceleration =

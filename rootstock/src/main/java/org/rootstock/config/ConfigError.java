@@ -246,7 +246,7 @@ public record ConfigError(
       sb.append(" (expected ").append(expected).append(')');
     }
     if (value.isEmpty() && expected.isEmpty() && !explanation.isEmpty()) {
-      sb.append(" — ").append(firstSentence(explanation));
+      sb.append(": ").append(firstSentence(explanation));
     }
     return sb.toString();
   }

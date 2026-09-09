@@ -301,6 +301,19 @@ public final class SliceScheduler {
 
   // A slice that throws must not take the robot loop with it: the whole point of this package is
   // that a diagnostic never becomes the outage. Caught, counted, named.
+  //
+  // Throwable, not RuntimeException. An Error is not a RuntimeException, so the previous catch let
+  // one straight out of runGuarded, out of tick(), and out of robotPeriodic(). Nothing above us
+  // contains it: javap on org.littletonrobotics.junction.LoggedRobot shows startCompetition's only
+  // exception-table entry is Class java/lang/Exception, and javap on edu.wpi.first.wpilibj.RobotBase
+  // shows runRobot catching Throwable only to print "should have handled the exception above" and
+  // return, which ends the robot program. The reachable Errors are a StackOverflowError from a
+  // recursive team check, an ExceptionInInitializerError or NoClassDefFoundError from a class first
+  // touched inside pollHealth, and an UnsatisfiedLinkError from a HAL skew. Mechanism.periodic()
+  // catches Throwable for exactly this reason; this method was the odd one out.
+  //
+  // tick() runs the every-loop entries through here too, so before this change one Error also
+  // skipped every later every-loop entry and the rotating slice for that cycle.
   private static void runGuarded(String name, Runnable work) {
     if (work == null) {
       return;
@@ -310,9 +323,7 @@ public final class SliceScheduler {
     RootstockTracer.Scope scope = RootstockTracer.section(section);
     try {
       work.run();
-      scope.close();
-    } catch (RuntimeException e) {
-      scope.close();
+    } catch (Throwable t) {
       int n = m_failures.merge(name, 1, Integer::sum);
       if (m_failureAlert == null) {
         m_failureAlert =
@@ -326,12 +337,16 @@ public final class SliceScheduler {
           "slice \""
               + name
               + "\" threw "
-              + e.getClass().getSimpleName()
+              + t.getClass().getSimpleName()
               + ": "
-              + String.valueOf(e.getMessage())
+              + String.valueOf(t.getMessage())
               + " ("
               + n
               + " times). The loop continued; fix the check, it is not reporting.");
+    } finally {
+      // finally, because the two hand-written close() calls it replaces would both have been
+      // skipped by anything the catch did not match, leaving the tracer section open forever.
+      scope.close();
     }
   }
 

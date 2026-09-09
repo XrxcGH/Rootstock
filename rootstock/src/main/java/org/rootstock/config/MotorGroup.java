@@ -68,7 +68,7 @@ public record MotorGroup(MotorSpec leader, List<MotorGroup.FollowerSpec> followe
         Objects.requireNonNull(
             leader,
             "MotorGroup: a leader is required. Start with MotorGroup.leader(MotorSpec.talonFX(...))"
-                + " — the leader is the motor whose sensor and closed loop are the mechanism's.");
+                + ". The leader is the motor whose sensor and closed loop are the mechanism's.");
     followers = List.copyOf(followers);
   }
 

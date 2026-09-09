@@ -23,7 +23,7 @@ final class Sensors {
     return Objects.requireNonNull(
         debounce,
         "SensorSpec: a debounce window is required. Pass SensorSpec.kDefaultDebounce if you have no "
-            + "reason to choose — every reading in this library is a debounced LEVEL, never an "
+            + "reason to choose. Every reading in this library is a debounced LEVEL, never an "
             + "edge, because an edge-triggered intake does nothing when the game piece was already "
             + "there.");
   }

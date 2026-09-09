@@ -209,7 +209,7 @@ public final class Overlay<T> {
                   + layer.label()
                   + " returned null for "
                   + id
-                  + ". An overlay must return a config, not null — it is a withX() copy chain on "
+                  + ". An overlay must return a config, not null: it is a withX() copy chain on "
                   + "the value handed in, for example c -> c.withMaxHeight(Inches.of(54)).");
         }
         value = next;
@@ -253,7 +253,7 @@ public final class Overlay<T> {
    */
   public String describe() {
     StringBuilder sb = new StringBuilder("Overlay of ").append(m_base.getClass().getSimpleName());
-    sb.append(" — ").append(m_layers.size()).append(" layer(s), applied in this order:");
+    sb.append(" with ").append(m_layers.size()).append(" layer(s), applied in this order:");
     int n = 0;
     for (Kind band : new Kind[] {Kind.GROUP, Kind.EXACT, Kind.ALWAYS}) {
       for (Layer<T> layer : m_layers) {
@@ -263,7 +263,7 @@ public final class Overlay<T> {
       }
     }
     if (n == 0) {
-      sb.append("\n  (none — every robot gets the base value)");
+      sb.append("\n  (none; every robot gets the base value)");
     }
     return sb.toString();
   }

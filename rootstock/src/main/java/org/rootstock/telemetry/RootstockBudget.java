@@ -430,7 +430,7 @@ public final class RootstockBudget {
                 : "It is under Rootstock/Driver/, the driver mirror, which is exempt from the governor "
                     + "entirely because a human is reading it while the robot is moving. ")
             + "Fix: pass Demotable.NO (or omit the parameter), and reduce input bytes at design time "
-            + "by subscribing fewer signals — ./gradlew logBudget prints which.";
+            + "by subscribing fewer signals. Run ./gradlew logBudget to see which.";
     if (m_invariantAlert == null) {
       m_invariantAlert = Alerts.error(kAlertGroup, message, MatchImpact.PIT_ONLY);
     } else {

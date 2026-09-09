@@ -263,8 +263,8 @@ public final class RootstockSim {
           "RootstockSim.attach: mechanism \"" + name + "\"",
           "not registered",
           "a name previously passed to declare(...) or register(...): " + s_sims.keySet(),
-          "declare the mechanism's geometry before attaching its device, or check the spelling — "
-              + "the name must match the mechanism's telemetry namespace exactly.");
+          "declare the mechanism's geometry before attaching its device, or check the spelling. "
+              + "The name must match the mechanism's telemetry namespace exactly.");
     }
     if (!(registration.sim() instanceof WpilibPlantSim plant)) {
       throw RootstockException.of(
@@ -561,10 +561,10 @@ public final class RootstockSim {
    * {@link SimMotors#ofSimDevice} wants.
    */
   public static void dumpDevices() {
-    StringBuilder sb = new StringBuilder("RootstockSim.dumpDevices — every registered SimDevice\n");
+    StringBuilder sb = new StringBuilder("RootstockSim.dumpDevices: every registered SimDevice\n");
     var devices = SimDeviceSim.enumerateDevices("");
     if (devices.length == 0) {
-      sb.append("  (none — nothing has constructed a SimDevice yet. Construct your devices first, "
+      sb.append("  (none: nothing has constructed a SimDevice yet. Construct your devices first, "
           + "then call this.)");
       System.out.println(sb);
       return;
@@ -595,7 +595,7 @@ public final class RootstockSim {
             s_sims.size(),
             s_busVolts,
             s_totalAmps,
-            isBrownedOut() ? " — BROWNED OUT" : ""));
+            isBrownedOut() ? " - BROWNED OUT" : ""));
     for (Map.Entry<String, Registration> e : s_sims.entrySet()) {
       sb.append(e.getValue().sim().describe()).append('\n');
     }

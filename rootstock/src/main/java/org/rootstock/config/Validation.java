@@ -170,7 +170,10 @@ public final class Validation {
    * Every problem visible from a position config's own fields. <b>Never throws.</b>
    *
    * <p>Called from {@link PositionConfig}'s compact constructor, which means it is called again on
-   * every {@code with*()} copy. It is therefore pure: no registry, no files, no global state.
+   * every {@code with*()} copy. Its <i>result</i> is therefore pure: no files, and nothing about the
+   * config being checked is recorded anywhere. The one thing it does do is call
+   * {@link #installOnce()}, which registers two functions with {@code RootstockRegistry} the first
+   * time any config is built in this JVM and is a boolean read on every call after that.
    *
    * @param name the mechanism's name
    * @param motors the motor group
@@ -195,6 +198,8 @@ public final class Validation {
       HomingStrategy homing,
       List<Setpoint> setpoints,
       SimConfig sim) {
+
+    installOnce();
 
     // A null component reaches here only when a caller invokes this method directly —
     // PositionConfig's compact constructor substitutes these same values before calling. It is
@@ -277,6 +282,8 @@ public final class Validation {
       ControlConfig control,
       SimConfig sim) {
 
+    installOnce();
+
     // See the note on the POSITION overload: "never throws" is a property of the method, not of
     // its usual caller.
     name = name == null || name.isBlank() ? "(unnamed mechanism)" : name.trim();
@@ -303,7 +310,7 @@ public final class Validation {
               control.gravity().toString(),
               "NONE",
               "A velocity mechanism has no position, so a gravity term has no angle to be applied "
-                  + "at and kG would be added to every output forever — the flywheel would creep "
+                  + "at and kG would be added to every output forever: the flywheel would creep "
                   + "while it was supposed to be neutral.\n"
                   + "Fix: remove the .gravity(...) call, or make this a PositionConfig if the "
                   + "mechanism really does hold an angle against gravity."));
@@ -341,6 +348,8 @@ public final class Validation {
       Optional<SensorSpec> heldSensor,
       Optional<SensorSpec> stallSensor,
       SimConfig sim) {
+
+    installOnce();
 
     // See the note on the POSITION overload: "never throws" is a property of the method, not of
     // its usual caller.
@@ -381,7 +390,7 @@ public final class Validation {
               "a moment of inertia",
               "Simulation will use a token inertia, so the roller will spin up instantly and "
                   + "nothing you learn in the simulator will transfer.\n"
-                  + "Fix: .sim(KilogramSquareMeters.of(0.001)) — for a roller, "
+                  + "Fix: .sim(KilogramSquareMeters.of(0.001)). For a roller, "
                   + "m*r^2/2 with the wheel mass and radius is close enough to be useful."));
     } else {
       lift(out, ConfigError.Severity.FATAL, name, "sim", sim.problems());
@@ -399,11 +408,13 @@ public final class Validation {
    * duplicate mechanism names, and every setpoint lookup that failed anywhere in the robot.
    *
    * <p><b>This must be called exactly once, over the final resolved config set</b>, and never from
-   * a record constructor — see §5.6b and the class javadoc. {@link #install()} wires it into
-   * {@code RootstockRegistry.addAll(...)}, which is the one place that has the whole set.
+   * a record constructor: see section 5.6b and the class javadoc. On a real robot that call is
+   * {@link #reportCrossChecks()}, from {@code RootstockLifecycle.init()}; this overload is for a
+   * team holding the configs itself, and for the tests, so it also runs the CAN scan and reads the
+   * lookup misses without draining them.
    *
-   * @param components everything that was registered; anything that is not a Rootstock config is
-   *     ignored rather than rejected
+   * @param components everything that was registered; anything that is not a Rootstock config, or
+   *     a {@link ConfigCarrier} for one, is ignored rather than rejected
    * @return the cross-config errors; empty when the robot is consistent
    */
   public static List<ConfigError> crossChecks(Object... components) {
@@ -412,35 +423,11 @@ public final class Validation {
       return List.copyOf(out);
     }
 
-    // Duplicate mechanism names: two configs called "Arm" produce two identical log key trees and
-    // two identical alert groups, and from that point on the log is unreadable.
-    Map<String, Integer> nameCounts = new LinkedHashMap<>();
+    out.addAll(duplicateNames(Arrays.asList(components)));
+
     List<CanIdRegistry.Device> devices = new ArrayList<>();
     for (Object component : components) {
-      String name = nameOf(component);
-      if (name != null) {
-        nameCounts.merge(name, 1, Integer::sum);
-      }
       devices.addAll(devicesOf(component));
-    }
-    for (Map.Entry<String, Integer> entry : nameCounts.entrySet()) {
-      if (entry.getValue() > 1) {
-        out.add(
-            ConfigError.fatal(
-                entry.getKey(),
-                "name",
-                entry.getValue() + " mechanisms share this name",
-                "one mechanism per name",
-                "Every log key, every alert group and every tuning entry is keyed by the "
-                    + "mechanism's name, so two mechanisms called \""
-                    + entry.getKey()
-                    + "\" publish on top of each other and the log stops being readable.\n"
-                    + "Fix: rename one of them — \""
-                    + entry.getKey()
-                    + "Left\" and \""
-                    + entry.getKey()
-                    + "Right\" is the usual answer."));
-      }
     }
 
     // ONE global CAN scan, over the final resolved device set. CanIdRegistry already names both
@@ -465,32 +452,166 @@ public final class Validation {
     return List.copyOf(out);
   }
 
+  /**
+   * Two mechanisms called "Arm" produce two identical log key trees and two identical alert groups,
+   * and from that point on the log is unreadable.
+   *
+   * <p>One copy, shared by {@link #crossChecks(Object...)} and {@link #reportCrossChecks()}, so the
+   * hand-wired path and the real robot path cannot disagree about what a duplicate is.
+   */
+  private static List<ConfigError> duplicateNames(List<Object> components) {
+    Map<String, Integer> nameCounts = new LinkedHashMap<>();
+    for (Object component : components) {
+      String name = nameOf(component);
+      if (name != null) {
+        nameCounts.merge(name, 1, Integer::sum);
+      }
+    }
+    List<ConfigError> out = new ArrayList<>();
+    for (Map.Entry<String, Integer> entry : nameCounts.entrySet()) {
+      if (entry.getValue() > 1) {
+        out.add(
+            ConfigError.fatal(
+                entry.getKey(),
+                "name",
+                entry.getValue() + " mechanisms share this name",
+                "one mechanism per name",
+                "Every log key, every alert group and every tuning entry is keyed by the "
+                    + "mechanism's name, so two mechanisms called \""
+                    + entry.getKey()
+                    + "\" publish on top of each other and the log stops being readable.\n"
+                    + "Fix: rename one of them. \""
+                    + entry.getKey()
+                    + "Left\" and \""
+                    + entry.getKey()
+                    + "Right\" is the usual answer."));
+      }
+    }
+    return List.copyOf(out);
+  }
+
   // ===========================================================================================
   // Registry integration
   // ===========================================================================================
 
   /**
+   * How a live object hands over the config it was built from.
+   *
+   * <p><b>Why this exists.</b> Every dispatcher below matches on the three config <i>records</i>.
+   * {@code RootstockRegistry.addAll(...)} is documented, and used, with <i>mechanisms</i>
+   * ({@code addAll(ELEVATOR, ARM, ROLLER)} where each is a {@code PositionMechanism}), and a
+   * mechanism is not a config record, so without this interface a registered mechanism matches
+   * nothing: no errors, no CAN devices, no name for the duplicate scan. A mechanism implements this
+   * and returns the config it was constructed with, and the four dispatchers unwrap it first.
+   *
+   * <p>Deliberately {@code Object}-typed. The three config records share no supertype, and giving
+   * them one would put a marker interface on a public record for the benefit of a single
+   * {@code instanceof} chain that already exists here.
+   */
+  public interface ConfigCarrier {
+
+    /**
+     * The config this object was built from.
+     *
+     * @return the config, or {@code null} when there is none
+     */
+    Object config();
+  }
+
+  private static boolean s_installed;
+
+  /**
    * Wires this package into {@code RootstockRegistry} so that registering a config surfaces its
    * errors and its CAN devices without core ever naming a config type.
    *
-   * <p>Idempotent in effect but not in cost — call it once, from the domain's own initialisation.
-   * After it has run, {@code RootstockRegistry.addAll(ELEVATOR, ARM, ROLLER)} collects every
+   * <p>After it has run, {@code RootstockRegistry.addAll(ELEVATOR, ARM, ROLLER)} collects every
    * {@link ConfigError}, feeds every declared device into the single global uniqueness scan, prints
    * everything together and enters safe mode when anything is fatal.
+   *
+   * <p><b>Idempotent in cost as well as in effect</b>, which the previous version was not:
+   * {@code addFaultExtractor} appends to a list, so a second call used to double-count every fault
+   * a config carries. A team never has to call this, because every config constructor calls it
+   * (see {@link #installOnce()}), and calling it anyway is a no-op.
    */
-  public static void install() {
+  public static synchronized void install() {
+    if (s_installed) {
+      return;
+    }
+    s_installed = true;
     RootstockRegistry.addFaultExtractor(
         component -> ConfigError.toFaults(errorsOf(component)));
     RootstockRegistry.addDeviceExtractor(Validation::devicesOf);
   }
 
   /**
-   * The errors a registered component carries, if it is one of this package's configs.
+   * Whether the {@code RootstockRegistry} integration is live in this JVM.
+   *
+   * <p>Exists so a test can assert that building a config wires the pipeline. Before this method
+   * existed there was no way to tell a wired pipeline from an unwired one without a roboRIO, which
+   * is how {@link #install()} shipped with zero call sites and a green test suite.
+   *
+   * @return true once {@link #install()} has run
+   */
+  public static synchronized boolean isInstalled() {
+    return s_installed;
+  }
+
+  /**
+   * Called by every config's constructor, through {@code localChecks}, so the pipeline is wired by
+   * the time anything can be registered.
+   *
+   * <p>A config must exist before it, or the mechanism wrapping it, can be handed to
+   * {@code RootstockRegistry.addAll(...)}, so this is the earliest hook that is guaranteed to run
+   * first and it needs nothing from the team. It is not the side effect section 5.6b forbids in a
+   * record constructor: that prohibition is about registering the config <i>itself</i>, which every
+   * {@code with*()} copy would repeat and which would report a false CAN conflict on the per-robot
+   * overlay pattern. This registers two functions, once per JVM, and is a boolean read thereafter.
+   */
+  private static void installOnce() {
+    install();
+  }
+
+  /**
+   * Everything the cross-config checks and the registry integration cannot find on their own,
+   * reported at the first moment the whole robot is known.
+   *
+   * <p>Called from {@code RootstockLifecycle.init()}, which D29 documents as running <i>after</i>
+   * {@code RootstockRegistry.addAll(...)} and before the robot can be enabled. Two checks live here
+   * rather than in {@code addAll}, which sees one component at a time:
+   *
+   * <ul>
+   *   <li>duplicate mechanism names, which need the whole registered set;
+   *   <li>setpoint lookups that failed, which are queued by {@link #recordLookupMiss} from a
+   *       {@code public static final} field initialiser long before any registry exists.
+   * </ul>
+   *
+   * <p>The duplicate-CAN-id scan is deliberately <b>not</b> repeated here: {@code addAll} already
+   * runs it over the resolved device set, and a report whose whole value is being readable at 11pm
+   * must not print the same conflict twice.
+   *
+   * <p>The misses are drained, so a team that calls {@code addAll} in two phases and initialises
+   * twice does not see the first phase's typos reported again.
+   */
+  public static synchronized void reportCrossChecks() {
+    List<ConfigError> out = new ArrayList<>(duplicateNames(RootstockRegistry.registered()));
+    out.addAll(s_lookupMisses);
+    s_lookupMisses.clear();
+    if (out.isEmpty()) {
+      return;
+    }
+    printAll(out);
+    SafeMode.enter(ConfigError.toFaults(out));
+  }
+
+  /**
+   * The errors a registered component carries, if it is one of this package's configs or something
+   * that carries one.
    *
    * @param component anything at all
    * @return its errors, or an empty list when it is not a Rootstock config
    */
   public static List<ConfigError> errorsOf(Object component) {
+    component = unwrap(component);
     if (component instanceof PositionConfig config) {
       return config.errors();
     }
@@ -504,12 +625,14 @@ public final class Validation {
   }
 
   /**
-   * The CAN devices a registered component declares, if it is one of this package's configs.
+   * The CAN devices a registered component declares, if it is one of this package's configs or
+   * something that carries one.
    *
    * @param component anything at all
    * @return its devices, or an empty list when it is not a Rootstock config
    */
   public static List<CanIdRegistry.Device> devicesOf(Object component) {
+    component = unwrap(component);
     if (component instanceof PositionConfig config) {
       return config.canDevices();
     }
@@ -523,22 +646,38 @@ public final class Validation {
   }
 
   /**
-   * The boot dump for any of this package's configs.
+   * The boot dump for any of this package's configs, or for anything that carries one.
    *
    * @param component anything at all
    * @return its {@code describe()}, or a one-line note when it is not a Rootstock config
    */
   public static String describe(Object component) {
-    if (component instanceof PositionConfig config) {
-      return config.describe();
+    Object config = unwrap(component);
+    if (config instanceof PositionConfig positionConfig) {
+      return positionConfig.describe();
     }
-    if (component instanceof VelocityConfig config) {
-      return config.describe();
+    if (config instanceof VelocityConfig velocityConfig) {
+      return velocityConfig.describe();
     }
-    if (component instanceof SimpleConfig config) {
-      return config.describe();
+    if (config instanceof SimpleConfig simpleConfig) {
+      return simpleConfig.describe();
     }
     return String.valueOf(component);
+  }
+
+  /**
+   * One unwrap, used by all four dispatchers, so a mechanism and the config it was built from
+   * report the same thing.
+   *
+   * <p>Not recursive: a carrier that returns another carrier is a bug in that carrier, and looping
+   * on it here would turn it into a hang at boot rather than into an empty result.
+   */
+  private static Object unwrap(Object component) {
+    if (component instanceof ConfigCarrier carrier) {
+      Object config = carrier.config();
+      return config == null ? component : config;
+    }
+    return component;
   }
 
   // ===========================================================================================
@@ -615,7 +754,7 @@ public final class Validation {
     }
     String nl = System.lineSeparator();
     StringBuilder sb = new StringBuilder(256);
-    sb.append("[Rootstock] First-setup checklist — ")
+    sb.append("[Rootstock] First-setup checklist. ")
         .append(placeholders.size())
         .append(" value(s) still at placeholders:")
         .append(nl);
@@ -687,7 +826,7 @@ public final class Validation {
               "not declared",
               "at least a leader",
               "Nothing drives this mechanism, so nothing it is asked to do can happen.\n"
-                  + "Fix: .motors(MotorGroup.leader(MotorSpec.talonFX(20, \"rio\"))) — or "
+                  + "Fix: .motors(MotorGroup.leader(MotorSpec.talonFX(20, \"rio\"))), or "
                   + ".motor(MotorSpec.spark(24, SparkModel.MAX_NEO)) when there is only one."));
       return;
     }
@@ -722,10 +861,10 @@ public final class Validation {
               "The axis is what turns output rotations into the units you think in. Without it "
                   + "every soft limit, every setpoint, every gain and the whole simulation are "
                   + "scaled by a number nobody chose.\n"
-                  + "Fix (linear): .axis(LinearAxis.sprocket(Inches.of(0.25), 22, 2)) — chain "
-                  + "pitch, tooth count, cascade stages.\n"
-                  + "Fix (rotary): .axis(RotaryAxis.arm(Degrees.of(0.0))) — the angle at which "
-                  + "the mechanism is level."));
+                  + "Fix (linear): .axis(LinearAxis.sprocket(Inches.of(0.25), 22, 2)). The "
+                  + "arguments are chain pitch, tooth count, cascade stages.\n"
+                  + "Fix (rotary): .axis(RotaryAxis.arm(Degrees.of(0.0))). The argument is the "
+                  + "angle at which the mechanism is level."));
     } else {
       lift(out, ConfigError.Severity.FATAL, name, "axis", axis.problems());
     }
@@ -755,7 +894,7 @@ public final class Validation {
               "limits",
               "not declared",
               "a minimum and a maximum",
-              "Without soft limits nothing stops this mechanism at either end of its travel — not "
+              "Without soft limits nothing stops this mechanism at either end of its travel: not "
                   + "the device's firmware limit, not the Java goal clamp, and not the open-loop "
                   + "clamp that stops a driver's stick from driving it into the frame.\n"
                   + "Fix: "
@@ -784,7 +923,7 @@ public final class Validation {
                   + "with an inverted motor \"min\" and \"max\" are a real physical claim about "
                   + "which way is positive, and quietly reordering them would hide a wrong "
                   + "inversion until the mechanism drove the wrong way.\n"
-                  + "Fix: check describe() — it prints which direction is positive — then swap "
+                  + "Fix: check describe(). It prints which direction is positive. Then swap "
                   + "the two arguments to .softLimits(...)."));
     }
 
@@ -845,7 +984,7 @@ public final class Validation {
                   implied),
               String.format(Locale.ROOT, "%.4f, the reduction you declared", declared),
               "These two describe the SAME gear train from two directions, so their product must "
-                  + "equal the reduction. It does not, which means one of them is wrong — and "
+                  + "equal the reduction. It does not, which means one of them is wrong, and "
                   + "whichever it is, position will be scaled by "
                   + String.format(Locale.ROOT, "%.4f", implied / declared)
                   + " and every setpoint will land in the wrong place.\n"
@@ -870,7 +1009,7 @@ public final class Validation {
               "A carriage on a linear axis fights the same weight everywhere in its travel, so "
                   + "the gravity term is a constant, not a cosine. A cosine term would go to zero "
                   + "at the top of the travel and the elevator would fall.\n"
-                  + "Fix: remove the .gravity(...) override — LinearAxis already implies "
+                  + "Fix: remove the .gravity(...) override. LinearAxis already implies "
                   + "CONSTANT."));
       return;
     }
@@ -913,8 +1052,8 @@ public final class Validation {
                   + "on the other.\n"
                   + "Fix: re-zero the encoder so it reads NEAR 0 with the mechanism level, then "
                   + "RotaryAxis.arm(Degrees.of(0)).\n"
-                  + "Alternative: ControlLocation.RIO_FULL — WPILib's ArmFeedforward has no "
-                  + "offset limit — and Rootstock will tell you it downgraded."));
+                  + "Alternative: ControlLocation.RIO_FULL (WPILib's ArmFeedforward has no "
+                  + "offset limit), and Rootstock will tell you it downgraded."));
     }
   }
 
@@ -928,7 +1067,7 @@ public final class Validation {
                 "homing",
                 "not declared",
                 "HomingStrategy.absoluteSeed()",
-                "This mechanism has an absolute sensor, so it does know where it is — but the "
+                "This mechanism has an absolute sensor, so it does know where it is, but the "
                     + "config does not say so, and the boot dump cannot tell a reader whether "
                     + "that was a decision or an oversight.\n"
                     + "Fix: .homing(HomingStrategy.absoluteSeed())."));
@@ -948,7 +1087,7 @@ public final class Validation {
                     + "into the bottom stop, or .homing(HomingStrategy.limitSwitch("
                     + "SensorSpec.motorLimit(SensorSpec.Limit.REVERSE))) if there is a switch.\n"
                     + "If you really do want to assume a position at boot, say so explicitly with "
-                    + ".homing(HomingStrategy.assumeAtBoot(Degrees.of(90))) — it is allowed, and "
+                    + ".homing(HomingStrategy.assumeAtBoot(Degrees.of(90))). It is allowed, and "
                     + "it warns on every boot."));
       }
       return;
@@ -984,7 +1123,7 @@ public final class Validation {
                 "declared more than once",
                 "one goal per name",
                 "A lookup by name cannot choose between them, so which value you get depends on "
-                    + "declaration order — and a later edit that reorders the calls silently "
+                    + "declaration order, and a later edit that reorders the calls silently "
                     + "changes where the mechanism goes.\n"
                     + "Fix: delete the duplicate, or give the two goals different names."));
         continue;
@@ -1021,7 +1160,7 @@ public final class Validation {
                 setpoint.describe(),
                 "inside the soft limits " + travel.describe(),
                 "The mechanism will be commanded to this goal, the goal will be clamped to the "
-                    + "nearest soft limit, and atGoal() will therefore never become true for it — "
+                    + "nearest soft limit, and atGoal() will therefore never become true for it, "
                     + "so anything sequenced after it waits forever.\n"
                     + "Fix: move the goal inside the limits, or widen the limits if the mechanism "
                     + "really does travel that far."));
@@ -1072,12 +1211,49 @@ public final class Validation {
       return;
     }
     double cruise = control.constraints().maxVelocity();
-    if (!Double.isFinite(cruise) || cruise <= 0.0) {
+    double accel = control.constraints().maxAcceleration();
+    if (Double.isNaN(cruise) || cruise <= 0.0) {
       return; // MotionConstraints.problems() already covers it.
     }
     double rotorRps = motors.model().freeSpeedRotorRps(motors.leader().foc());
     double freeSpeed = units.freeSpeedUserPerSec(rotorRps);
     if (!Double.isFinite(freeSpeed) || freeSpeed <= 0.0) {
+      return;
+    }
+    if (Double.isInfinite(cruise) || Double.isInfinite(accel)) {
+      // Omitting .constraints(...) is the most likely single omission on a mechanism config and it
+      // was the only one that was completely silent: MotionConstraints.unconstrained() is the
+      // builder default, MotionConstraints.problems() explicitly permits infinity, and the two
+      // checks below (this one and checkTolerance) both used to early-return on a non-finite
+      // cruise. Measured on the README elevator: with .constraints(1.6, 6.0) the config reported
+      // one error, and with the line deleted it reported none. The incomplete config was quieter
+      // than the complete one.
+      String unit = units.unitLabel();
+      out.add(
+          ConfigError.placeholder(
+              name,
+              "control.constraints",
+              "MotionConstraints.unconstrained()",
+              String.format(
+                  Locale.ROOT,
+                  "MotionConstraints.of(%.2f, %.2f) in %s/s (%.0f%% of the free-speed estimate)",
+                  kSuggestedCruiseFraction * freeSpeed,
+                  4.0 * kSuggestedCruiseFraction * freeSpeed,
+                  unit,
+                  kSuggestedCruiseFraction * 100.0),
+              "An infinite constraint is not \"as fast as the motor will go\", it is NO PROFILE. "
+                  + "On the roboRIO the trapezoid is at the goal on the first loop, so the whole "
+                  + "move is one step input into kP and the output saturates; on a TalonFX the "
+                  + "same value is written as MotionMagicCruiseVelocity = 0, which the device "
+                  + "reads as no limit from that field. Either way a gravity-loaded carriage "
+                  + "arrives at its hard stop at whatever speed it reached.\n"
+                  + "Fix: .constraints(" + String.format(
+                      Locale.ROOT,
+                      "MotionConstraints.of(%.2f, %.2f)",
+                      kSuggestedCruiseFraction * freeSpeed,
+                      4.0 * kSuggestedCruiseFraction * freeSpeed)
+                  + "). The acceleration is a starting point, about four times the cruise "
+                  + "velocity, and is meant to be tuned."));
       return;
     }
     if (cruise <= kCruiseFractionOfFreeSpeed * freeSpeed) {
@@ -1116,7 +1292,7 @@ public final class Validation {
                 + "is wrong.\n"
                 + String.format(
                     Locale.ROOT,
-                    "Fix: .constraints(MotionConstraints.of(%.2f, %.2f)) — %.0f%% of free speed "
+                    "Fix: .constraints(MotionConstraints.of(%.2f, %.2f)). %.0f%% of free speed "
                         + "leaves headroom for battery sag.",
                     kSuggestedCruiseFraction * freeSpeed,
                     control.constraints().maxAcceleration(),
@@ -1181,7 +1357,7 @@ public final class Validation {
             String.format(
                     Locale.ROOT,
                     "At the cruise velocity of %.3f %s/s the mechanism moves %.4f %s per %.0f ms "
-                        + "loop — %.1f tolerance bands per loop.",
+                        + "loop: %.1f tolerance bands per loop.",
                     cruise,
                     unit,
                     perLoop,
@@ -1190,7 +1366,7 @@ public final class Validation {
                     perLoop / tolerance)
                 + "\nThe mechanism can never be OBSERVED inside the tolerance band while it is "
                 + "still moving fast, so atGoal() only latches after the profile decelerates. "
-                + "That is correct behaviour, and Rootstock's velocity gate enforces it — this "
+                + "That is correct behaviour, and Rootstock's velocity gate enforces it. This "
                 + "warning exists so that \"atGoal took longer than I expected\" is already "
                 + "explained.\n"
                 + "If you want an earlier release, use atSetpoint() or a superstructure "
@@ -1240,7 +1416,7 @@ public final class Validation {
                   + "place, and gravity compensation will push the wrong way.\n"
                   + "Fix: add an absolute encoder (FeedbackSpec.SparkAbsolute / FusedCancoder) or "
                   + "a switch (HomingStrategy.limitSwitch(...)). Keeping assumeAtBoot is a valid "
-                  + "choice — this warning is here so it stays a choice."));
+                  + "choice: this warning is here so it stays a choice."));
     }
 
     double seed = seedPositionOf(homing);
@@ -1261,7 +1437,7 @@ public final class Validation {
               "Homing would declare the mechanism to be somewhere it is not allowed to be, so the "
                   + "first goal after homing is clamped and the mechanism jumps.\n"
                   + "Fix: the seed value is the position the mechanism is AT when it reaches its "
-                  + "stop — usually exactly the soft limit on that side."));
+                  + "stop, usually exactly the soft limit on that side."));
     }
   }
 
@@ -1282,7 +1458,7 @@ public final class Validation {
                     + "immediately, and keeps working even if robot code hangs.\n"
                     + "Fix, if the wiring allows it: SensorSpec.motorLimit(SensorSpec.Limit."
                     + side
-                    + "). This warning is informational — a DIO switch is a legitimate choice when "
+                    + "). This warning is informational: a DIO switch is a legitimate choice when "
                     + "there is no spare limit input."));
       }
     }
@@ -1364,8 +1540,8 @@ public final class Validation {
                   + "else. If there is a gearbox between the motor and the output, every gain, "
                   + "soft limit, profile constraint and simulated plant is currently scaled by the "
                   + "wrong number.\n"
-                  + "Fix: count the teeth — Reduction.ofTeeth(58, 10).then(58, 18) — or state the "
-                  + "ratio: Reduction.ofStages(3.0, 4.0)."));
+                  + "Fix: count the teeth and write Reduction.ofTeeth(58, 10).then(58, 18), or "
+                  + "state the ratio: Reduction.ofStages(3.0, 4.0)."));
     }
 
     if (positionMechanism && flagRotorOnly && feedback instanceof FeedbackSpec.RotorOnly) {
@@ -1376,7 +1552,7 @@ public final class Validation {
               "RotorOnly",
               "an absolute reference, or a homing routine that drives to a physical stop",
               "A rotor encoder reads zero at boot, so position is only as good as whatever seeds "
-                  + "it — and nothing in this config physically finds a reference.\n"
+                  + "it, and nothing in this config physically finds a reference.\n"
                   + "Fix: fit an absolute encoder (FeedbackSpec.SparkAbsolute / FusedCancoder / "
                   + "DioAbsolute), or home against a stop with HomingStrategy.currentSpike() or "
                   + "HomingStrategy.limitSwitch(...)."));
@@ -1396,7 +1572,7 @@ public final class Validation {
                       ? ".sim(Pounds.of(24.0), Inches.of(0.0)) for a carriage, or "
                           + ".sim(SimConfig.arm(Inches.of(21.0), Pounds.of(9.5), Degrees.of(95)))"
                           + " for an arm."
-                      : ".sim(KilogramSquareMeters.of(0.004)) — m*r^2/2 for a disc.")));
+                      : ".sim(KilogramSquareMeters.of(0.004)), which is m*r^2/2 for a disc.")));
     } else {
       lift(out, ConfigError.Severity.FATAL, name, "sim", sim.problems());
     }
@@ -1434,6 +1610,7 @@ public final class Validation {
   }
 
   private static String nameOf(Object component) {
+    component = unwrap(component);
     if (component instanceof PositionConfig config) {
       return config.name();
     }

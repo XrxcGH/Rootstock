@@ -241,7 +241,7 @@ public record RotaryAxis(GravityMode gravity, Angle horizontalAt, boolean contin
               Locale.ROOT,
               "RotaryAxis horizontalAt was %s deg; it must be a finite angle. "
                   + "Fix: it is the position at which the mechanism is HORIZONTAL, measured in the "
-                  + "same frame as its setpoints — e.g. RotaryAxis.arm(Degrees.of(0.0)) for an arm "
+                  + "same frame as its setpoints, e.g. RotaryAxis.arm(Degrees.of(0.0)) for an arm "
                   + "whose zero is level.",
               horizontalDegrees));
     }

@@ -245,7 +245,7 @@ public record SafetyEnvelope(
                 + "band of %s. It needs range > 2 * (softMargin + max(0.03 * range, floor)), where "
                 + "the floor is %s m on a linear axis or %s rad on a rotary one. "
                 + "Fix: either the travel limits are wrong or the soft margin is too large for "
-                + "them — measure the travel and set the margin to about 2%% of it.",
+                + "them. Measure the travel and set the margin to about 2%% of it.",
             who,
             range,
             margin,

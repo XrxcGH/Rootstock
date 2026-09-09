@@ -63,7 +63,8 @@ import org.rootstock.units.RotaryAxis;
  * surveyed robot. The sensor is debounced by the library, in frames rather than against a wall
  * clock, so it replays.
  */
-public final class SimpleMechanism extends Mechanism {
+public final class SimpleMechanism extends Mechanism
+    implements org.rootstock.config.Validation.ConfigCarrier {
 
   /** The voltage a duty cycle of 1.0 is commanded as when the backend wants volts. */
   public static final double kMaxOutputVolts = 12.0;
@@ -78,6 +79,22 @@ public final class SimpleMechanism extends Mechanism {
   public static final double kDefaultStallFractionOfLimit = 0.9;
 
   private final SimpleConfig m_config;
+
+  /**
+   * The config this mechanism was built from, for the boot-time validation sweep.
+   *
+   * <p>Implementing {@link org.rootstock.config.Validation.ConfigCarrier} is what makes validation
+   * reach a robot that registers its MECHANISMS rather than its configs, which is the flow every
+   * worked example teaches. Without it {@code Validation.addAll} received mechanisms, {@code
+   * errorsOf} recognised only configs, and the whole pipeline found nothing: no per-config faults
+   * and no CAN id collision check, on a robot that had done exactly what the documents said.
+   *
+   * @return the config, never null
+   */
+  @Override
+  public Object config() {
+    return m_config;
+  }
   private final PlantPrior m_prior;
   private final GainSink m_gainSink;
   private final SensorSpec m_heldSpec;
@@ -92,6 +109,19 @@ public final class SimpleMechanism extends Mechanism {
 
   /** Precomputed, because concatenating it in {@code periodic()} allocates 50 strings a second. */
   private final String m_heldInputsKey;
+
+  /**
+   * The no-held-sensor message, built once. Same reason as {@link #m_heldInputsKey}, and the same
+   * fix, but this one had bigger teeth: {@code rawHeld()} raised the alert on the periodic path, and
+   * the message embeds {@code SensorSpec.describe()}, which is a {@code String.format}. Measured on
+   * the design's own section 9 roller with a declared CANrange and no backend attached: the
+   * expression allocated 3,216 bytes every call, and one {@code periodic()} allocated 3,448 bytes.
+   * Reading this field allocates 0. Both inputs are final and known at construction, so there was
+   * never anything per-loop about the text.
+   *
+   * <p>Null when no message is possible, which {@link RootstockAlert#text(String)} already ignores.
+   */
+  private final String m_noHeldSensorText;
 
   private DigitalSensorIO m_heldIo;
   private double m_dutyCycle;
@@ -141,6 +171,15 @@ public final class SimpleMechanism extends Mechanism {
             m_config.name(), m_config.name() + "/refused-in-safe-mode", MatchImpact.PIT_ONLY);
     m_noHeldSensor =
         Alerts.warning(m_config.name(), m_config.name() + "/no-held-sensor", MatchImpact.PIT_ONLY);
+    // needsSensorIo() reads only m_heldSpec, which is assigned above, so calling it here is safe.
+    m_noHeldSensorText =
+        (m_heldSpec == null || !needsSensorIo())
+            ? null
+            : m_config.name()
+                + "/no-held-sensor: "
+                + m_heldSpec.describe()
+                + " was declared but no DigitalSensorIO is attached, so Holding can never be true. "
+                + "Fix: call setHeldSensor(io) with the backend for that sensor.";
 
     setStallThresholds(
         m_config.current().stator().in(Amps) * kDefaultStallFractionOfLimit,
@@ -364,7 +403,13 @@ public final class SimpleMechanism extends Mechanism {
         .state(mode())
         .controlMode(mode() == MechanismMode.NEUTRAL ? ControlMode.NEUTRAL : ControlMode.VOLTAGE)
         .homed(true)
-        .currentLimitAmps(m_config.current().stator().in(Amps))
+        // statorAmps(), not stator().in(Amps): stator() is Amps.of(statorAmps), a fresh Measure
+        // wrapping a number that cannot change. C2's escape analysis does elide it once this loop
+        // is hot -- swapping it did not move the steady-state figure -- but JFR still sampled the
+        // site inside the measured window, and nothing elides it in the interpreter and C1 tiers a
+        // robot runs through at the start of every match. The record accessor is the same double
+        // with no object at any tier.
+        .currentLimitAmps(m_config.current().statorAmps())
         .simEnabled(Platform.isSimulation());
     schema().extra(kHoldingKey, m_holding);
     schema().extra(kDutyCycleKey, m_dutyCycle);
@@ -389,14 +434,9 @@ public final class SimpleMechanism extends Mechanism {
     if (m_heldIo != null) {
       return m_heldInputs.detected;
     }
-    m_noHeldSensor
-        .text(
-            m_name
-                + "/no-held-sensor: "
-                + m_heldSpec.describe()
-                + " was declared but no DigitalSensorIO is attached, so Holding can never be true. "
-                + "Fix: call setHeldSensor(io) with the backend for that sensor.")
-        .set(true);
+    // Precomputed at construction. text() every loop is the documented usage and costs one string
+    // comparison; building the argument is what cost 3.2 kB a loop before this was hoisted.
+    m_noHeldSensor.text(m_noHeldSensorText).set(true);
     return false;
   }
 
@@ -574,7 +614,8 @@ public final class SimpleMechanism extends Mechanism {
   private static MotorIO backendFor(SimpleConfig config) {
     Objects.requireNonNull(config, "SimpleMechanism: config must not be null");
     return MotorIOFactory.create(
-        config.motors().leader(),
+        // No travel range and no feedback plumbing: an open-loop roller closes no position loop.
+        new MotorIOFactory.DeviceSetup(config.motors(), config.current(), null, null),
         config.units(),
         ControlConfig.defaults(),
         MechanismKind.SIMPLE,

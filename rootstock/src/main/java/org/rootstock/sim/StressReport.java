@@ -61,9 +61,9 @@ public record StressReport(
    */
   public String describe() {
     StringBuilder sb = new StringBuilder();
-    sb.append("RootstockSim stress test — every mechanism stalled simultaneously\n");
+    sb.append("RootstockSim stress test: every mechanism stalled simultaneously\n");
     if (mechanisms.isEmpty()) {
-      sb.append("  (no mechanisms registered — nothing declared a MechanismGeometry)");
+      sb.append("  (no mechanisms registered: nothing declared a MechanismGeometry)");
       return sb.toString();
     }
     sb.append(String.format(Locale.ROOT, "  %-20s %-9s %10s %12s%n", "mechanism", "kind", "stall A",
@@ -87,7 +87,7 @@ public record StressReport(
             predictsBrownout
                 ? String.format(
                     Locale.ROOT,
-                    " — BELOW the %.2f V brownout threshold. The roboRIO would reboot its outputs. "
+                    ", BELOW the %.2f V brownout threshold. The roboRIO would reboot its outputs. "
                         + "Fix: lower the supply current limits, or use fewer/smaller motors. This is "
                         + "the worst case, not the expected case, but a design with no headroom here "
                         + "has none on the field either.",

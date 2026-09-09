@@ -129,8 +129,8 @@ public final class DeployInfo {
       s_resolutionNote =
           name
               + " was not found on the classpath, so build provenance is unavailable. "
-              + "Add the gversion Gradle plugin (the Rootstock template ships it wired) — "
-              + "see rootstock.dev/install.";
+              + "Add the gversion Gradle plugin (the Rootstock template ships it wired). "
+              + "See rootstock.dev/install.";
       s_resolved = true;
       return;
     }

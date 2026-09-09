@@ -469,7 +469,7 @@ final class WpilibPlantSim implements MechanismSim {
               "the declared effective radius is %.7f m but %.6f m of travel per output rotation "
                   + "implies %.7f m (travel = 2*pi*r), a %.1f%% disagreement. One of the two is wrong "
                   + "and the plant is built from the travel. Fix: check the cascade stage count and "
-                  + "the tooth count on the Axis — a missing stage is exactly a factor of two here.",
+                  + "the tooth count on the Axis. A missing stage is exactly a factor of two here.",
               declared,
               m_siPerOutputRotation,
               m_derivedRadiusMeters,
@@ -485,8 +485,8 @@ final class WpilibPlantSim implements MechanismSim {
     }
     problems.add(
         "no carriage mass was declared, so the plant is standing in 1 kg and will accelerate far "
-            + "faster than the real mechanism. Fix: SimConfig.linear(Kilograms.of(...), start) — "
-            + "weighing the carriage to within 30% is plenty.");
+            + "faster than the real mechanism. Fix: SimConfig.linear(Kilograms.of(...), start). "
+            + "Weighing the carriage to within 30% is plenty.");
     return 1.0;
   }
 
@@ -545,7 +545,7 @@ final class WpilibPlantSim implements MechanismSim {
             + value
             + ", which makes every conversion in this plant meaningless. Standing in "
             + fallback
-            + ". Fix: check the Reduction and the Axis — both must be strictly positive.");
+            + ". Fix: check the Reduction and the Axis. Both must be strictly positive.");
     return fallback;
   }
 

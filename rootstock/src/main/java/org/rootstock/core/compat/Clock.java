@@ -275,7 +275,7 @@ public final class Clock {
     if (secondsSource == null) {
       throw new IllegalArgumentException(
           "Clock.setSource: secondsSource was null. "
-              + "Fix: call Clock.useFpgaSource() to go back to the robot clock — passing null is "
+              + "Fix: call Clock.useFpgaSource() to go back to the robot clock. Passing null is "
               + "not the spelling for that, because a null here is far more often a bug.");
     }
     s_source = secondsSource;

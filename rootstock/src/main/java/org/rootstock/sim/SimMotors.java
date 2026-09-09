@@ -77,7 +77,7 @@ public final class SimMotors {
                     "a SimMotorHandle, a Rootstock MotorIO, a Phoenix 6 device (anything with "
                         + "getSimState()), or a REVLib SparkSim (anything with "
                         + "iterate(double, double, double))",
-                    "let the mechanism build its MotorIO through MotorIOFactory and pass that — "
+                    "let the mechanism build its MotorIO through MotorIOFactory and pass that. "
                         + "MotorIO.simHandle() is the supported seam and it is checked by the "
                         + "compiler. For a device with no vendor simulation class at all, call "
                         + "RootstockSim.dumpDevices() to find its SimDevice key and use "
@@ -110,7 +110,7 @@ public final class SimMotors {
                           "SimMotors.of: MotorIO \"" + io.name() + "\"",
                           "simHandle() returned empty",
                           "a backend that can be simulated",
-                          "this backend has no simulated device state — NoOpMotorIO is the usual "
+                          "this backend has no simulated device state: NoOpMotorIO is the usual "
                               + "cause, and it is what MotorIOFactory returns in REPLAY mode. There "
                               + "is nothing to simulate in replay, which is correct; if this is a "
                               + "live simulation, check that the mechanism was built with a "
@@ -164,7 +164,7 @@ public final class SimMotors {
           '"' + deviceKey + '"',
           "a key printed by RootstockSim.dumpDevices()",
           "construct the device before calling this, then run RootstockSim.dumpDevices() and copy the "
-              + "key verbatim — the prefix is hidden in the SimGUI unless \"Show prefix\" is on, so "
+              + "key verbatim. The prefix is hidden in the SimGUI unless \"Show prefix\" is on, so "
               + "the key you can see is usually not the whole key.");
     }
     return new SimDeviceHandle(
@@ -218,7 +218,7 @@ public final class SimMotors {
       return type + " (already a SimMotorHandle)";
     }
     if (motorController instanceof MotorIO) {
-      return type + " (Rootstock MotorIO — the compiled, vendor-checked seam)";
+      return type + " (Rootstock MotorIO: the compiled, vendor-checked seam)";
     }
     if (noArg(motorController, "getSimState") != null) {
       return type + " (Phoenix-style: getSimState())";
@@ -442,7 +442,7 @@ public final class SimMotors {
         "no such method",
         "the method this vendor's simulation API is documented to have",
         "the vendor library on the classpath is a version Rootstock has not been checked against. "
-            + "Use the mechanism's MotorIO instead — MotorIO.simHandle() is implemented inside the "
+            + "Use the mechanism's MotorIO instead. MotorIO.simHandle() is implemented inside the "
             + "vendor adapter with real imports, so a renamed method is a compile error there rather "
             + "than a runtime surprise here.");
   }
@@ -489,7 +489,7 @@ public final class SimMotors {
         "SimMotors: vendor return value",
         value.getClass().getName(),
         "a number, or a unit-typed Measure",
-        "use the mechanism's MotorIO instead — the vendor adapter reads this value with real "
+        "use the mechanism's MotorIO instead: the vendor adapter reads this value with real "
             + "imports and the compiler checks the type.");
   }
 }

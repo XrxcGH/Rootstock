@@ -107,9 +107,21 @@ tasks.register('extractWpilibNatives', Copy) {
 
 // Tests tagged "hal" need the natives above. They are excluded from the default `test` task so
 // `./gradlew build` stays green on a machine that has never seen WPILib.
+//
+// The doLast says that out loud. Until it existed the exclusion was stated only in this comment,
+// which is to say only to somebody already reading the build file, and no command anywhere named
+// the tests it left out. The message costs four lines of build output and names the command that
+// runs them.
 tasks.named('test') {
     useJUnitPlatform {
         excludeTags 'hal'
+    }
+    doLast {
+        logger.lifecycle('')
+        logger.lifecycle("  :rootstock:test excluded every test tagged 'hal'. Those tests need WPILib")
+        logger.lifecycle('  JNI natives, and they are where the periodic-loop containment, the tuning')
+        logger.lifecycle('  abort paths, FMS lockout and replay safety are asserted.')
+        logger.lifecycle("  Run './gradlew verify' to run them as well. './gradlew build' does not.")
     }
 }
 
@@ -139,6 +151,18 @@ tasks.register('halTest', Test) {
         environment 'LD_LIBRARY_PATH', dir
         environment 'DYLD_LIBRARY_PATH', dir
     }
+}
+
+// `verify` (declared in the root build) is the command that leaves no test out, and this module is
+// where that costs nothing to arrange. extractWpilibNatives pulls the -cpp zips from the same maven
+// repositories every other dependency already comes from, so no WPILib installer is involved and no
+// vendor tool has to be present. Every hal-tagged test in :rootstock runs under it.
+//
+// Wired here rather than into `check` on purpose: `./gradlew build` then stays free of the native
+// download, which matters on a beta team's first build, while a contributor and CI have one command
+// that leaves nothing out.
+tasks.named('verify').configure {
+    dependsOn tasks.named('halTest')
 }
 
 // Diagnostic: prove the desktop natives actually load before trusting halTest.

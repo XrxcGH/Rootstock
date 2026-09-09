@@ -4,6 +4,7 @@ import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.KilogramSquareMeters;
+import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.Pounds;
 import static edu.wpi.first.units.Units.Rotations;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -720,7 +721,7 @@ final class ValidationTest {
                   .constraints(MotionConstraints.of(180.0, 540.0))
                   .tolerance(Degrees.of(1.0), 5.0, 0.06)
                   .homing(HomingStrategy.assumeAtBoot(Degrees.of(0.0)))
-                  .sim(KilogramSquareMeters.of(0.02), Degrees.of(0.0))
+                  .sim(KilogramSquareMeters.of(0.02), Meters.of(0.05), Degrees.of(0.0))
                   .build()
                   .errors(),
               "axis.continuous");

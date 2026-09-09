@@ -15,6 +15,10 @@ import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.NT4Publisher;
 import org.littletonrobotics.junction.wpilog.WPILOGReader;
 import org.littletonrobotics.junction.wpilog.WPILOGWriter;
+// The one name core takes from org.rootstock.config, for the cross-config report in init(). ArchUnit
+// rule 9 names eight packages core may not put in a SIGNATURE and config is not one of them; this is
+// a call in a body, the same shape as the EXPLICIT in-jar hooks collectHooks() already names.
+import org.rootstock.config.Validation;
 import org.rootstock.core.alert.AlertRegistry;
 import org.rootstock.core.alert.Alerts;
 import org.rootstock.core.alert.MatchImpact;
@@ -182,7 +186,7 @@ public final class RootstockLifecycle implements AutoCloseable {
     boolean startedLogger = false;
 
     if (config.adoptsExistingLogger()) {
-      notes.add("Logger: ADOPTED — LogConfig.adoptExistingLogger() was used, so Rootstock added no "
+      notes.add("Logger: ADOPTED. LogConfig.adoptExistingLogger() was used, so Rootstock added no "
           + "receivers and did not call Logger.start(). Your code owns the logger.");
     } else {
       configureLogger(config, mode, notes);
@@ -232,6 +236,16 @@ public final class RootstockLifecycle implements AutoCloseable {
                 Alerts.warning(kAlertGroup, "Tuned values differ from the committed snapshot: "
                         + summary, MatchImpact.PIT_ONLY)
                     .set(true));
+
+    // The two config checks that need the WHOLE robot, which RootstockRegistry.addAll cannot make
+    // because it sees one component at a time: duplicate mechanism names, and every setpoint name
+    // that failed to resolve. D29 documents init() as running after addAll(...) and before the robot
+    // can be enabled, so this is both the first moment the registered set is complete and the last
+    // moment the answer can still stop a mechanism from moving on a bad config. Named explicitly
+    // rather than routed through a LifecycleHook because collectHooks() snapshots the hook list in
+    // create(), which runs before RobotContainer's addAll. It must run before SafeMode.publish() so
+    // that anything it finds reaches the driver station on this boot rather than the next one.
+    Validation.reportCrossChecks();
 
     Logger.recordOutput(kLogConfigKey, m_config.describe());
     SafeMode.publish();
@@ -478,7 +492,7 @@ public final class RootstockLifecycle implements AutoCloseable {
           + ").");
     }
 
-    notes.add("Logger: telemetry-owned LogConfig fields not yet applied by core — compress, "
+    notes.add("Logger: telemetry-owned LogConfig fields not yet applied by core: compress, "
         + "captureConsole, captureDriverStation, minimumTier, perCycleByteBudget, driverMirror "
         + "(org.rootstock.telemetry), ctreSignalLogger, urcl (vendor adapters).");
   }
@@ -506,7 +520,7 @@ public final class RootstockLifecycle implements AutoCloseable {
           .set(true);
       return fallback.get();
     }
-    notes.add("Logger: NO WPILOG receiver — neither " + config.wpilogFolder() + " nor "
+    notes.add("Logger: NO WPILOG receiver. Neither " + config.wpilogFolder() + " nor "
         + config.fallbackFolder() + " is writable with " + config.minFreeMegabytes()
         + " MB free. NetworkTables telemetry still works; nothing is written to disk.");
     Alerts.error(kAlertGroup, "No writable log folder (" + config.wpilogFolder() + ", "

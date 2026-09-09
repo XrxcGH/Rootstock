@@ -297,7 +297,7 @@ public final class RootstockLog {
       metadataProblem(
           "METADATA_REWRITTEN: RootstockLog.metadata(\""
               + key
-              + "\", ...) was called twice. Provenance is write-once — a log whose metadata changed "
+              + "\", ...) was called twice. Provenance is write-once: a log whose metadata changed "
               + "mid-session cannot be traced to one commit. The second value was dropped.");
       return;
     }

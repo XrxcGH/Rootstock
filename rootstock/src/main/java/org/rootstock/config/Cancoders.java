@@ -22,7 +22,7 @@ final class Cancoders {
   /** The message for a missing encoder offset, which is a measurement, not a formality. */
   static final String kNullOffset =
       "FeedbackSpec: the encoder offset is required. Pass Rotations.of(0) if you have not measured "
-          + "it yet — but measure it: an unmeasured offset means the mechanism believes it is "
+          + "it yet, but measure it: an unmeasured offset means the mechanism believes it is "
           + "somewhere it is not, at boot, before anyone presses a button.";
 
   private Cancoders() {}
@@ -57,7 +57,7 @@ final class Cancoders {
               + field
               + " = "
               + value
-              + ", which must be a finite number greater than zero. Gearing is always positive — "
+              + ", which must be a finite number greater than zero. Gearing is always positive: "
               + "direction is set by the motor's inverted flag, never by a negative ratio. Fix: "
               + "count the teeth. If the sensor is on the joint, sensorPerOutput is 1.0 and "
               + "rotorPerSensor is the whole gearbox ratio.");

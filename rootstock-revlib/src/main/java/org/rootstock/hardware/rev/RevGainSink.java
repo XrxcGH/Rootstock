@@ -43,6 +43,22 @@ import org.rootstock.core.alert.MatchImpact;
  * {@code kD} follow kP exactly; the time base is the device's, which is why {@code kD} is an
  * approximation and says so in {@link #describeConversion()}.
  *
+ * <p><b>The twelve is the NOMINAL bus, and voltage compensation is deliberately NOT enabled.</b>
+ * The SPARK's PID output is a duty cycle against whatever the bus is at that instant, so the gain
+ * the mechanism really gets is {@code kP * Vbus / 12}: about 12 percent soft at 10.5 V, about 8
+ * percent stiff at 13.0 V. Turning on {@code SparkBaseConfig.voltageCompensation(12.0)} would trade
+ * that for a larger error on the term this backend leans on hardest. Read out of REVLib 2026.0.5
+ * with {@code javap -c -p com.revrobotics.spark.SparkSim}: inside {@code iterate(velocity, vbus,
+ * dt)}, offsets 622-634 add {@code arbFF / vbus} to the output when the feedforward units are
+ * {@code kVoltage}, and only afterwards, at offsets 655-702, does the voltage-compensation rescale
+ * by {@code Vcomp / vbus} run. With compensation on, the realized feedforward is {@code arbFF *
+ * Vcomp / Vbus} -- a 14 percent overshoot at a 10.5 V bus, on the goal-velocity feedforward every
+ * Rootstock REV position and velocity command carries ({@link SparkMotorIO#buildConfig} passes
+ * {@code ArbFFUnits.kVoltage}). It would also cap commandable output at {@code Vbus / Vcomp} of full
+ * duty. Whether the firmware matches its own simulator here has not been measured on hardware, and a
+ * device-wide mode is not something to flip on an unverified assumption. {@link GainSink}'s
+ * conversion table names this departure.
+ *
  * <p>The feedforward terms do <b>not</b> get the same treatment, and this is where a 2025-shaped
  * mental model produces wrong numbers. REVLib 2026's {@code FeedForwardConfig} is documented — and
  * verified against the 2026.0.5 sources — in <b>volts</b>: <i>"@param kS The kS gain in Volts"</i>,
@@ -193,7 +209,8 @@ public final class RevGainSink implements GainSink {
             Locale.ROOT,
             "REV gain conversion for %s (%s)%n"
                 + "  1 output rotation = %.6f SI units of travel%n"
-                + "  feedback:    REV duty-cycle units, x %.6f SI/rot / %.1f V bus%n"
+                + "  feedback:    REV duty-cycle units, x %.6f SI/rot / %.1f V NOMINAL bus"
+                + " (not compensated -- the realized gain scales with the live bus)%n"
                 + "  feedforward: REV VOLTS (2026 FeedForwardConfig), x %.6f SI/rot, no /60,"
                 + " no /12%n",
             m_owner,
@@ -375,10 +392,10 @@ public final class RevGainSink implements GainSink {
                 "%s: cosine gravity on a SPARK requires the encoder to read zero at horizontal, and"
                     + " this mechanism declares horizontal at %.4f SI units. REVLib's kCos has no"
                     + " offset field (Phoenix's Arm_Cosine does), so kG will be applied at an angle"
-                    + " that is wrong by that offset across the whole range — strongest error at"
-                    + " the ends of travel. Fix: re-zero the absolute encoder so horizontal reads"
-                    + " zero, or move this mechanism to a Phoenix controller, or set"
-                    + " GravityMode.NONE and accept the sag.",
+                    + " that is wrong by that offset across the whole range. The error is"
+                    + " strongest at the ends of travel. Fix: re-zero the absolute encoder so"
+                    + " horizontal reads zero, or move this mechanism to a Phoenix controller, or"
+                    + " set GravityMode.NONE and accept the sag.",
                 m_owner,
                 m_horizontalReferenceSi),
             MatchImpact.BLOCKS_MATCH)

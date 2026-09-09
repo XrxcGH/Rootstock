@@ -8,10 +8,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.rootstock.config.Validation;
+import org.rootstock.core.RootstockRegistry;
+import org.rootstock.core.SafeMode;
 import org.rootstock.example.RobotContainer;
 import org.rootstock.example.ScoringState;
 
@@ -43,6 +47,32 @@ import org.rootstock.example.ScoringState;
  */
 @Tag("hal")
 final class UnionRequirementTest {
+
+  /**
+   * Global state this test depends on, cleared before every case.
+   *
+   * <p>{@code SafeMode} is a static, the tests share one JVM, and {@code Superstructure.request}
+   * returns a requirement-free refusal while it is active. So any earlier test that builds a
+   * deliberately invalid config to check the error path leaves this one asserting on the refusal
+   * instead of on the real command, and the failure reads as "requires 0 subsystems" with nothing
+   * pointing at the cause.
+   *
+   * <p>This was latent until the config validation pipeline was wired up. Before that,
+   * {@code Validation.install()} had no call site, nothing ever reached {@code SafeMode.enter}, and
+   * a test could depend on the global default without noticing. Fixing the dead pipeline made every
+   * such dependency real at once: these three cases passed alone and failed in the suite.
+   */
+  @BeforeEach
+  void clearGlobalConfigState() {
+    SafeMode.resetForTest();
+    Validation.resetForTest();
+    // The registry too, and this is the one that actually bites. Each case here builds a whole
+    // RobotContainer, so the second one registers a mechanism already named "Elevator" and the
+    // duplicate-name cross-check calls that fatal, correctly. Measured while diagnosing: reset
+    // SafeMode alone and construction puts it straight back, 5 faults where an isolated build has
+    // 4 and none of them fatal.
+    RootstockRegistry.resetForTest();
+  }
 
   private static Superstructure<ScoringState> superstructure() {
     return new RobotContainer().superstructure();
