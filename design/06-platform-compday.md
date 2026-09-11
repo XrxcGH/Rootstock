@@ -19,7 +19,7 @@
 
 ### Review corrections applied in the 2026-08-08 revision
 
-Each row is a finding from [`REVIEW.md`](../REVIEW.md) or `.research/findings/06.json`. Nothing is deleted to make a finding go away; where a number changed, the derivation is shown at the site.
+Each row is a finding from [`REVIEW.md`](../REVIEW.md) or from the working research notes, which stay out of the repository. Nothing is deleted to make a finding go away; where a number changed, the derivation is shown at the site.
 
 | Finding | What changed here |
 |---|---|
@@ -3619,5 +3619,5 @@ P0 is on the critical path for every other domain and should start immediately.
 * `CANdleConfiguration.LED` carries `StripType`/`BrightnessScalar`/`LossOfSignalBehavior`: `https://api.ctr-electronics.com/phoenix6/stable/java/com/ctre/phoenix6/configs/CANdleConfiguration.html`.
 * GitHub Packages requires a token for public Maven artifacts: `https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-apache-maven-registry`.
 * 2027 removals: `https://docs.wpilib.org/en/2027/docs/yearly-overview/removed-features.html` and `https://docs.wpilib.org/en/latest/docs/yearly-overview/yearly-changelog.html`.
-* Dossiers: `.research/deep-compday.json`, `.research/web-apidesign.json`, `.research/web-ecosystem.json`, `.research/web-smallteam.json`, `.research/web-simtest.json`, `.research/repo-8793.json`.
+* Dossiers: the working research notes behind this document. They live in a gitignored `.research/` directory and are not published.
 * User repo conventions (`m_field`, `kConstant`, Java 17, GradleRIO 2026.2.1, Phoenix-6-only, no AdvantageKit, hoot replay, `optimizeBusUtilization` everywhere): 8793's 2026 robot code, a separate repository, read 2026-08: `build.gradle`, `src/main/java/frc/robot/Robot.java`, `src/main/java/frc/robot/Telemetry.java`, `src/main/java/frc/robot/subsystems/LEDSubsystem.java`, `CLAUDE.md`.
